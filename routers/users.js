@@ -52,7 +52,7 @@ exports.create = (req, res, next) => {
 // lấy Users by email
 exports.getEmail = (req, res) => {
 	var data = req.body;
-	console.log(data);
+	console.log('this is log off user getEmail req', data);
 
 	UseCase.getEmail(data, (err, result) => {
 		if (err) {
