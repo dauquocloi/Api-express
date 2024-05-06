@@ -28,7 +28,7 @@ exports.getAll = (req, res, next) => {
 
 exports.create = (req, res, next) => {
 	var data = req.body;
-	console.log('log of contract create', data);
+	// console.log('log of contract create', data);
 
 	UseCase.create(data, (err, result) => {
 		if (err) {

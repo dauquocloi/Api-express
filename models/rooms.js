@@ -4,11 +4,27 @@ const Schema = mongoose.Schema;
 // Create a Mongoose Schema
 const RoomsSchema = new Schema({
 	roomindex: Number,
-	roomid: String,
 	roomprice: Number,
 	roomdeposit: Number,
 	roomtypes: String,
 	roomacreage: Number,
+	maylanh: Boolean,
+	giengtroi: Boolean,
+	gac: Boolean,
+	kebep: Boolean,
+	bonruachen: Boolean,
+	cuaso: Boolean,
+	bancong: Boolean,
+	tulanh: Boolean,
+	tivi: Boolean,
+	thangmay: Boolean,
+	nuocnong: Boolean,
+	giuong: Boolean,
+	nem: Boolean,
+	tuquanao: Boolean,
+	chungchu: Boolean,
+	baove: Boolean,
+
 	motobikequantity: {
 		type: Number,
 		default: 0,
@@ -37,6 +53,8 @@ const RoomsSchema = new Schema({
 	pet: {
 		type: Number,
 		default: 0,
+		// if 0 => ko cho nuôi thú cưng
+		// if 1 => có cho nuôi thú cưng
 	},
 	iswaterpayment: {
 		type: Boolean,

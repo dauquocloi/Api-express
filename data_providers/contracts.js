@@ -51,27 +51,7 @@ exports.create = (data, cb) => {
 					},
 				)
 					.then(async () => {
-						const customersData = [
-							{
-								fullname: data.customer[0].userName,
-								phone: data.customer[0].phoneNumber,
-								email: data.customer[0].email,
-								room: findroombyindex_id,
-							},
-							{
-								fullname: data.customer[1].userName,
-								phone: data.customer[1].phoneNumber,
-								email: data.customer[1].email,
-								room: findroombyindex_id,
-							},
-							{
-								fullname: data.customer[2].userName,
-								phone: data.customer[2].phoneNumber,
-								email: data.customer[2].email,
-								room: findroombyindex_id,
-							},
-						];
-						const customers = customersData.map((userData) => ({
+						const customers = data.customer.map((userData) => ({
 							fullname: userData.fullname,
 							gender: userData.gender,
 							phone: userData.phone,
@@ -79,6 +59,14 @@ exports.create = (data, cb) => {
 							email: userData.email,
 							room: userData.room,
 						}));
+						// const customers = customersData.map((userData) => ({
+						// 	fullname: userData.fullname,
+						// 	gender: userData.gender,
+						// 	phone: userData.phone,
+						// 	cccd: userData.cccd,
+						// 	email: userData.email,
+						// 	room: userData.room,
+						// }));
 						let usersCreated = await Entity.CustomersEntity.create(customers);
 					})
 					.then(async () => {
@@ -87,7 +75,7 @@ exports.create = (data, cb) => {
 							{
 								$set: {
 									electric: data.room.electric,
-									// waterindex: data.room.waterindex,
+									waterindex: data.room.waterindex,
 									water: data.room.water,
 									motobike: data.room.motobike,
 									elevator: data.room.elevator,

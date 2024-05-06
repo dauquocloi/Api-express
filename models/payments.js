@@ -11,6 +11,14 @@ const PaymentsSchema = new Schema({
 	bankacountname: String,
 	tranfercontent: String,
 	note: String,
+	room: {
+		type: Schema.Types.ObjectId,
+		ref: 'RoomsEntity',
+	},
+	service: {
+		type: Schema.Types.ObjectId,
+		ref: 'ServicesEntity',
+	},
 });
 
 exports.PaymentsEntity = mongoose.model('PaymentsEntity', PaymentsSchema, 'payments');

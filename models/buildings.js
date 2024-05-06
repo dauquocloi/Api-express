@@ -10,7 +10,9 @@ var BuildingsSchema = new Schema(
 		buildingadress: String,
 		roomquantity: Number,
 		ownername: String,
+		ownerphonenumber: String,
 		managername: String,
+		managerphonenumber: String,
 		roomquantity: Number,
 	},
 	{

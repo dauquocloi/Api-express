@@ -12,7 +12,7 @@ exports.getAll = (data, cb) => {
 		.catch((err) => {
 			console.log('user_Dataprovider_create: ' + err);
 			cb(err, null);
-			-console.log('null');
+			console.log('null');
 		});
 };
 

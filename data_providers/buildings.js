@@ -26,81 +26,78 @@ exports.create = (data, cb) => {
 		.then((db) => {
 			// building create
 			Entity.BuildingsEntity.create({
-				buildingname: data.building.nameBuilding,
-				buildingadress: data.building.address,
-				roomquantity: data.building.roomsnumber,
-				ownername: data.building.ownername,
-				managername: data.building.managername,
+				buildingname: data.buildingname,
+				buildingadress: data.buildingadress,
+				roomquantity: data.roomquantity,
+				ownername: data.ownername,
+				ownerphonenumber: data.ownerphonenumber,
+				managername: data.managername,
+				managerphonenumber: data.managerphonenumber,
 			})
 				// room create
 				.then((building) => {
 					buildingId = building._id;
-					let n = data.building.roomsnumber;
+					let n = data.roomsnumber;
 					let i = 0;
 					for (i; i < n; i++) {
 						let roomId;
 						Entity.RoomsEntity.create({
-							roomindex: i,
-							roomprice: data.room.roomprice,
-							// roomdeposit: data.room.roomdeposit,
-							// roomtypes: data.room.roomtypes,
-							// roomacreage: data.room.roomacreage,
+							roomindex: i, // lặp từ 1 đến n với n là số lượng phòng
+							roomprice: data.roomprice,
+							roomdeposit: data.roomdeposit,
+							roomtypes: data.roomtypes,
+							roomacreage: data.roomacreage,
+							maylanh: data.maylanh,
+							giengtroi: data.giengtroi,
+							gac: data.gac,
+							kebep: data.kebep,
+							bonruachen: data.bonruachen,
+							cuaso: data.cuaso,
+							bancong: data.bancong,
+							tulanh: data.tulanh,
+							tivi: data.tivi,
+							thangmay: data.tivi,
+							nuocnong: data.nuocnong,
+							giuong: data.giuong,
+							nem: data.nem,
+							tuquanao: data.tuquanao,
+							chungchu: data.chungchu,
+							baove: data.baove,
 							building: buildingId,
 						}).then(async (room) => {
 							roomId = room._id;
 							let serviceCreated = await Entity.ServicesEntity.create({
 								room: roomId,
-								electric: data.service.electric,
-								waterindex: data.service.waterindex,
-								motobike: data.service.motobike,
-								// elevator: data.service.elevator,
-								water: data.service.water,
-								generalservice: data.service.generalservice,
+								electric: data.electric,
+								waterindex: data.waterindex, // if water index
+								motobike: data.motobike,
+								elevator: data.elevator,
+								water: data.water, // if water/ person
+								generalservice: data.generalservice,
+							}).then(async (service) => {
+								serviceId = service._id;
+								let invoiceCreated = await Entity.PaymentEntity.create({
+									service: serviceId,
+									room: roomId,
+									accountnumber: data.accountnumber,
+									accountname: data.accountname,
+									bankname: data.bankname,
+									tranfercontent: data.tranfercontent,
+									note: data.note,
+								});
 							});
-							// 	.then(async (service) => {
-							// 	serviceId = service._id;
-							// 	let invoiceCreated = await Entity.InvoicesEntity.create({
-							// 		service: serviceId,
-							// 		room: roomId,
-							// 		accountnumber: data.invoice.accountnumber,
-							// 		accountname: data.invoice.accountname,
-							// 		bankname: data.invoice.bankname,
-							// 		tranfercontent: data.invoice.tranfercontent,
-							// 		note: data.invoice.note,
-							// 	});
-							// });
 						});
 					}
 				})
 				.then(() => {
+					//  sai sai sai
 					const result = {
 						buildings: {
-							buildingadress: data.building.address,
-							roomquantity: data.building.roomquantity,
-							ownername: data.building.ownername,
-							managername: data.building.managername,
+							buildingadress: data.address,
+							roomquantity: data.roomquantity,
+							ownername: data.ownername,
+							managername: data.managername,
 						},
-						room: {
-							roomprice: data.room.roomprice,
-							roomdeposit: data.room.roomdeposit,
-							motobikequantity: data.room.motobikequantityv,
-							firstelecnumber: data.room.firstelecnumber,
-							lastelecnumber: data.room.lastelecnumber,
-							firstwatenumber: data.room.firstwaternumber,
-							lastwaternumber: data.room.lastwaternumber,
-							building: buildingId,
-							iswaterpayment: data.room.iswaterpayment,
-						},
-						// invoice: {
-						// 	// service: serviceId,
-						// 	firstelecnumber: data.invoice.firstelecnumber,
-						// 	lastelecnumber: data.invoice.lastelecnumber,
-						// 	accountnumber: data.invoice.accountnumber,
-						// 	accountname: data.invoice.accountname,
-						// 	bankname: data.invoice.bankname,
-						// 	tranfercontent: data.invoice.tranfercontent,
-						// 	note: data.invoice.note,
-						// },
 					};
 					cb(null, { result });
 				});
