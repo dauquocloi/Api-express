@@ -11,3 +11,5 @@ exports.ServicesEntity = require('./services').ServicesEntity;
 exports.InvoicesEntity = require('./invoices').InvoicesEntity;
 
 exports.CustomersEntity = require('./customers').CustomersEntity;
+
+exports.PaymentsEntity = require('./payments').PaymentsEntity;

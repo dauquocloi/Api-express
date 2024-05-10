@@ -56,12 +56,7 @@ const RoomsSchema = new Schema({
 		// if 0 => ko cho nuôi thú cưng
 		// if 1 => có cho nuôi thú cưng
 	},
-	iswaterpayment: {
-		type: Boolean,
-		default: true,
-		// if true => waterindex
-		// if false => water/client
-	},
+
 	service: {
 		type: Schema.Types.ObjectId,
 		ref: 'ServicesEntity',
@@ -82,6 +77,10 @@ const RoomsSchema = new Schema({
 	contract: {
 		type: Schema.Types.ObjectId,
 		ref: 'ContractsEntity',
+	},
+	payment: {
+		type: Schema.Types.ObjectId,
+		ref: 'PaymentsEntity',
 	},
 });
 

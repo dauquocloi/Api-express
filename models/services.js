@@ -10,8 +10,12 @@ const ServicesSchema = new Schema({
 	electric: { type: Number, default: 3500 },
 	water: { type: Number, default: 100000 },
 	waterindex: { type: Number, default: 23000 },
-	motobike: { type: Number, default: 150000 },
-	elevator: { type: Number, default: 50000 },
+	iswaterpayment: {
+		type: Boolean,
+		default: true,
+		// if true => waterindex
+		// if false => water/client
+	},
 	generalservice: Number,
 });
 

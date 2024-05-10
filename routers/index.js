@@ -3,6 +3,7 @@ const Room = require('./rooms');
 const Contracts = require('./contracts');
 const Building = require('./buildings');
 const Service = require('./services');
+const Invoice = require('./invoices');
 exports.routerApi = (app) => {
 	// default
 	app.get('/', (req, res) => {
@@ -51,4 +52,6 @@ exports.routerApi = (app) => {
 	app.get('/buildings/getall', Building.getAll);
 
 	app.get('/services/getall', Service.getAll);
+
+	app.post('/invoices/create', Invoice.create);
 };

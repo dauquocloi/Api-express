@@ -4,21 +4,23 @@ var Entity = require('../models');
 const bcrypt = require('bcrypt');
 const { query } = require('express');
 
+// get All Rooms by building name
 exports.getAll = (data, cb) => {
 	let buildingId;
+	let roomId;
 	let queryRooms;
 	let queryBuilding;
+	let queryCustomer;
 	let result;
 	MongoConnect.Connect(config.database.name)
 		.then(async (db) => {
 			// do things here
-			queryBuilding = await Entity.BuildingsEntity.find({ buildingname: data.buildingname }).exec();
-
-			buildingId = queryBuilding[0]._id;
+			queryBuilding = await Entity.BuildingsEntity.findOne({ buildingname: data.buildingname }).exec();
+			console.log(queryBuilding);
+			buildingId = queryBuilding._id;
 		})
 		.then(async () => {
-			queryRooms = await Entity.RoomsEntity.find({ building: buildingId }).exec();
-			console.log('This is log of query rooms by buildingId:', queryRooms);
+			queryRooms = await Entity.RoomsEntity.find({ building: buildingId }).populate('service').populate('payment').exec();
 		})
 		.then(() => {
 			cb(null, { queryRooms });

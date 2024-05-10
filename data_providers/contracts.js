@@ -22,28 +22,35 @@ exports.getAll = (data, cb) => {
 // khởi tạo hợp đồng mới + update giá phòng + giá dịch vụ
 exports.create = (data, cb) => {
 	// khai báo các biến lưu giá trị {findOne / find / _id}
-	let findroombyindex;
+	let findBuildingByName;
+	let BuildingIdByName;
+	let findRoomsByBuildingId;
+	let RoomIdByIndex;
 	MongoConnect.Connect(config.database.name)
 		.then(async (db) => {
-			findroombyindex = await Entity.RoomsEntity.findOne({ _id: data.roomid }).exec();
-			let findroombyindex_id = findroombyindex._id;
-			console.log('this is log of findroombyindex', findroombyindex_id);
-			// hợp đồng
+			// find Building by Building name
+			findBuildingByName = await Entity.BuildingsEntity.findOne({ buildingname: data.buildingname }).exec();
+			BuildingIdByName = findBuildingByName._id;
+			console.log('this is log of findBuildingByName', BuildingIdByName);
+
+			// find Rooms by BuildingId and roomindex
+			findRoomsByBuildingId = await Entity.RoomsEntity.findOne({ building: BuildingIdByName, roomindex: data.roomindex }).exec();
+			RoomIdByIndex = findRoomsByBuildingId._id;
+			// Contract create
 			Entity.ContractsEntity.create({
 				namecontractowner: data.namecontractowner,
-				// contractsigndate: data.date,
+				contractsigndate: data.contractSignDate,
 				contractenddate: data.contractEndDate,
-				room: findroombyindex_id,
+				room: RoomIdByIndex,
 			}).then(async () => {
 				let roomUpdated = await Entity.RoomsEntity.updateOne(
-					{ _id: findroombyindex_id },
+					{ _id: RoomIdByIndex },
 					{
 						$set: {
-							roomprice: data.room.roomPrice,
-							roomdeposit: data.room.roomDeposit,
-							roomstate: 1,
-							motobikequantity: data.room.motobikequantity,
-							iswaterpayment: data.room.isWaterPayment,
+							roomprice: data.roomprice,
+							roomdeposit: data.roomdeposit,
+							roomstate: 1, //set room state = 1 => phòng đang có khách ở
+							motobikequantity: data.motobikequantity,
 						},
 					},
 					{
@@ -51,35 +58,29 @@ exports.create = (data, cb) => {
 					},
 				)
 					.then(async () => {
+						// customer create
+						//  arr
 						const customers = data.customer.map((userData) => ({
 							fullname: userData.fullname,
 							gender: userData.gender,
 							phone: userData.phone,
 							cccd: userData.cccd,
 							email: userData.email,
-							room: userData.room,
+							room: RoomIdByIndex,
 						}));
-						// const customers = customersData.map((userData) => ({
-						// 	fullname: userData.fullname,
-						// 	gender: userData.gender,
-						// 	phone: userData.phone,
-						// 	cccd: userData.cccd,
-						// 	email: userData.email,
-						// 	room: userData.room,
-						// }));
 						let usersCreated = await Entity.CustomersEntity.create(customers);
 					})
 					.then(async () => {
+						// update service by roomid
 						let serviceUpdated = await Entity.ServicesEntity.updateOne(
-							{ room: findroombyindex_id },
+							{ room: RoomIdByIndex },
 							{
 								$set: {
-									electric: data.room.electric,
-									waterindex: data.room.waterindex,
-									water: data.room.water,
-									motobike: data.room.motobike,
-									elevator: data.room.elevator,
-									generalservice: data.room.generalService,
+									electric: data.electric,
+									waterindex: data.waterindex,
+									water: data.water,
+									generalservice: data.generalservice,
+									iswaterpayment: data.iswaterpayment,
 								},
 							},
 							{
@@ -89,14 +90,18 @@ exports.create = (data, cb) => {
 					})
 					.then(async () => {
 						let invoiceUpdated = await Entity.InvoicesEntity.updateOne(
-							{ room: findroombyindex_id },
+							{ room: RoomIdByIndex },
 							{
 								$set: {
-									firstelecnumber: data.room.firstElecNumber,
-									lastelecnumber: data.room.lastElecNumber,
-									firstwaternumber: data.room.firstwaternumber,
-									lastwaternumber: data.room.lastwaternumber,
-									// waterprice: data.invoice.waterprice,
+									firstelecnumber: data.firstelecnumber,
+									lastelecnumber: data.lastelecnumber,
+									firstwaternumber: data.firstwaternumber,
+									lastwaternumber: data.lastwaternumber,
+									waterprice: data.waterprice,
+									motobike: data.motobike,
+									elevator: data.elevator,
+									daystay: data.daystay,
+									period: data.period,
 								},
 							},
 							{
