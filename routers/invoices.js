@@ -7,7 +7,7 @@ const JWT_SECRET = '82371923sdasdads[]sdsadasd';
 
 exports.getAll = (req, res, next) => {
 	var data = req.query;
-	console.log('This is log of req.body', req.query);
+	console.log('This is log of req.query', req.query);
 	UseCase.getAll(data, (err, result) => {
 		if (err) {
 			return res.status(204).send({

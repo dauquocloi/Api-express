@@ -10,6 +10,16 @@ exports.getAll = (data, cb) => {
 	});
 };
 
+exports.getAllByBuildingName = (data, cb) => {
+	DataProvider.getAllByBuildingName(data, (errs, result) => {
+		if (errs) {
+			cb(errs, null);
+		} else {
+			cb(null, result);
+		}
+	});
+};
+
 exports.create = (data, cb) => {
 	DataProvider.create(data, cb);
 };

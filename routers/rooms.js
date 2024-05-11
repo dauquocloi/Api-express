@@ -27,6 +27,28 @@ exports.getAll = (req, res, next) => {
 	});
 };
 
+exports.getAllByBuildingName = (req, res, next) => {
+	var data = req.query;
+	console.log('This is log of getAllByBuildingName req.query', req.query);
+	UseCase.getAllByBuildingName(data, (err, result) => {
+		if (err) {
+			return res.status(204).send({
+				errorCode: 0,
+				data: {},
+				message: 'err',
+				errors: [],
+			});
+		} else {
+			return res.status(200).send({
+				errorCode: 0,
+				data: result,
+				message: 'succesfull',
+				errors: [],
+			});
+		}
+	});
+};
+
 exports.create = (req, res, next) => {
 	var data = req.body;
 	console.log(data);

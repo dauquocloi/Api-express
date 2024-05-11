@@ -6,11 +6,25 @@ const { TestUsersEntity } = require('../models/contracts');
 const { last, result } = require('underscore');
 
 exports.getAll = (data, cb) => {
+	const monthQuery = parseInt(data.month);
+	const yearQuery = parseInt(data.year);
 	MongoConnect.Connect(config.database.name)
-		.then((db) => {
-			// do things here
-			Entity.ContractsEntity.find({}, cb);
-			// Entity.RoomsEntity.aggregate([{ $lookup: { from: 'users', localField: '' } }])
+		.then(async (db) => {
+			queryInvoce = await Entity.InvoicesEntity.aggregate([
+				{
+					$addFields: {
+						month: { $month: '$period' }, // Trích xuất tháng từ trường "period"
+						year: { $year: '$period' },
+					},
+				},
+				{
+					$match: {
+						month: monthQuery,
+						year: yearQuery,
+					},
+				},
+			]);
+			cb(null, queryInvoce);
 		})
 		.catch((err) => {
 			console.log('rooms_Dataprovider_create: ' + err);

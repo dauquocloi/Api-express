@@ -21,7 +21,7 @@ const InvoicesSchema = new Schema({
 		type: Number,
 		default: 0,
 	},
-	firstwatercnumber: {
+	firstwaternumber: {
 		type: Number,
 		default: 0,
 	},
@@ -96,11 +96,14 @@ InvoicesSchema.pre('save', async function (next) {
 	// console.log('query filter', filter);
 	// const update = this.getUpdate(); // Lấy dữ liệu cập nhật
 	let getlastelec = this.lastelecnumber;
-	console.log('this is log of last elec', getlastelec);
 	let getfirstelec = this.firstelecnumber;
-
 	let getlastWater = this.lastwaternumber;
+	console.log('getlastWater', getlastWater);
 	let getfirstWater = this.firstwaternumber;
+	console.log('getfirstWater', getfirstWater);
+
+	let roomId = this.room;
+	console.log('this is roomid', roomId);
 	// or this._update['$set].lastelecnumber
 	// const roomId = getquery.room;
 	console.log('this is log of roomId: ', roomId);
@@ -117,7 +120,8 @@ InvoicesSchema.pre('save', async function (next) {
 		this.set('elecprice', calculatedElecprice);
 		console.log('this is log of elecprice: ', calculatedElecprice);
 
-		if (foundService.iswaterpayment == true) {
+		// caculate water number
+		if (foundService.iswaterpayment === true) {
 			const calculatedWaterprice = (getlastWater - getfirstWater) * foundService.waterindex;
 			this.set('waterprice', calculatedWaterprice);
 			console.log('this is log of waterPrice', calculatedWaterprice);

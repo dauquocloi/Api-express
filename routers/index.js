@@ -43,6 +43,8 @@ exports.routerApi = (app) => {
 
 	app.post('/rooms/update', Room.update);
 
+	app.get('/rooms/getallbybuildingname', Room.getAllByBuildingName);
+
 	app.post('/contracts/create', Contracts.create);
 
 	app.post('/contracts/update', Contracts.updateOne);
@@ -54,4 +56,6 @@ exports.routerApi = (app) => {
 	app.get('/services/getall', Service.getAll);
 
 	app.post('/invoices/create', Invoice.create);
+
+	app.get('/invoices/getall', Invoice.getAll);
 };

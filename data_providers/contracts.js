@@ -89,25 +89,18 @@ exports.create = (data, cb) => {
 						);
 					})
 					.then(async () => {
-						let invoiceUpdated = await Entity.InvoicesEntity.updateOne(
-							{ room: RoomIdByIndex },
-							{
-								$set: {
-									firstelecnumber: data.firstelecnumber,
-									lastelecnumber: data.lastelecnumber,
-									firstwaternumber: data.firstwaternumber,
-									lastwaternumber: data.lastwaternumber,
-									waterprice: data.waterprice,
-									motobike: data.motobike,
-									elevator: data.elevator,
-									daystay: data.daystay,
-									period: data.period,
-								},
-							},
-							{
-								upsert: true,
-							},
-						);
+						let invoiceUpdated = await Entity.InvoicesEntity.create({
+							room: RoomIdByIndex,
+							firstelecnumber: data.firstelecnumber,
+							lastelecnumber: data.lastelecnumber,
+							firstwaternumber: data.firstwaternumber,
+							lastwaternumber: data.lastwaternumber,
+							waterprice: data.waterprice,
+							motobike: data.motobike,
+							elevator: data.elevator,
+							daystay: data.daystay,
+							period: data.period,
+						});
 					});
 				cb(null, 'good job em');
 			});
