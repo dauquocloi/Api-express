@@ -38,6 +38,10 @@ const InvoicesSchema = new Schema({
 		ref: 'RoomsEntity',
 	},
 	total: Number,
+	paid: {
+		type: Boolean,
+		default: false, // if false -> chưa thanh toán
+	},
 });
 
 InvoicesSchema.pre('updateOne', async function (next) {

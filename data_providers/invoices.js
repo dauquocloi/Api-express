@@ -8,23 +8,44 @@ const { last, result } = require('underscore');
 exports.getAll = (data, cb) => {
 	const monthQuery = parseInt(data.month);
 	const yearQuery = parseInt(data.year);
+	const buildingname = data.buildingname;
+	const roomindex = data.roomindex;
+	let queryInvoce;
 	MongoConnect.Connect(config.database.name)
 		.then(async (db) => {
 			queryInvoce = await Entity.InvoicesEntity.aggregate([
 				{
-					$addFields: {
-						month: { $month: '$period' }, // Trích xuất tháng từ trường "period"
-						year: { $year: '$period' },
+					$lookup: {
+						from: 'buildings', // Tên của collection chứa thông tin về tòa nhà
+						localField: 'buildingId', // Trường trong InvoicesEntity tham chiếu đến _id của Buildings
+						foreignField: '_id', // Trường trong Buildings mà chứa _id
+						as: 'building', // Tên của mảng kết quả sau khi lookup
 					},
 				},
 				{
+					$unwind: '$building', // Giải nén mảng building
+				},
+				{
+					$lookup: {
+						from: 'rooms', // Tên của collection chứa thông tin về phòng
+						localField: 'rooms', // Trường trong InvoicesEntity tham chiếu đến _id của Rooms
+						foreignField: '_id', // Trường trong Rooms mà chứa _id
+						as: 'room', // Tên của mảng kết quả sau khi lookup
+					},
+				},
+				{
+					$unwind: '$room', // Giải nén mảng room
+				},
+				{
 					$match: {
-						month: monthQuery,
-						year: yearQuery,
+						'building.buildingname': data.buildingname, // Lọc dựa trên buildingname từ data
+						'room.roomindex': data.roomindex, // Lọc dựa trên roomindex từ data
 					},
 				},
 			]);
-			cb(null, queryInvoce);
+		})
+		.then((result) => {
+			console.log(result);
 		})
 		.catch((err) => {
 			console.log('rooms_Dataprovider_create: ' + err);

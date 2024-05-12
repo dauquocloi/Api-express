@@ -116,7 +116,7 @@ exports.getAll = (data, cb) => {
 		});
 };
 
-exports.getAllByBuildingName = (data, cb) => {
+exports.getallbyindex = (data, cb) => {
 	let buildingId;
 	let roomId;
 	let queryRooms;
@@ -172,7 +172,26 @@ exports.update = (data, cb) => {
 				{ _id: data.roomId },
 				{
 					$set: {
-						roomprice: data.roomPrice,
+						roomprice: data.roomprice,
+						roomdeposit: data.roomdeposit,
+						roomtypes: data.roomtypes,
+						roomacreage: data.roomacreage,
+						maylanh: data.maylanh,
+						giengtroi: data.giengtroi,
+						gac: data.gac,
+						kebep: data.kebep,
+						bonruachen: data.bonruachen,
+						cuaso: data.cuaso,
+						bancong: data.bancong,
+						tulanh: data.tulanh,
+						tivi: data.tivi,
+						thangmay: data.tivi,
+						nuocnong: data.nuocnong,
+						giuong: data.giuong,
+						nem: data.nem,
+						tuquanao: data.tuquanao,
+						chungchu: data.chungchu,
+						baove: data.baove,
 					},
 				},
 				{
@@ -187,11 +206,28 @@ exports.update = (data, cb) => {
 				},
 				{
 					$set: {
-						generalservice: data.generalService,
-						motobike: data.motobike,
-						elevator: data.elevator,
-						water: data.water,
 						electric: data.electric,
+						waterindex: data.waterindex,
+						water: data.water,
+						generalservice: data.generalservice,
+						iswaterpayment: data.iswaterpayment,
+					},
+				},
+				{
+					upsert: true,
+				},
+			);
+		})
+		.then(() => {
+			let PaymentUpdated = Entity.PaymentsEntity.updateOne(
+				{ room: data.roomId },
+				{
+					$set: {
+						accountnumber: data.accountnumber,
+						accountname: data.accountname,
+						bankname: data.bankname,
+						tranfercontent: data.tranfercontent,
+						note: data.note,
 					},
 				},
 				{
@@ -212,7 +248,7 @@ exports.update = (data, cb) => {
 					electric: data.electric,
 				},
 			};
-			cb(null, { result });
+			cb(null, 'update succesfully');
 		})
 		.catch((err) => {
 			console.log('rooms_Dataprovider_create: ' + err);

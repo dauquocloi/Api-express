@@ -10,8 +10,8 @@ exports.getAll = (data, cb) => {
 	});
 };
 
-exports.getAllByBuildingName = (data, cb) => {
-	DataProvider.getAllByBuildingName(data, (errs, result) => {
+exports.getallbyindex = (data, cb) => {
+	DataProvider.getallbyindex(data, (errs, result) => {
 		if (errs) {
 			cb(errs, null);
 		} else {

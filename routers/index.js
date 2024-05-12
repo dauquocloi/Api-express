@@ -43,7 +43,7 @@ exports.routerApi = (app) => {
 
 	app.post('/rooms/update', Room.update);
 
-	app.get('/rooms/getallbybuildingname', Room.getAllByBuildingName);
+	app.get('/rooms/getbyindex', Room.getallbyindex);
 
 	app.post('/contracts/create', Contracts.create);
 

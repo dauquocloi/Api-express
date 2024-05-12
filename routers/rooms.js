@@ -27,10 +27,10 @@ exports.getAll = (req, res, next) => {
 	});
 };
 
-exports.getAllByBuildingName = (req, res, next) => {
+exports.getallbyindex = (req, res, next) => {
 	var data = req.query;
-	console.log('This is log of getAllByBuildingName req.query', req.query);
-	UseCase.getAllByBuildingName(data, (err, result) => {
+	console.log('This is log of getRoomByIndex req.query', req.query);
+	UseCase.getallbyindex(data, (err, result) => {
 		if (err) {
 			return res.status(204).send({
 				errorCode: 0,
