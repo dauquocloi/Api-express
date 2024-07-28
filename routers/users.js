@@ -80,7 +80,7 @@ exports.register = async (req, res) => {
 	data.password = encryptedPassword;
 	console.log(data.password);
 	UseCase.getEmail(data, (err, result) => {
-		if (result.data == null) {
+		if (result.data === null) {
 			UseCase.create(data, (err, result) => {
 				if (err) {
 					return res.status(204).send({
@@ -102,7 +102,7 @@ exports.register = async (req, res) => {
 			// trả về cho client
 			return res.status(200).send({
 				errorCode: 0,
-				data: result,
+				data: [],
 				message: 'khứa này có rồi',
 				errors: [],
 			});

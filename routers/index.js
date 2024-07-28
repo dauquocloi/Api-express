@@ -12,7 +12,7 @@ exports.routerApi = (app) => {
 
 	// Router of user
 
-	// lấy tất cả người dùng
+	// get all user
 	app.get('/users/getAll', User.getAll);
 
 	// test api
@@ -20,16 +20,16 @@ exports.routerApi = (app) => {
 		return res.send('welcome to API Thu');
 	});
 
-	// tạo người dùng
+	// user create
 	app.post('/users/create', User.create);
 
-	// đăng ký
+	// Register
 	app.post('/register', User.register);
 
-	// Đăng nhập
+	// Login
 	app.post('/login-user', User.login);
 
-	// lấy khách hàng qua email
+	// get cus by Email
 	app.post('/getEmail', User.getEmail);
 
 	// lấy dữ liệu người dùng token
@@ -41,9 +41,9 @@ exports.routerApi = (app) => {
 
 	app.get('/rooms/getall', Room.getAll);
 
-	app.post('/rooms/update', Room.update);
+	app.get('/rooms/finance', Room.finance);
 
-	app.get('/rooms/getbyindex', Room.getallbyindex);
+	app.post('/rooms/update', Room.update);
 
 	app.post('/contracts/create', Contracts.create);
 

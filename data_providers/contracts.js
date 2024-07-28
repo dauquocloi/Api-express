@@ -116,6 +116,7 @@ exports.create = (data, cb) => {
 							elevator: data.elevator,
 							daystay: data.daystay,
 							period: data.period,
+							paid: data.paid,
 						});
 					});
 				cb(null, 'good job em');

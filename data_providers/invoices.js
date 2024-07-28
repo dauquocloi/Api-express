@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const { TestUsersEntity } = require('../models/contracts');
 const { last, result } = require('underscore');
 
+//  query Invoice by Period
 exports.getAll = (data, cb) => {
 	const monthQuery = parseInt(data.month);
 	const yearQuery = parseInt(data.year);
@@ -15,37 +16,22 @@ exports.getAll = (data, cb) => {
 		.then(async (db) => {
 			queryInvoce = await Entity.InvoicesEntity.aggregate([
 				{
-					$lookup: {
-						from: 'buildings', // Tên của collection chứa thông tin về tòa nhà
-						localField: 'buildingId', // Trường trong InvoicesEntity tham chiếu đến _id của Buildings
-						foreignField: '_id', // Trường trong Buildings mà chứa _id
-						as: 'building', // Tên của mảng kết quả sau khi lookup
+					$addFields: {
+						year: { $year: '$period' },
+						month: { $month: '$period' },
 					},
-				},
-				{
-					$unwind: '$building', // Giải nén mảng building
-				},
-				{
-					$lookup: {
-						from: 'rooms', // Tên của collection chứa thông tin về phòng
-						localField: 'rooms', // Trường trong InvoicesEntity tham chiếu đến _id của Rooms
-						foreignField: '_id', // Trường trong Rooms mà chứa _id
-						as: 'room', // Tên của mảng kết quả sau khi lookup
-					},
-				},
-				{
-					$unwind: '$room', // Giải nén mảng room
 				},
 				{
 					$match: {
-						'building.buildingname': data.buildingname, // Lọc dựa trên buildingname từ data
-						'room.roomindex': data.roomindex, // Lọc dựa trên roomindex từ data
+						year: yearQuery,
+						month: monthQuery,
 					},
 				},
 			]);
 		})
 		.then((result) => {
 			console.log(result);
+			cb(null, { queryInvoce });
 		})
 		.catch((err) => {
 			console.log('rooms_Dataprovider_create: ' + err);
@@ -83,6 +69,7 @@ exports.create = (data, cb) => {
 				motobike: data.motobike,
 				elevator: data.elevator,
 				daystay: data.daystay,
+				paid: data.paid,
 				period: data.period,
 			});
 			cb(null, 'good job em');

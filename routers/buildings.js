@@ -8,6 +8,7 @@ const JWT_SECRET = '82371923sdasdads[]sdsadasd';
 // get all building by managername
 exports.getAll = (req, res, next) => {
 	var data = req.query;
+	console.log('This is log of building getAll', data);
 	UseCase.getAll(data, (err, result) => {
 		if (err) {
 			return res.status(204).send({

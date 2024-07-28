@@ -8,7 +8,7 @@ const Schema = mongoose.Schema;
 const PaymentsSchema = new Schema({
 	accountnumber: String,
 	accountname: String,
-	bankacountname: String,
+	bankname: String,
 	tranfercontent: String,
 	note: String,
 	room: {

@@ -39,8 +39,8 @@ exports.create = (data, cb) => {
 				.then((building) => {
 					buildingId = building._id;
 					let n = data.roomquantity;
-					let i = 0;
-					for (i; i < n; i++) {
+					let i = 1;
+					for (i; i <= n; i++) {
 						let roomId;
 						let paymentId;
 						let serviceId;
@@ -111,7 +111,7 @@ exports.create = (data, cb) => {
 							managername: data.managername,
 						},
 					};
-					cb(null, { result });
+					cb(null, 'created succesfully');
 				});
 		})
 		.catch((err) => {

@@ -10,16 +10,6 @@ exports.getAll = (data, cb) => {
 	});
 };
 
-exports.getallbyindex = (data, cb) => {
-	DataProvider.getallbyindex(data, (errs, result) => {
-		if (errs) {
-			cb(errs, null);
-		} else {
-			cb(null, result);
-		}
-	});
-};
-
 exports.create = (data, cb) => {
 	DataProvider.create(data, cb);
 };
@@ -32,6 +22,10 @@ exports.update = (data, cb) => {
 			cb(null, result);
 		}
 	});
+};
+
+exports.finance = (data, cb) => {
+	DataProvider.finance(data, cb);
 };
 
 // exports.getEmail = (data, cb) => {

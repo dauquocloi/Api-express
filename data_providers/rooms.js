@@ -22,87 +22,71 @@ exports.getAll = (data, cb) => {
 							from: 'rooms',
 							localField: '_id',
 							foreignField: 'building',
-							as: 'roomInfo',
+							as: 'roomInfor',
 						},
 					},
 					{
-						$unwind: {
-							path: '$roomInfo',
-							preserveNullAndEmptyArrays: true,
+						$unwind: '$roomInfor',
+					},
+					{
+						$lookup: {
+							from: 'services',
+							localField: 'roomInfor.service',
+							foreignField: '_id',
+							as: 'servicesInfor',
 						},
 					},
 					{
 						$lookup: {
 							from: 'customers',
-							localField: 'roomInfo._id',
+							localField: 'roomInfor._id',
 							foreignField: 'room',
-							as: 'customersInfo',
-						},
-					},
-					{
-						$lookup: {
-							from: 'services',
-							localField: 'roomInfo._id',
-							foreignField: 'room',
-							as: 'servicesInfo',
+							as: 'customersInfor',
 						},
 					},
 					{
 						$lookup: {
 							from: 'payments',
-							localField: 'roomInfo._id',
+							localField: 'roomInfor._id',
 							foreignField: 'room',
-							as: 'paymentsInfo',
+							as: 'paymentsInfor',
 						},
 					},
+
 					{
 						$group: {
 							_id: {
 								_id: '$_id',
-								buildingname: '$buildingname',
 								buildingadress: '$buildingadress',
-								roomquantity: '$roomquantity',
-								ownername: '$ownername',
-								ownerphonenumber: '$ownerphonenumber',
+								buildingname: '$buildingname',
 								managername: '$managername',
-								managerphonenumber: '$managerphonenumber',
+								managerphone: '$managerphonenumber',
+								ownername: '$ownername',
+								ownerphone: '$ownerphonenumber',
 							},
-							roomInfo: {
+							roomInfor: {
 								$push: {
-									_id: '$roomInfo._id',
-									motobikequantity: '$roomInfo.motobikequantity',
-									roomtoilet: '$roomInfo.roomtoilet',
-									dryingyard: '$roomInfo.dryingyard',
-									roomstate: '$roomInfo.roomstate',
-									opentimes: '$roomInfo.opentimes',
-									pet: '$roomInfo.pet',
-									roomindex: '$roomInfo.roomindex',
-									roomprice: '$roomInfo.roomprice',
-									roomdeposit: '$roomInfo.roomdeposit',
-									roomtypes: '$roomInfo.roomtypes',
-									roomacreage: '$roomInfo.roomacreage',
-									servicesInfo: {
-										$arrayElemAt: ['$servicesInfo', 0],
+									_id: '$roomInfor._id',
+									motobikequantity: '$roomInfor.motobikequantity',
+									roomtoilet: '$roomInfor._roomtoilet',
+									dryingyard: '$roomInfor.dryingyard',
+									roomstate: '$roomInfor.roomstate',
+									opentime: '$roomInfor.opentime',
+									pet: '$roomInfor.pet',
+									roomindex: '$roomInfor.roomindex',
+									roomprice: '$roomInfor.roomprice',
+									roomdeposit: '$roomInfor.roomdeposit',
+									roomtypes: '$roomInfor.roomtypes',
+									roomacreage: '$roomInfor.roomacreage',
+									serviceInfor: {
+										$arrayElemAt: ['$servicesInfor', 0],
 									},
-									paymentsInfo: {
-										$arrayElemAt: ['$paymentsInfo', 0],
+									paymentInfor: {
+										$arrayElemAt: ['$paymentsInfor', 0],
 									},
-									customersInfo: '$customersInfo',
+									customersInfor: '$customersInfor',
 								},
 							},
-						},
-					},
-					{
-						$project: {
-							_id: '$_id._id',
-							buildingname: '$_id.buildingname',
-							buildingadress: '$_id.buildingadress',
-							roomquantity: '$_id.roomquantity',
-							ownername: '$_id.ownername',
-							ownerphonenumber: '$_id.ownerphonenumber',
-							managername: '$_id.managername',
-							managerphonenumber: '$_id.managerphonenumber',
-							roomInfo: '$roomInfo',
 						},
 					},
 				],
@@ -113,44 +97,6 @@ exports.getAll = (data, cb) => {
 			console.log('rooms_Dataprovider_create: ' + err);
 			cb(err, null);
 			console.log('null');
-		});
-};
-
-exports.getallbyindex = (data, cb) => {
-	let buildingId;
-	let roomId;
-	let queryRooms;
-	let queryBuilding;
-	let queryServices;
-	let queryPayment;
-	MongoConnect.Connect(config.database.name)
-		.then(async (db) => {
-			queryBuilding = await Entity.BuildingsEntity.findOne({ buildingname: data.buildingname }).exec();
-			buildingId = queryBuilding._id;
-			console.log('this is log of buildingId ', queryBuilding);
-		})
-		.then(async () => {
-			queryRooms = await Entity.RoomsEntity.findOne({ building: buildingId, roomindex: data.roomindex }).exec();
-			roomId = queryRooms._id;
-			console.log(roomId);
-		})
-		.then(async () => {
-			queryServices = await Entity.ServicesEntity.findOne({ room: roomId }).exec();
-		})
-		.then(async () => {
-			queryPayment = await Entity.PaymentsEntity.findOne({ room: roomId }).exec();
-		})
-		.then(async () => {
-			queryCustomers = await Entity.CustomersEntity.find({ room: roomId }).exec();
-		})
-		.then(() => {
-			let result = {
-				room: queryRooms,
-				service: queryServices,
-				payment: queryPayment,
-				customer: queryCustomers,
-			};
-			cb(null, result);
 		});
 };
 
@@ -218,8 +164,8 @@ exports.update = (data, cb) => {
 				},
 			);
 		})
-		.then(() => {
-			let PaymentUpdated = Entity.PaymentsEntity.updateOne(
+		.then(async () => {
+			let PaymentUpdated = await Entity.PaymentsEntity.updateOne(
 				{ room: data.roomId },
 				{
 					$set: {
@@ -254,4 +200,70 @@ exports.update = (data, cb) => {
 			console.log('rooms_Dataprovider_create: ' + err);
 			cb(err, null);
 		});
+};
+
+// finance update
+exports.financeUpdate = (data, cb) => {
+	let roomUpdated;
+	MongoConnect.Connect(config.database.name).then(async (db) => {
+		roomUpdated = Entity.RoomsEntity.updateOne({ _id: data.roomId }, {});
+	});
+};
+
+// lấy thông tin tài chính của Phòng
+exports.finance = (data, cb) => {
+	var roomId = mongoose.Types.ObjectId(`${data.roomId}`);
+	let queryRooms;
+	MongoConnect.Connect(config.database.name).then((db) => {
+		queryRooms = Entity.RoomsEntity.aggregate(
+			[
+				{
+					$match: {
+						_id: roomId,
+					},
+				},
+				{
+					$lookup: {
+						from: 'services',
+						localField: '_id',
+						foreignField: 'room',
+						as: 'serviceInfo',
+					},
+				},
+				{
+					$unwind: '$serviceInfo',
+				},
+				{
+					$project: {
+						serviceInfoArray: {
+							$objectToArray: '$serviceInfo',
+						},
+						roompriceKeyValue: [{ k: 'roomprice', v: '$roomprice' }],
+						roomdepositKeyValue: [{ k: 'roomdeposit', v: '$roomdeposit' }],
+					},
+				},
+				{
+					$project: {
+						combinedArray: {
+							$concatArrays: ['$roompriceKeyValue', '$roomdepositKeyValue', '$serviceInfoArray'],
+						},
+					},
+				},
+				{
+					$project: {
+						finance: {
+							$filter: {
+								input: '$combinedArray',
+								as: 'item',
+								cond: {
+									$and: [{ $ne: ['$$item.k', '__v'] }, { $ne: ['$$item.k', '_id'] }, { $ne: ['$$item.k', 'room'] }],
+								},
+							},
+						},
+					},
+				},
+			],
+			cb,
+		);
+	});
 };
