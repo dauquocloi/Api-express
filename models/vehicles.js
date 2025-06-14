@@ -1,3 +1,4 @@
+const { required } = require('joi');
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
@@ -11,21 +12,26 @@ const VehiclesSchema = new Schema({
 	fromDate: {
 		type: Date,
 	},
+	checkoutDate: {
+		type: Date,
+	},
 	owner: {
 		type: Schema.Types.ObjectId,
 		ref: 'customers',
-		// required: true,
 	},
 	image: {
 		type: String,
+		default: '',
 	},
 	room: {
 		type: Schema.Types.ObjectId,
 		ref: 'RoomsEntity',
 	},
 	status: {
-		type: Number,
-		default: 0, // 0: Đã dọn đi, 1: đang gửi, 2: tạm ngưng gửi
+		type: String,
+		enum: ['active', 'terminated', 'suspended'], //suspended: tạm ngưng gửi.
+		required: true,
+		default: 'active', // 0: Đã dọn đi, 1: đang gửi, 2: tạm ngưng gửi
 	},
 });
 

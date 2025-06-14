@@ -5,23 +5,23 @@ var Entity = require('../models');
 const bcrypt = require('bcrypt');
 const { result } = require('underscore');
 var XLSX = require('xlsx');
+// const { config } = require('dotenv');
+// const { config } = require('dotenv');
 var workBook = XLSX.readFile('D:excelData/tempData.xlsx');
 let workSheet = workBook.Sheets[workBook.SheetNames[0]];
 
 //  get all buildings by managername
-exports.getAll = (data, cb) => {
-	MongoConnect.Connect(config.database.name)
-		.then(async (db) => {
-			// get all building by managername
-			await Entity.BuildingsEntity.find({ managername: data.managername }).exec(cb);
-		})
-		.catch((err) => {
-			console.log('ueser_Dataprovider_create: ' + err);
-			cb(err, null);
-			console.log('null');
-		});
+exports.getAll = async (data, cb, next) => {
+	try {
+		const db = MongoConnect.Connect(config.database.name);
+		const userId = mongoose.Types.ObjectId(`${data.userId}`);
+		await Entity.BuildingsEntity.find({ 'management.user': userId }).lean().exec(cb);
+	} catch (error) {
+		next(error);
+	}
 };
 
+// not used
 exports.create = async (data, cb, next) => {
 	try {
 		// handle validator
@@ -144,4 +144,18 @@ exports.getEmailbyToken = (data, cb) => {
 			cb(err, null);
 			console.log('null');
 		});
+};
+
+exports.getBankStatus = async (data, cb, next) => {
+	try {
+		const db = MongoConnect.Connect(config.database.name);
+		const userId = mongoose.Types.ObjectId(data.userId);
+		const bankStatus = await Entity.BuildingsEntity.find({ 'management.user': userId });
+
+		if (bankStatus != null) {
+			cb(null, bankStatus);
+		}
+	} catch (error) {
+		next(error);
+	}
 };

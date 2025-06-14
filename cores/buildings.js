@@ -1,13 +1,17 @@
 var DataProvider = require('../data_providers/buildings');
 
-exports.getAll = (data, cb) => {
-	DataProvider.getAll(data, (errs, result) => {
-		if (errs) {
-			cb(errs, null);
-		} else {
-			cb(null, { result });
-		}
-	});
+exports.getAll = (data, cb, next) => {
+	DataProvider.getAll(
+		data,
+		(errs, result) => {
+			if (errs) {
+				cb(errs, null);
+			} else {
+				cb(null, result);
+			}
+		},
+		next,
+	);
 };
 
 exports.create = (data, cb, next) => {
@@ -29,4 +33,8 @@ exports.getEmail = (data, cb) => {
 			cb(null, { data: result });
 		}
 	});
+};
+
+exports.getBankStatus = (data, cb, next) => {
+	DataProvider.getBankStatus(data, cb, next);
 };

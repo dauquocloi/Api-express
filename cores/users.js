@@ -14,6 +14,11 @@ exports.create = (data, cb) => {
 	DataProvider.create(data, cb);
 };
 
+exports.login = (data, cb, next, res) => {
+	DataProvider.login(data, cb, next, res);
+};
+
+// no used anymnore
 exports.getEmail = (data, cb) => {
 	DataProvider.getEmail(data, (errs, result) => {
 		if (errs) {
@@ -59,4 +64,32 @@ exports.getUserByFullName = (data, cb) => {
 			cb(null, { result });
 		}
 	});
+};
+
+exports.modifyPassword = (data, cb, next) => {
+	DataProvider.modifyPassword(data, cb, next);
+};
+
+exports.modifyUserInfo = (data, cb, next) => {
+	DataProvider.modifyUserInfo(data, cb, next);
+};
+
+exports.getAllManagers = (data, cb, next) => {
+	DataProvider.getAllManagers(data, cb, next);
+};
+
+exports.getRefreshToken = (req, cb, next) => {
+	DataProvider.getRefreshToken(req, cb, next);
+};
+
+exports.removeManager = (req, cb, next) => {
+	DataProvider.removeManager(req, cb, next);
+};
+
+exports.getAllManagement = (data, cb, next) => {
+	DataProvider.getAllManagement(data, cb, next);
+};
+
+exports.createManager = (data, cb, next) => {
+	DataProvider.createManager(data, cb, next);
 };

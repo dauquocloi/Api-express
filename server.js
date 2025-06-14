@@ -6,6 +6,7 @@ const port = 8080;
 const routers = require('./routers');
 const adminRouters = require('./routers/admin');
 global.config = require('./config');
+const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -16,8 +17,10 @@ const io = new Server(server, {
 		methods: ['GET', 'POST'],
 	},
 });
+
 // const { getIO } = require('./utils/SocketConnect');
 // const io = getIO(server);
+app.use(cookieParser());
 
 app.use(cors({ origin: '*' }));
 app.use(

@@ -1,10 +1,81 @@
 const mongoose = require('mongoose');
 const MongoConnect = require('../utils/MongoConnect');
 var Entity = require('../models');
+const getListFeeInitial = require('../utils/getListFeeInital');
 
-exports.getFeesByRoomId = (data, cb) => {
+exports.getFeesByRoomId = (data, cb, next) => {
 	let roomId = mongoose.Types.ObjectId(`${data}`);
 	MongoConnect.Connect(config.database.name).then(async (db) => {
 		await Entity.FeesEntity.find({ room: roomId }, cb);
 	});
+};
+
+exports.addFee = async (data, cb, next) => {
+	console.log(data);
+	try {
+		let db = MongoConnect.Connect(config.database.name);
+		let roomObjectId = mongoose.Types.ObjectId(data.roomId);
+		const listFeeInital = getListFeeInitial;
+		var findFee = listFeeInital.find((fee) => fee.feeKey == data.feeKey);
+		if (!findFee) {
+			throw new Error('Phí không hợp lệ!');
+		}
+
+		const currentFee = await Entity.FeesEntity.findOne({ room: roomObjectId, feeKey: findFee.feeKey });
+		if (currentFee) {
+			throw new Error(`Phí ${findFee.feeName} đã tồn tại trong phòng`);
+		}
+		const newFeeInfo = {
+			feeKey: findFee.feeKey,
+			unit: findFee.unit,
+			feeName: findFee.feeName,
+			iconPath: findFee.iconPath,
+			feeAmount: data.feeAmount,
+			room: roomObjectId,
+		};
+
+		if (findFee.unit === 'index') {
+			newFeeInfo.lastIndex = Number(data.lastIndex);
+		}
+		console.log('log of new Fee', newFeeInfo);
+		let feeCreated = await Entity.FeesEntity.create(newFeeInfo);
+
+		cb(null, 'success');
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.deleteFee = async (data, cb, next) => {
+	console.log(data);
+	try {
+		let db = MongoConnect.Connect(config.database.name);
+		let feeId = mongoose.Types.ObjectId(`${data.feeId}`);
+
+		await Entity.FeesEntity.deleteOne({ _id: feeId }).exec(cb);
+	} catch (error) {
+		next(new Error(error.message));
+	}
+};
+
+exports.editFee = async (data, cb, next) => {
+	try {
+		let db = MongoConnect.Connect(config.database.name);
+		let feeId = mongoose.Types.ObjectId(`${data.feeId}`);
+
+		const feeRcent = await Entity.FeesEntity.findOne({ _id: feeId });
+
+		if (!feeRcent) {
+			console.log('fee không tồn tại');
+			next(new Error('fee does not exist'));
+		}
+
+		Object.assign(feeRcent, data);
+
+		const updatedFee = await feeRcent.save();
+
+		cb(null, updatedFee);
+	} catch (error) {
+		next(new Error(error));
+	}
 };

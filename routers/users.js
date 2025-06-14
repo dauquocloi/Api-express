@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const { response } = require('express');
 const jwt = require('jsonwebtoken');
 const { result } = require('underscore');
+const { modifyUserSchema } = require('../utils/validator');
 
 global.config = require('../config');
 
@@ -111,46 +112,28 @@ exports.register = async (req, res) => {
 	});
 };
 
-// API Login
-exports.login = async (req, res) => {
-	var data = req.body;
-	UseCase.getEmail(data, async (err, result) => {
-		console.log(result);
-		if (!result) {
-			return res.status(200).json({
-				errorCode: 0,
-				message: 'Khứa này không có',
-				errors: [],
-				data: {},
-			});
-		}
-
-		// nếu thỏa email
-		// -> So sánh mật khẩu
-		var sosanh = await bcrypt.compare(data.params?.password, result.password);
-
-		if (sosanh == true) {
-			console.log('Mật khẩu trùng khớp: ', result.userType);
-			//  mã hóa email
-			const token = jwt.sign({ email: result.email, userId: result._id }, config.JWT.JWT_SECRET);
-			const { fullname, phone, email, _id, userType } = result;
-
-			return res.status(200).send({
-				errorCode: 0,
-				message: 'Mật khẩu trùng khớp',
-				errors: [],
-				data: { token, fullname, phone, email, _id, userType },
-			});
-		} else {
-			console.log('Mật khẩu không trùng khớp');
-			return res.status(401).send({
-				errorCode: 2,
-				message: 'Mật khẩu không trùng khớp',
-				errors: [],
-				data: {},
-			});
-		}
-	});
+exports.login = async (req, res, next) => {
+	try {
+		let data = { ...req.body, ...req.cookies };
+		console.log('log of data from login:', data);
+		UseCase.login(
+			data,
+			(err, result) => {
+				if (result) {
+					return res.status(200).send({
+						errorCode: 0,
+						data: result,
+						message: 'succesfull',
+						errors: [],
+					});
+				}
+			},
+			next,
+			res,
+		);
+	} catch (error) {
+		next(error);
+	}
 };
 
 exports.getusersdata = async (req, res) => {
@@ -215,6 +198,7 @@ exports.getUserByUserId = async (req, res) => {
 	}
 };
 
+// not used
 exports.getUserByFullName = async (req, res) => {
 	let data = req.body;
 	UseCase.getUserByFullName(data, (err, result) => {
@@ -229,9 +213,125 @@ exports.getUserByFullName = async (req, res) => {
 			return res.status(200).send({
 				errorCode: 0,
 				data: result,
-				message: 'succesfull',
+				message: 'successfull',
 				errors: [],
 			});
 		}
 	});
+};
+
+exports.modifyPassword = async (req, res, next) => {
+	let data = { ...req.body, ...req.params };
+
+	UseCase.modifyPassword(
+		data,
+		(err, result) => {
+			if (!err) {
+				return res.status(200).send({
+					errorCode: 0,
+					message: 'Change password success',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.modifyUserInfo = async (req, res, next) => {
+	let data = { ...req.body, ...req.params };
+	const { error } = modifyUserSchema(data);
+	UseCase.modifyUserInfo(
+		data,
+		(err, result) => {
+			if (!err) {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'modify user successfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.getAllManagers = async (req, res, next) => {
+	let data = { ...req.body, ...req.params };
+	// const { error } = modifyUserSchema(data);
+	console.log('log of data from getAllManagers: ', data);
+	UseCase.getAllManagers(
+		data,
+		(err, result) => {
+			if (!err) {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'success',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.removeManager = async (req, res, next) => {
+	let data = req.params;
+	console.log('log of data from removeManager: ', data);
+	UseCase.removeManager(
+		data,
+		(err, result) => {
+			if (!err) {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'success',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.getAllManagement = async (req, res, next) => {
+	let data = req.params;
+	// const { error } = modifyUserSchema(data);
+	console.log('log of data from getAllManagers: ', data);
+	UseCase.getAllManagement(
+		data,
+		(err, result) => {
+			if (!err) {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'success',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.createManager = async (req, res, next) => {
+	let data = { ...req.body, ...req.params };
+	// const { error } = modifyUserSchema(data);
+	console.log('log of data from createManager: ', data);
+	UseCase.createManager(
+		data,
+		(err, result) => {
+			if (!err) {
+				return res.status(201).send({
+					errorCode: 0,
+					data: result,
+					message: 'successfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
 };

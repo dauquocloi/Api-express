@@ -2,7 +2,7 @@ exports.UsersEntity = require('./users').UsersEntity;
 
 exports.RoomsEntity = require('./rooms').RoomsEntity;
 
-exports.BuildingsEntity = require('./buildings').BuildingEntity;
+exports.BuildingsEntity = require('./buildings').BuildingsEntity;
 
 exports.ContractsEntity = require('./contracts').ContractsEntity;
 
@@ -25,3 +25,21 @@ exports.FeesEntity = require('./fees').FeesEntity;
 // exports.VehicalsEntity = require('./vehicals').VehicalsEntity;
 
 exports.VehiclesEntity = require('./vehicles').VehiclesEntity;
+
+exports.StatisticsEntity = require('./statistics').StatisticsEntity;
+
+exports.ReceiptsEntity = require('./receipts').ReceiptsEntity;
+
+exports.TransactionsEntity = require('./transactions').TransactionsEntity;
+
+exports.CompaniesEntity = require('./companies').CompaniesEntity;
+
+exports.BanksEntity = require('./banks').BanksEntity;
+
+exports.PeriodicExpendituresEntity = require('./periodicExpenditures').PeriodicExpendituresEntity;
+
+exports.ExpendituresEntity = require('./expenditures').ExpendituresEntity;
+
+exports.IncidentalRevenuesEntity = require('./incidentalRevenue').IncidentalRevenuesEntity;
+
+exports.DepositsEntity = require('./deposits').DepositsEntity;

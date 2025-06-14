@@ -3,11 +3,12 @@ var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const Entity = require('./index');
 const FeesSchema = require('./fees');
+const { number } = require('joi');
 
 const FeeInvoiceSchema = new Schema({
 	feeName: String,
 	amount: Number,
-	type: {
+	unit: {
 		enum: ['person', 'index', 'vehicle', 'room'],
 		type: String,
 		required: true,
@@ -29,6 +30,9 @@ const FeeInvoiceSchema = new Schema({
 		required: function () {
 			return this.type === 'index';
 		},
+	},
+	feeKey: {
+		type: String,
 	},
 });
 
@@ -82,115 +86,33 @@ const InvoicesSchema = new Schema({
 	},
 	status: { type: String, enum: ['unpaid', 'paid', 'partial'], default: 'unpaid' },
 	fee: [FeeInvoiceSchema],
+	debts: [{ content: { type: String }, amount: { type: Number, default: 0 } }],
+	payer: {
+		type: String,
+		trim: true,
+		required: true,
+	},
+	paymentContent: {
+		type: String,
+		required: true,
+		trim: true,
+	},
+	locked: {
+		// biểu thị việc hóa đơn đã chốt sổ hay chưa ? => thay đổi khi statistics(lock);
+		type: Boolean,
+		default: false,
+	},
 });
 
-// Thêm validation cho logic
-
-// InvoicesSchema.pre('updateOne', async function (next) {
-// 	let getquery = this.getQuery();
-// 	console.log('query criteria', getquery);
-// 	const update = this.getUpdate(); // Lấy dữ liệu cập nhật
-// 	let getlastelec = this._update.$set.lastelecnumber;
-// 	let getfirstelec = this._update.$set.firstelecnumber;
-
-// 	let getlastWater = this._update.$set.lastwaternumber;
-// 	let getfirstWater = this._update.$set.firstwaternumber;
-// 	// or this._update['$set].lastelecnumber
-// 	const roomId = getquery.room;
-// 	console.log('this is log of roomId: ', roomId);
-// 	try {
-// 		const foundService = await Entity.ServicesEntity.findOne({ room: roomId }).exec();
-// 		console.log('this is log of foundService: ', foundService);
-// 		const foundRoom = await Entity.RoomsEntity.findOne({ _id: roomId }).exec();
-// 		console.log('this is lof of fondRooms_InvoiceSchema:', foundRoom);
-// 		if (!foundService) {
-// 			const error = new Error('Không tìm thấy dữ liệu service với id đã cung cấp.');
-// 			return error;
-// 		}
-// 		const calculatedElecprice = (getlastelec - getfirstelec) * foundService.electric;
-// 		this.set('elecprice', calculatedElecprice);
-// 		console.log('this is log of elecprice: ', calculatedElecprice);
-
-// 		if (foundService.iswaterpayment == true) {
-// 			const calculatedWaterprice = (getlastWater - getfirstWater) * foundService.waterindex;
-// 			this.set('waterprice', calculatedWaterprice);
-// 			console.log('this is log of waterPrice', calculatedWaterprice);
-// 		}
-// 		// calculate total bill
-// 		const calculatedTotal =
-// 			((foundRoom.roomprice +
-// 				foundService.generalservice +
-// 				this.get('waterprice') +
-// 				this.get('elevator') +
-// 				this.get('motobike') +
-// 				this.get('elecprice')) /
-// 				30) *
-// 			this.get('daystay');
-// 		// Total Cost Round
-// 		const totalCostRound = Math.round(calculatedTotal / 1000) * 1000;
-
-// 		this.set('total', totalCostRound);
-// 		console.log('this is total_invoice', totalCostRound);
-// 		next();
-// 	} catch (err) {
-// 		console.error(err);
-// 	}
-// });
-
-// InvoicesSchema.pre('save', async function (next) {
-// 	// let filter = this.getFilter();
-// 	// console.log('query filter', filter);
-// 	// const update = this.getUpdate(); // Lấy dữ liệu cập nhật
-// 	let getlastelec = this.lastelecnumber;
-// 	let getfirstelec = this.firstelecnumber;
-// 	let getlastWater = this.lastwaternumber;
-// 	console.log('getlastWater', getlastWater);
-// 	let getfirstWater = this.firstwaternumber;
-// 	console.log('getfirstWater', getfirstWater);
-
-// 	let roomId = this.room;
-// 	console.log('this is roomid', roomId);
-// 	// or this._update['$set].lastelecnumber
-// 	// const roomId = getquery.room;
-// 	console.log('this is log of roomId: ', roomId);
-// 	try {
-// 		const foundService = await Entity.ServicesEntity.findOne({ room: roomId }).exec();
-// 		console.log('this is log of foundService: ', foundService);
-// 		const foundRoom = await Entity.RoomsEntity.findOne({ _id: roomId }).exec();
-// 		console.log('this is lof of fondRooms_InvoiceSchema:', foundRoom);
-// 		if (!foundService) {
-// 			const error = new Error('Không tìm thấy dữ liệu service với id đã cung cấp.');
-// 			return error;
-// 		}
-// 		const calculatedElecprice = (getlastelec - getfirstelec) * foundService.electric;
-// 		this.set('elecprice', calculatedElecprice);
-// 		console.log('this is log of elecprice: ', calculatedElecprice);
-
-// 		// caculate water number
-// 		if (foundService.iswaterpayment === true) {
-// 			const calculatedWaterprice = (getlastWater - getfirstWater) * foundService.waterindex;
-// 			this.set('waterprice', calculatedWaterprice);
-// 			console.log('this is log of waterPrice', calculatedWaterprice);
-// 		}
-// 		// calculate total bill
-// 		const calculatedTotal =
-// 			((foundRoom.roomprice +
-// 				foundService.generalservice +
-// 				this.get('waterprice') +
-// 				this.get('elevator') +
-// 				this.get('motobike') +
-// 				this.get('elecprice')) /
-// 				30) *
-// 			this.get('daystay');
-// 		// Total Cost Round
-// 		const totalCostRound = Math.round(calculatedTotal / 1000) * 1000;
-
-// 		this.set('total', totalCostRound);
-// 		console.log('this is total_invoice', totalCostRound);
-// 		next();
-// 	} catch (err) {
-// 		console.error(err);
-// 	}
-// });
+InvoicesSchema.pre('save', async function (next) {
+	if (!this.payer) {
+		const currentCustomer = await Entity.CustomersEntity.findOne({ room: this.room, isContractOwner: true });
+		console.log('log of currentCustomer from Pre-save InvoicesSchema: ', currentCustomer);
+		if (currentCustomer != null) {
+			this.payer = currentCustomer.fullName;
+		}
+	}
+	next();
+});
 
 exports.InvoicesEntity = mongoose.model('InvoicesEntity', InvoicesSchema, 'invoices');

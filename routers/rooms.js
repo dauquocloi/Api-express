@@ -2,52 +2,58 @@ const UseCase = require('../cores/rooms');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { result } = require('underscore');
+const { importRoomImageSchema, modifyInteriorSchema } = require('../utils/validator');
+const { Mongoose } = require('mongoose');
 
-const JWT_SECRET = '82371923sdasdads[]sdsadasd';
+// const JWT_SECRET = '82371923sdasdads[]sdsadasd'; // this is shit
 
 exports.getAll = (req, res, next) => {
-	var data = req.body;
-	console.log('This is log of rooms/getall', req.body);
-	UseCase.getAll(data, (err, result) => {
-		if (err) {
-			return res.status(204).send({
-				errorCode: 0,
-				data: {},
-				message: 'err',
-				errors: [],
-			});
-		} else {
-			return res.status(200).send({
-				errorCode: 0,
-				data: result,
-				message: 'succesfull',
-				errors: [],
-			});
-		}
-	});
+	const data = req.params;
+	console.log('This is log of rooms/getall', req.params);
+	UseCase.getAll(
+		data,
+		(err, result) => {
+			if (err) {
+				return res.status(204).send({
+					errorCode: 0,
+					data: {},
+					message: 'err',
+					errors: [],
+				});
+			} else {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'succesfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
 };
 
-exports.getRoomById = (req, res, next) => {
-	let data = req.params;
-	console.log(data);
+exports.getRoom = (req, res, next) => {
+	try {
+		let data = req.params;
 
-	UseCase.getRoomById(data, (err, result) => {
-		if (err) {
-			return res.status(204).send({
-				errorCode: 0,
-				data: {},
-				message: 'created fail',
-				errors: [],
-			});
-		} else {
-			return res.status(201).send({
-				errorCode: 0,
-				data: result,
-				message: 'succesfull created',
-				errors: [],
-			});
-		}
-	});
+		UseCase.getRoom(
+			data,
+			(err, result) => {
+				if (result) {
+					return res.status(200).send({
+						errorCode: 0,
+						data: result,
+						message: 'succesfull',
+						errors: [],
+					});
+				}
+			},
+			next,
+		);
+	} catch (error) {
+		next(error);
+	}
 };
 
 exports.create = (req, res, next) => {
@@ -115,4 +121,142 @@ exports.finance = (req, res) => {
 			});
 		}
 	});
+};
+
+exports.importImage = (req, res, next) => {
+	try {
+		const { error, value } = importRoomImageSchema(req.params);
+
+		if (error) {
+			return res.status(400).send({
+				errorCode: 1,
+				data: {},
+				message: 'Invalid input data',
+				errors: error.details.map((err) => err.message),
+			});
+		}
+		const imagesRoom = req.files;
+
+		const data = { ...req.params, imagesRoom };
+		console.log(data);
+		UseCase.importImage(
+			data,
+			(err, result) => {
+				if (result) {
+					return res.status(200).send({
+						errorCode: 0,
+						data: result,
+						message: 'succesfull',
+						errors: [],
+					});
+				}
+			},
+			next,
+		);
+	} catch (error) {
+		next(new Error(error.message));
+	}
+};
+
+exports.addInterior = (req, res, next) => {
+	try {
+		console.log('log of addInterior: ', req.body);
+		const { error, value } = modifyInteriorSchema(req.body);
+		if (error) {
+			console.log('log of error from addInterior', error);
+			return res.status(400).send({
+				errorCode: 1,
+				data: {},
+				message: 'Invalid input data',
+				errors: error.details.map((err) => err.message),
+			});
+		}
+		const data = { ...req.params, ...req.body };
+		UseCase.addInterior(
+			data,
+			(err, result) => {
+				if (result) {
+					return res.status(201).send({
+						errorCode: 0,
+						data: result,
+						message: 'succesfull',
+						errors: [],
+					});
+				}
+			},
+			next,
+		);
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.removeInterior = (req, res, next) => {
+	try {
+		const { error, value } = modifyInteriorSchema(req.body);
+		const data = { ...req.params, ...req.body };
+		UseCase.removeInterior(
+			data,
+			(err, result) => {
+				if (result) {
+					return res.status(200).send({
+						errorCode: 0,
+						data: {},
+						message: 'interiorRemoved',
+						errors: [],
+					});
+				}
+			},
+			next,
+		);
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.editInterior = (req, res, next) => {
+	try {
+		const data = { ...req.params, ...req.body };
+		console.log('log of data from editInterior: ', data);
+		UseCase.editInterior(
+			data,
+			(err, result) => {
+				if (result) {
+					return res.status(200).send({
+						errorCode: 0,
+						data: {},
+						message: 'interiorRemoved',
+						errors: [],
+					});
+				}
+			},
+			next,
+		);
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.getListSelectingRoom = (req, res, next) => {
+	try {
+		const data = req.params;
+		console.log('log of data from getListSelectingRoom: ', data);
+
+		UseCase.getListSelectingRoom(
+			data,
+			(err, result) => {
+				if (result) {
+					return res.status(200).send({
+						errorCode: 0,
+						data: result,
+						message: 'successfull',
+						errors: [],
+					});
+				}
+			},
+			next,
+		);
+	} catch (error) {
+		next(error);
+	}
 };
