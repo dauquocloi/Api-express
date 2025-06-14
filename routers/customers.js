@@ -1,44 +1,193 @@
 const UseCase = require('../cores/customers');
-
+const { modifyCustomerSchema } = require('../utils/validator');
 exports.getAll = (req, res, next) => {
-	var data = req.params;
-	UseCase.getAll(data, (err, result) => {
-		if (err) {
-			return res.status(204).send({
-				errorCode: 0,
-				data: {},
-				message: err,
-				errors: [],
-			});
-		} else {
-			return res.status(200).send({
-				errorCode: 0,
-				data: result,
-				message: 'succesfull',
-				errors: [],
-			});
-		}
-	});
+	try {
+		var data = req.params;
+		console.log('log of data from getAllCustomers: ', data);
+		UseCase.getAll(
+			data,
+			(err, result) => {
+				if (err) {
+					return res.status(204).send({
+						errorCode: 0,
+						data: {},
+						message: err,
+						errors: [],
+					});
+				} else {
+					return res.status(200).send({
+						errorCode: 0,
+						data: result,
+						message: 'succesfull',
+						errors: [],
+					});
+				}
+			},
+			next,
+		);
+	} catch (error) {
+		next(error);
+	}
 };
 
-exports.getById = (req, res, next) => {
+exports.getCustomerById = (req, res, next) => {
 	let data = req.params;
-	console.log(data);
-	UseCase.getById(data, (err, result) => {
-		if (err) {
-			return res.status(204).send({
-				errorCode: 0,
-				data: {},
-				message: 'err',
-				errors: [],
-			});
-		} else {
-			return res.status(200).send({
-				errorCode: 0,
-				data: result,
-				message: 'succesfull',
-				errors: [],
-			});
-		}
-	});
+	console.log('log of getCustomerById', data);
+	UseCase.getCustomerById(
+		data,
+		(err, result) => {
+			if (err) {
+				return res.status(204).send({
+					errorCode: 0,
+					data: {},
+					message: 'err',
+					errors: [],
+				});
+			} else {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'succesfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.editCustomer = (req, res, next) => {
+	let data = { ...req.params, ...req.body };
+	console.log('log of data from editCustomer: ', data);
+	const { error, value } = modifyCustomerSchema(data);
+	if (error) {
+		console.log(error);
+		return res.status(400).send({
+			errorCode: 1,
+			data: {},
+			message: 'Invalid input data',
+			errors: error.details.map((err) => err.message),
+		});
+	}
+
+	UseCase.editCustomer(
+		data,
+		(err, result) => {
+			if (err) {
+				return res.status(204).json({
+					errorCode: 0,
+					data: {},
+					message: err.message,
+					errors: [],
+				});
+			} else {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'succesfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.addCustomer = (req, res, next) => {
+	const { error, value } = modifyCustomerSchema(req.body);
+	if (error) {
+		console.log(error);
+		return res.status(400).send({
+			errorCode: 1,
+			data: {},
+			message: 'Invalid input data',
+			errors: error.details.map((err) => err.message),
+		});
+	}
+	let data = { ...req.params, ...req.body };
+
+	UseCase.addCustomer(
+		data,
+		(err, result) => {
+			if (err) {
+				return res.status(204).json({
+					errorCode: 0,
+					data: {},
+					message: err.message,
+					errors: [],
+				});
+			} else {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'succesfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.setCustomerStatus = (req, res, next) => {
+	let data = req.params;
+	console.log('log of data from setStatusCustomer: ', data);
+	const { error, value } = modifyCustomerSchema(data);
+	if (error) {
+		console.log(error);
+		return res.status(400).send({
+			errorCode: 1,
+			data: {},
+			message: 'Invalid input data',
+			errors: error.details.map((err) => err.message),
+		});
+	}
+
+	UseCase.setCustomerStatus(
+		data,
+		(err, result) => {
+			if (err) {
+				return res.status(204).json({
+					errorCode: 0,
+					data: {},
+					message: err.message,
+					errors: [],
+				});
+			} else {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'succesfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.getCustomerLeaved = (req, res, next) => {
+	let data = req.params;
+	console.log('log of getCustomerLeaved', data);
+	UseCase.getCustomerLeaved(
+		data,
+		(err, result) => {
+			if (err) {
+				return res.status(204).send({
+					errorCode: 0,
+					data: {},
+					message: 'err',
+					errors: [],
+				});
+			} else {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'succesfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
 };

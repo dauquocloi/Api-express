@@ -35,6 +35,7 @@ switch (configType) {
 		};
 		exports.JWT = {
 			JWT_SECRET: '82371923sdasdads[]sdsadasd',
+			JWT_REFRESH: '0982238589@13/10/03',
 		};
 		exports.cloudinary = cloudinary;
 		break;

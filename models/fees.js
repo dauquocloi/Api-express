@@ -17,9 +17,20 @@ const FeesSchema = new Schema({
 		enum: ['person', 'index', 'vehicle', 'room'],
 		required: true,
 	},
+	lastIndex: {
+		type: Number,
+		required: function () {
+			return this.unit === 'index';
+		},
+	},
 	description: {
 		type: String,
 	},
+	feeKey: {
+		type: String,
+		required: true,
+	},
+	iconPath: { type: String },
 	room: {
 		type: Schema.Types.ObjectId,
 		ref: 'RoomsEntity',

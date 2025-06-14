@@ -1,6 +1,7 @@
 var mongoose = require('mongoose');
 const Entity = require('./index');
 const Schema = mongoose.Schema;
+const getFileUrl = require('../utils/getFileUrl');
 // Create a Mongoose Schema
 
 const InteriorsSchema = new Schema({
@@ -12,9 +13,9 @@ const InteriorsSchema = new Schema({
 		type: Number,
 		required: true,
 	},
-	interiorCode: {
-		type: String,
-		unique: true,
+	interiorRentalDate: {
+		type: Date,
+		default: Date.now,
 	},
 });
 
@@ -52,27 +53,38 @@ const RoomsSchema = new Schema({
 		ref: 'PaymentsEntity',
 	},
 	interior: [InteriorsSchema],
+
+	roomImage: {
+		ref: [{ type: String }],
+		lastUpload: { type: Date, default: Date.now },
+	},
 });
 
-// RoomsSchema.pre('save', async function (next) {
-// 	const serviceId = this.service;
-// 	let foundService;
-// 	try {
-// 		const foundService = await Entity.ServicesEntity.findById(serviceId).exec();
+RoomsSchema.post('aggregate', async function (docs, next) {
+	try {
+		console.log(docs);
+		if (docs[0]?.roomImage != undefined && docs.length > 0) {
+			const { roomImage } = docs[0];
+			const roomImageUrl = [];
+			for (const key of roomImage.ref) {
+				const signalUrl = await getFileUrl(key);
+				roomImageUrl.push(signalUrl);
+			}
+			console.log(roomImageUrl);
 
-// 		if (!foundService) {
-// 			const error = new Error('Không tìm thấy dữ liệu service với id đã cung cấp.');
-// 			return next(error);
-// 		}
-// 		// elecprice when create room
-// 		console.log('log found id 1:', foundService);
-// 		this.elecprice = (this.lastelecnumber - this.firstelecnumber) * foundService.electric;
-// 		console.log(this.elecprice);
-// 		next();
-// 	} catch (err) {
-// 		next(err);
-// 	}
-// });
+			if (docs[0].roomImage) {
+				docs[0].roomImage.ref = roomImageUrl; // Gán an toàn
+			}
+
+			console.log('log of new roomImage: ', docs[0].roomImage.ref);
+			next();
+		} else {
+			next();
+		}
+	} catch (error) {
+		throw new Error(error.message);
+	}
+});
 
 exports.RoomsEntity = mongoose.model('RoomsEntity', RoomsSchema, 'rooms');
 // Register the room schema

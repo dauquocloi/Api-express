@@ -7,6 +7,7 @@ const XLSX = require('xlsx');
 
 exports.addManyRooms = (req, res, next) => {
 	try {
+		console.log(req.file);
 		if (!req.file) {
 			return res.status(400).json({ message: 'Vui lòng chọn một file Excel!' });
 		}
@@ -22,27 +23,24 @@ exports.addManyRooms = (req, res, next) => {
 		};
 		let data = {
 			buildingInfo,
-			roomFile: req.file.path,
+			roomFile: req.file.buffer,
 		};
 		console.log(buildingInfo);
 
-		UseCase.addManyRooms(data, (err, result) => {
-			if (err) {
-				return res.status(204).send({
-					errorCode: 0,
-					data: {},
-					message: 'created fail',
-					errors: [],
-				});
-			} else {
-				return res.status(201).send({
-					errorCode: 0,
-					data: result,
-					message: 'succesfull created',
-					errors: [],
-				});
-			}
-		});
+		UseCase.addManyRooms(
+			data,
+			(err, result) => {
+				if (result) {
+					return res.status(200).send({
+						errorCode: 0,
+						data: result,
+						message: 'succesfull created',
+						errors: [],
+					});
+				}
+			},
+			next,
+		);
 	} catch (error) {
 		return res.status(500).json({ message: 'Lỗi xử lý file!', error: error.message });
 	}

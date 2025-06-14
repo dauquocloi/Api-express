@@ -3,6 +3,8 @@ const MongoConnect = require('../utils/MongoConnect');
 var Entity = require('../models');
 const bcrypt = require('bcrypt');
 const { query } = require('express');
+const uploadImage = require('../utils/uploadImage');
+
 // const config = require('../config'); // Điều này sẽ nạp `cloudinary` đã được export
 
 // get All Rooms by building name
@@ -101,111 +103,246 @@ const { query } = require('express');
 // 		});
 // };
 
-exports.getAll = (data, cb) => {
-	MongoConnect.Connect(config.database.name).then((db) => {
-		try {
-			Entity.BuildingsEntity.aggregate(
-				[
-					{
-						$match: {
-							buildingName: data.buildingName,
+//this is peace of shit
+// exports.getAll = (data, cb) => {
+// 	MongoConnect.Connect(config.database.name).then((db) => {
+// 		try {
+// 			Entity.BuildingsEntity.aggregate(
+// 				[
+// 					{
+// 						$match: {
+// 							buildingName: data.buildingName,
+// 						},
+// 					},
+// 					{
+// 						$lookup: {
+// 							from: 'rooms',
+// 							localField: '_id',
+// 							foreignField: 'building',
+// 							as: 'roomInfo',
+// 						},
+// 					},
+// 					{
+// 						$unwind: {
+// 							path: '$roomInfo',
+// 						},
+// 					},
+// 					{
+// 						$project: {
+// 							_id: '$_id',
+// 							roomId: '$roomInfo._id',
+// 							roomIndex: '$roomInfo.roomIndex',
+// 							roomPrice: '$roomInfo.roomPrice',
+// 							roomState: '$roomInfo.roomState',
+// 						},
+// 					},
+// 					{
+// 						$group: {
+// 							_id: '$_id',
+// 							roomInfo: {
+// 								$push: {
+// 									_id: '$roomId',
+// 									roomIndex: '$roomIndex',
+// 									roomPrice: '$roomPrice',
+// 									roomState: '$roomState',
+// 								},
+// 							},
+// 						},
+// 					},
+// 				],
+// 				cb,
+// 			);
+// 		} catch (error) {
+// 			throw error;
+// 		}
+// 	});
+// };
+
+exports.getAll = async (data, cb, next) => {
+	try {
+		const db = MongoConnect.Connect(config.database.name);
+		const buildingId = mongoose.Types.ObjectId(`${data.buildingId}`);
+		const listRooms = await Entity.BuildingsEntity.aggregate([
+			{
+				$match: {
+					_id: buildingId,
+				},
+			},
+			{
+				$lookup: {
+					from: 'rooms',
+					localField: '_id',
+					foreignField: 'building',
+					as: 'roomInfo',
+				},
+			},
+			{
+				$unwind: {
+					path: '$roomInfo',
+				},
+			},
+			{
+				$project: {
+					_id: '$_id',
+					roomId: '$roomInfo._id',
+					roomIndex: '$roomInfo.roomIndex',
+					roomPrice: '$roomInfo.roomPrice',
+					roomState: '$roomInfo.roomState',
+				},
+			},
+			{
+				$group: {
+					_id: '$_id',
+					roomInfo: {
+						$push: {
+							_id: '$roomId',
+							roomIndex: '$roomIndex',
+							roomPrice: '$roomPrice',
+							roomState: '$roomState',
 						},
 					},
-					{
-						$lookup: {
-							from: 'rooms',
-							localField: '_id',
-							foreignField: 'building',
-							as: 'roomInfo',
-						},
+				},
+			},
+		]);
+		if (listRooms.length > 0) {
+			const { roomInfo } = listRooms[0];
+			cb(null, roomInfo);
+		} else {
+			next(new Error('can not find rooms !'));
+		}
+	} catch (error) {
+		next(error);
+	}
+};
+
+// exports.getRoomById = (data, cb) => {
+// 	let roomId = mongoose.Types.ObjectId(`${data.id}`);
+// 	MongoConnect.Connect(config.database.name).then((db) => {
+// 		Entity.RoomsEntity.aggregate(
+// 			[
+// 				{
+// 					$match: {
+// 						_id: roomId,
+// 					},
+// 				},
+// 				{
+// 					$lookup: {
+// 						from: 'fees',
+// 						localField: '_id',
+// 						foreignField: 'room',
+// 						as: 'feeInfo',
+// 					},
+// 				},
+// 				{
+// 					$lookup: {
+// 						from: 'contracts',
+// 						localField: '_id',
+// 						foreignField: 'room',
+// 						as: 'contractInfo',
+// 					},
+// 				},
+// 				{
+// 					$unwind: {
+// 						path: '$contractInfo',
+// 					},
+// 				},
+// 				{
+// 					$lookup: {
+// 						from: 'customers',
+// 						localField: '_id',
+// 						foreignField: 'room',
+// 						as: 'customerInfo',
+// 					},
+// 				},
+// 				{
+// 					$lookup: {
+// 						from: 'vehicles',
+// 						localField: 'customerInfo._id',
+// 						foreignField: 'owner',
+// 						as: 'vehicleInfo',
+// 					},
+// 				},
+// 			],
+// 			cb,
+// 		);
+// 	});
+// };
+
+exports.getRoom = async (data, cb, next) => {
+	try {
+		const db = MongoConnect.Connect(config.database.name);
+		const roomId = mongoose.Types.ObjectId(`${data.roomId}`);
+
+		const roomInfo = await Entity.RoomsEntity.aggregate([
+			{
+				$match: {
+					_id: roomId,
+				},
+			},
+			{
+				$lookup: {
+					from: 'fees',
+					localField: '_id',
+					foreignField: 'room',
+					as: 'feeInfo',
+				},
+			},
+			{
+				$lookup: {
+					from: 'contracts',
+					let: {
+						roomId: '$_id',
 					},
-					{
-						$unwind: {
-							path: '$roomInfo',
-						},
-					},
-					{
-						$project: {
-							_id: '$_id',
-							roomId: '$roomInfo._id',
-							roomIndex: '$roomInfo.roomIndex',
-							roomPrice: '$roomInfo.roomPrice',
-							roomState: '$roomInfo.roomState',
-						},
-					},
-					{
-						$group: {
-							_id: '$_id',
-							roomInfo: {
-								$push: {
-									_id: '$roomId',
-									roomIndex: '$roomIndex',
-									roomPrice: '$roomPrice',
-									roomState: '$roomState',
+					pipeline: [
+						{
+							$match: {
+								$expr: {
+									$and: [{ $eq: ['$room', '$$roomId'] }],
 								},
 							},
 						},
-					},
-				],
-				cb,
-			);
-		} catch (error) {
-			throw error;
-		}
-	});
-};
+						{
+							$sort: { contractEndDate: -1 },
+						},
+						{
+							$limit: 1,
+						},
+					],
+					as: 'contractInfo',
+				},
+			},
+			{
+				$unwind: {
+					path: '$contractInfo',
+					preserveNullAndEmptyArrays: true,
+				},
+			},
+			{
+				$lookup: {
+					from: 'customers',
+					localField: '_id',
+					foreignField: 'room',
+					as: 'customerInfo',
+				},
+			},
+			{
+				$lookup: {
+					from: 'vehicles',
+					localField: 'customerInfo._id',
+					foreignField: 'owner',
+					as: 'vehicleInfo',
+				},
+			},
+		]);
 
-exports.getRoomById = (data, cb) => {
-	let roomId = mongoose.Types.ObjectId(`${data.id}`);
-	MongoConnect.Connect(config.database.name).then((db) => {
-		Entity.RoomsEntity.aggregate(
-			[
-				{
-					$match: {
-						_id: roomId,
-					},
-				},
-				{
-					$lookup: {
-						from: 'fees',
-						localField: '_id',
-						foreignField: 'room',
-						as: 'feeInfo',
-					},
-				},
-				{
-					$lookup: {
-						from: 'contracts',
-						localField: '_id',
-						foreignField: 'room',
-						as: 'contractInfo',
-					},
-				},
-				{
-					$unwind: {
-						path: '$contractInfo',
-					},
-				},
-				{
-					$lookup: {
-						from: 'customers',
-						localField: '_id',
-						foreignField: 'room',
-						as: 'customerInfo',
-					},
-				},
-				{
-					$lookup: {
-						from: 'vehicles',
-						localField: 'customerInfo._id',
-						foreignField: 'owner',
-						as: 'vehicleInfo',
-					},
-				},
-			],
-			cb,
-		);
-	});
+		if (roomInfo.length > 0) {
+			cb(null, roomInfo);
+		} else {
+			next(new Error('can not find rooms !'));
+		}
+	} catch (error) {
+		next(error);
+	}
 };
 
 exports.create = (data, cb) => {
@@ -374,4 +511,156 @@ exports.finance = (data, cb) => {
 			cb,
 		);
 	});
+};
+
+exports.importImage = async (data, cb, next) => {
+	try {
+		const db = MongoConnect.Connect(config.database.name);
+		const roomId = mongoose.Types.ObjectId(`${data.roomId}`);
+		const roomRecent = await Entity.RoomsEntity.findById(roomId);
+
+		const roomImages = [];
+		for (const image of data.imagesRoom) {
+			const handleUploadImage = await uploadImage(image?.buffer);
+			roomImages.push(handleUploadImage.Key);
+		}
+
+		if (roomRecent.roomImage?.ref) {
+			roomRecent.roomImage?.ref.push(...roomImages);
+		}
+
+		console.log('log of roomRecent: ', roomRecent);
+		const importedRoomImages = await roomRecent.save();
+		cb(null, importedRoomImages);
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.addInterior = async (data, cb, next) => {
+	try {
+		const db = MongoConnect.Connect(config.database.name);
+		const roomId = mongoose.Types.ObjectId(data.roomId);
+
+		const newInteriorInfo = {
+			_id: new mongoose.Types.ObjectId(),
+			interiorName: data.interiorName,
+			quantity: data.interiorQuantity,
+			interiorRentalDate: data.interiorRentalDate,
+		};
+
+		const newInterior = await Entity.RoomsEntity.findByIdAndUpdate(roomId, { $push: { interior: newInteriorInfo } }, { new: true });
+		if (newInterior != null) {
+			cb(null, newInterior);
+		} else {
+			throw new Error('Cannot find room !');
+		}
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.removeInterior = async (data, cb, next) => {
+	try {
+		const db = MongoConnect.Connect(config.database.name);
+		const interiorId = mongoose.Types.ObjectId(`${data.interiorId}`);
+
+		const interiorRemoved = await Entity.RoomsEntity.findOneAndUpdate(
+			{ 'interior._id': interiorId },
+			{ $pull: { interior: { _id: interiorId } } },
+			{ new: true, runValidators: true },
+		);
+		if (interiorRemoved != null) {
+			console.log(interiorRemoved);
+			cb(null, interiorRemoved);
+		} else {
+			return next(new Error('interior does not exist'));
+		}
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.editInterior = async (data, cb, next) => {
+	try {
+		const db = MongoConnect.Connect(config.database.name);
+		const interiorId = mongoose.Types.ObjectId(`${data.interiorId}`);
+		const roomId = mongoose.Types.ObjectId(`${data.roomId}`);
+
+		const interior = await Entity.RoomsEntity.findOneAndUpdate(
+			{
+				_id: roomId, // roomId
+				'interior._id': interiorId, // interiorId
+			},
+			{
+				$set: {
+					'interior.$.interiorName': data.interiorName,
+					'interior.$.quantity': data.quantity, // Cập nhật số lượng
+					'interior.$.interiorRentalDate': data.interiorRentalDate, // Cập nhật ngày thuê
+				},
+			},
+			{ new: true },
+		);
+		if (interior != null) {
+			cb(null, interior);
+		} else {
+			return next(new Error('interior does not exist'));
+		}
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.setRoomUnRenting = async (data, cb, next) => {
+	try {
+		const db = MongoConnect.Connect(config.datbase.name);
+
+		if (data.SetUnRentingType == 'early') {
+		}
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.getListSelectingRoom = async (data, cb, next) => {
+	try {
+		const db = MongoConnect.Connect(config.database.name);
+		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		const listRooms = await Entity.BuildingsEntity.aggregate([
+			{
+				$match: {
+					_id: buildingObjectId,
+				},
+			},
+			{
+				$lookup: {
+					from: 'rooms',
+					let: { buildingId: '$_id' },
+					pipeline: [
+						{
+							$match: {
+								$expr: {
+									$eq: ['$building', '$$buildingId'],
+								},
+							},
+						},
+						{
+							$project: {
+								_id: 1,
+								roomIndex: 1,
+							},
+						},
+					],
+					as: 'listRooms',
+				},
+			},
+		]);
+
+		if (listRooms.length == 0) {
+			throw new Error(`Tòa nhà với Id: ${data.buildingId} không tồn tại !`);
+		}
+		cb(null, listRooms[0].listRooms);
+	} catch (error) {
+		next(error);
+	}
 };

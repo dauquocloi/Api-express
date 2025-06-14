@@ -1,23 +1,150 @@
 const UseCase = require('../cores/vehicles');
+const { editVehicleSchema, addVehicleSchema, getVehicleSchema } = require('../utils/validator');
 
 exports.getAll = (req, res, next) => {
 	var data = req.params;
 	console.log(req.params);
-	UseCase.getAll(data, (err, result) => {
-		if (err) {
-			return res.status(500).send({
+	UseCase.getAll(
+		data,
+		(err, result) => {
+			if (err) {
+				return res.status(500).send({
+					errorCode: 1,
+					data: {},
+					message: err.message,
+					errors: [],
+				});
+			} else {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'succesfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.editVehicle = (req, res, next) => {
+	const { error, value } = editVehicleSchema(req.body);
+	console.log(req.body);
+
+	let vehicleImage;
+	if (req.file?.fieldname == 'image') {
+		vehicleImage = req.file;
+	}
+
+	let data = { ...req.params, ...req.body, vehicleImage };
+	console.log('log of data from edit vehicle: ', data);
+	if (error) {
+		console.log(error);
+		return res.status(400).send({
+			errorCode: 1,
+			data: {},
+			message: 'Invalid input data',
+			errors: error.details.map((err) => err.message),
+		});
+	}
+	UseCase.editVehicle(
+		data,
+		(err, result) => {
+			if (err) {
+				return res.status(204).json({
+					errorCode: 0,
+					data: {},
+					message: err.message,
+					errors: [],
+				});
+			} else {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'succesfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.addVehicle = (req, res, next) => {
+	try {
+		const { error, value } = addVehicleSchema(req.body);
+
+		if (error) {
+			console.log(error);
+			return res.status(400).send({
 				errorCode: 1,
 				data: {},
-				message: err.message,
-				errors: [],
-			});
-		} else {
-			return res.status(200).send({
-				errorCode: 0,
-				data: result,
-				message: 'succesfull',
-				errors: [],
+				message: 'Invalid input data',
+				errors: error.details.map((err) => err.message),
 			});
 		}
-	});
+
+		const data = { ...req.params, ...req.body, ...req.file };
+		console.log(data);
+		UseCase.addVehicle(
+			data,
+			(err, result) => {
+				if (err) {
+					return res.status(204).json({
+						errorCode: 0,
+						data: {},
+						message: err.message,
+						errors: [],
+					});
+				} else {
+					return res.status(200).send({
+						errorCode: 0,
+						data: result,
+						message: 'succesfull',
+						errors: [],
+					});
+				}
+			},
+			next,
+		);
+	} catch (error) {
+		return res.status(204).json({
+			errorCode: 0,
+			data: {},
+			message: error.message,
+			errors: [],
+		});
+	}
+};
+
+exports.getVehicle = (req, res, next) => {
+	try {
+		const data = { ...req.params };
+		const { error, value } = getVehicleSchema(data);
+
+		if (error) {
+			return res.status(400).send({
+				errorCode: 1,
+				data: {},
+				message: 'Invalid input data',
+				errors: error.details.map((err) => err.message),
+			});
+		}
+
+		UseCase.getVehicle(
+			data,
+			(err, result) => {
+				if (result) {
+					return res.status(200).send({
+						errorCode: 0,
+						data: result,
+						message: 'succesfull',
+						errors: [],
+					});
+				}
+			},
+
+			next,
+		);
+	} catch (error) {}
 };
