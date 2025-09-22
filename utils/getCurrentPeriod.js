@@ -4,12 +4,11 @@ const mongoose = require('mongoose');
 
 // very important !!!
 const currentPeriod = async (buildingId) => {
+	console.log('log of buildingId: ', buildingId);
 	try {
-		const db = MongoConnect.Connect(config.database.name);
-
 		const statisticsStatusInfo = await Entity.StatisticsEntity.findOne({ building: buildingId }).sort({ year: -1, month: -1 }).exec();
 
-		if (statisticsStatusInfo == null) {
+		if (!statisticsStatusInfo) {
 			throw new Error(`Dữ liệu thống kê ban đầu chưa được khởi tạo !${buildingId}`);
 		}
 

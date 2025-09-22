@@ -90,6 +90,29 @@ exports.getReceiptDetail = (req, res, next) => {
 	}
 };
 
+exports.getDepositReceiptDetail = (req, res, next) => {
+	try {
+		const data = req.query;
+		console.log('log of getDepositReceiptDetail', data);
+		UseCase.getDepositReceiptDetail(
+			data,
+			(err, result) => {
+				if (!err) {
+					return res.status(200).send({
+						errorCode: 0,
+						data: result,
+						message: 'succesfull',
+						errors: [],
+					});
+				}
+			},
+			next,
+		);
+	} catch (error) {
+		next(error);
+	}
+};
+
 exports.collectCashMoney = (req, res, next) => {
 	try {
 		const data = { ...req.params, ...req.body, ...req.user };
@@ -123,6 +146,29 @@ exports.deleteReceipt = (req, res, next) => {
 				if (!err) {
 					return res.status(204).json({
 						errorCode: 0,
+						message: 'succesfull',
+						errors: [],
+					});
+				}
+			},
+			next,
+		);
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.createDebtsReceipt = (req, res, next) => {
+	try {
+		const data = { ...req.params, ...req.body };
+		console.log('log of data from createDebtsReceipt: ', data);
+		UseCase.createDebtsReceipt(
+			data,
+			(err, result) => {
+				if (!err) {
+					return res.status(201).send({
+						errorCode: 0,
+						data: result,
 						message: 'succesfull',
 						errors: [],
 					});

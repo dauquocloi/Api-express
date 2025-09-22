@@ -6,7 +6,7 @@ const Entity = require('./index');
 const ReceiptsSchema = new Schema({
 	month: {
 		type: Number,
-		required: true,
+		required: false,
 		min: [1, 'month must be at least 1'],
 		max: [12, 'month cannot exceed 30'],
 		validate: {
@@ -16,7 +16,7 @@ const ReceiptsSchema = new Schema({
 	}, // Tháng (1 - 12)
 	year: {
 		type: Number,
-		required: true,
+		required: false,
 		validate: {
 			validator: Number.isInteger,
 			message: 'years must be an integer',
@@ -26,19 +26,46 @@ const ReceiptsSchema = new Schema({
 		type: Schema.Types.ObjectId,
 		ref: 'RoomsEntity',
 	},
-	status: { type: String, enum: ['unpaid', 'paid', 'partial', 'pending', 'cancelled'], default: 'unpaid' },
+	receiptType: {
+		type: String,
+		enum: ['deposit', 'incidental', 'debts'],
+		default: 'incidental',
+	},
+	// if receiptType === deposit => isContractCreated required.
+	isContractCreated: {
+		type: Boolean,
+		default: false,
+	},
+	// terminated: "Bỏ cọc => ghi nhận thu", cancelled: "Hủy => ko ghi nhận thu, ghi nhận giao dịch"
+
+	status: { type: String, enum: ['unpaid', 'paid', 'partial', 'pending', 'cancelled', 'terminated'], default: 'unpaid' },
 	amount: {
 		type: Number,
 		min: 0,
+	},
+	paidAmount: {
+		type: Number,
+		min: 0,
+		default: 0,
+	},
+	carriedOverPaidAmount: {
+		// used for depositReceipt => if receipt raise
+		type: Number,
+		min: 0,
+		default: 0,
 	},
 	receiptContent: {
 		type: String,
 		trim: true,
 	},
+	receiptContentDetail: {
+		type: String,
+	},
 	paymentContent: {
 		type: String,
 		required: true,
 		trim: true,
+		unique: true,
 	},
 	date: {
 		type: Date,
@@ -52,6 +79,11 @@ const ReceiptsSchema = new Schema({
 		// biểu thị việc hóa đơn đã chốt sổ hay chưa ? => thay đổi khi statistics(lock);
 		type: Boolean,
 		default: false,
+	},
+	// for receiptType: deposit
+	isActive: {
+		type: Boolean,
+		default: true,
 	},
 });
 

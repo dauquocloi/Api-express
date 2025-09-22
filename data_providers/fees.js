@@ -3,17 +3,23 @@ const MongoConnect = require('../utils/MongoConnect');
 var Entity = require('../models');
 const getListFeeInitial = require('../utils/getListFeeInital');
 
-exports.getFeesByRoomId = (data, cb, next) => {
-	let roomId = mongoose.Types.ObjectId(`${data}`);
-	MongoConnect.Connect(config.database.name).then(async (db) => {
-		await Entity.FeesEntity.find({ room: roomId }, cb);
-	});
+exports.getFeesByRoomId = async (data, cb, next) => {
+	try {
+		let roomId = mongoose.Types.ObjectId(`${data}`);
+		const fees = await Entity.FeesEntity.find({ room: roomId });
+
+		if (!fees) {
+			throw new Error(`Không có dữ liệu ${data}`);
+		}
+		cb(null, fees);
+	} catch (error) {
+		next(error);
+	}
 };
 
 exports.addFee = async (data, cb, next) => {
 	console.log(data);
 	try {
-		let db = MongoConnect.Connect(config.database.name);
 		let roomObjectId = mongoose.Types.ObjectId(data.roomId);
 		const listFeeInital = getListFeeInitial;
 		var findFee = listFeeInital.find((fee) => fee.feeKey == data.feeKey);
@@ -49,7 +55,6 @@ exports.addFee = async (data, cb, next) => {
 exports.deleteFee = async (data, cb, next) => {
 	console.log(data);
 	try {
-		let db = MongoConnect.Connect(config.database.name);
 		let feeId = mongoose.Types.ObjectId(`${data.feeId}`);
 
 		await Entity.FeesEntity.deleteOne({ _id: feeId }).exec(cb);
@@ -60,7 +65,6 @@ exports.deleteFee = async (data, cb, next) => {
 
 exports.editFee = async (data, cb, next) => {
 	try {
-		let db = MongoConnect.Connect(config.database.name);
 		let feeId = mongoose.Types.ObjectId(`${data.feeId}`);
 
 		const feeRcent = await Entity.FeesEntity.findOne({ _id: feeId });

@@ -4,7 +4,7 @@ var Entity = require('../models');
 
 exports.handleSepayIPN = (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
+		const db = MongoConnect.Connect(config.database.fullname);
 
 		if (data.transfer_type === 'credit') {
 			const tracsactionContent = data.content;
@@ -16,7 +16,7 @@ exports.handleSepayIPN = (data, cb, next) => {
 
 exports.collectCash = (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
+		const db = MongoConnect.Connect(config.database.fullname);
 	} catch (error) {
 		next(error);
 	}
@@ -24,7 +24,7 @@ exports.collectCash = (data, cb, next) => {
 
 exports.collectCashFromEmployee = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
+		const db = MongoConnect.Connect(config.database.fullname);
 		const transactionObjectId = mongoose.Types.ObjectId(data.transactionId);
 		const ownerObjectId = mongoose.Types.ObjectId(data.userId);
 

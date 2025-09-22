@@ -1,9 +1,11 @@
 const UseCase = require('../cores/vehicles');
-const { editVehicleSchema, addVehicleSchema, getVehicleSchema } = require('../utils/validator');
+const { editVehicleSchema } = require('../utils/validator');
+const { validateGetVehicle, validateCreateVehicle } = require('../utils/validator');
+const validator = require('../utils/validator');
 
 exports.getAll = (req, res, next) => {
 	var data = req.params;
-	console.log(req.params);
+	console.log('log of data from getAll vehicle: ', req.params);
 	UseCase.getAll(
 		data,
 		(err, result) => {
@@ -72,7 +74,7 @@ exports.editVehicle = (req, res, next) => {
 
 exports.addVehicle = (req, res, next) => {
 	try {
-		const { error, value } = addVehicleSchema(req.body);
+		const { error, value } = validateCreateVehicle(req.body, req.params);
 
 		if (error) {
 			console.log(error);
@@ -85,7 +87,7 @@ exports.addVehicle = (req, res, next) => {
 		}
 
 		const data = { ...req.params, ...req.body, ...req.file };
-		console.log(data);
+		console.log('log of data from addVehicle', data);
 		UseCase.addVehicle(
 			data,
 			(err, result) => {
@@ -97,7 +99,7 @@ exports.addVehicle = (req, res, next) => {
 						errors: [],
 					});
 				} else {
-					return res.status(200).send({
+					return res.status(201).send({
 						errorCode: 0,
 						data: result,
 						message: 'succesfull',
@@ -108,19 +110,15 @@ exports.addVehicle = (req, res, next) => {
 			next,
 		);
 	} catch (error) {
-		return res.status(204).json({
-			errorCode: 0,
-			data: {},
-			message: error.message,
-			errors: [],
-		});
+		next(error);
 	}
 };
 
 exports.getVehicle = (req, res, next) => {
 	try {
-		const data = { ...req.params };
-		const { error, value } = getVehicleSchema(data);
+		const data = req.params;
+		console.log('log of data from getVehicle: ', data);
+		const { error, value } = validateGetVehicle(data);
 
 		if (error) {
 			return res.status(400).send({
@@ -146,5 +144,7 @@ exports.getVehicle = (req, res, next) => {
 
 			next,
 		);
-	} catch (error) {}
+	} catch (error) {
+		next(error);
+	}
 };

@@ -6,9 +6,9 @@ const TransactionsSchema = new mongoose.Schema(
 	{
 		gateway: { type: String, required: false }, // Cổng thanh toán vd: mb, ocb,...
 		transactionDate: { type: Date, required: true }, // Ngày giao dịch
-		accountNumber: { type: String, required: false }, // Số tài khoản người nhận
+		accountNumber: { type: String, required: false }, // Số tài khoản người gửi
 		bankAccountId: { type: String, required: false }, // ID tài khoản ngân hàng (nếu có)
-		AccountOwnerName: { type: String, trim: true }, // Tên tài khoản người nhận // gọi api sepay lấy tên chủ tk
+		// AccountOwnerName: { type: String, trim: true }, // Tên tài khoản người nhận // gọi api sepay lấy tên chủ tk
 		va: { type: String, default: null }, // Số tài khoản ảo (nếu có)
 		paymentCode: { type: String, default: null }, // Mã thanh toán (nếu có)
 		content: { type: String, trim: true, required: false }, // Nội dung giao dịch
@@ -27,6 +27,20 @@ const TransactionsSchema = new mongoose.Schema(
 			type: Schema.Types.ObjectId,
 			ref: 'receipts',
 			default: null,
+		},
+		month: {
+			type: Number,
+			required: false,
+			min: [1, 'month must be at least 1'],
+			max: [12, 'month cannot exceed 12'],
+			validate: {
+				validator: Number.isInteger,
+				message: 'month must be an integer',
+			},
+		}, // Tháng (1 - 12)
+		year: {
+			type: Number,
+			required: false,
 		},
 		collector: {
 			type: Schema.Types.ObjectId,

@@ -1,3 +1,4 @@
+const { required } = require('joi');
 var mongoose = require('mongoose');
 // (Schema = mongoose.Schema), (ObjectId = Schema.ObjectId);
 require('mongoose-double')(mongoose);
@@ -39,8 +40,8 @@ const BanksSchema = new Schema({
 	},
 	active: { type: String, enum: ['1', '0'], default: '0' }, // trạng thái ngân hàng được xác nhận hay chưa ?
 	owner: {
-		type: Schema.Types.ObjectId,
-		ref: 'users',
+		type: String,
+		required: true,
 	},
 	building: [
 		{

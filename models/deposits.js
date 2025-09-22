@@ -5,8 +5,14 @@ const FeeSchema = new Schema({
 	feeName: { type: String, required: true },
 	feeAmount: { type: Number, required: true },
 	unit: { type: String, enum: ['person', 'index', 'vehicle', 'room'], required: true },
+	lastIndex: {
+		type: Number,
+		required: function () {
+			return this.unit === 'index';
+		},
+	},
 	iconPath: { type: String },
-	key: { type: String },
+	feeKey: { type: String },
 });
 
 const InteriorSchema = new Schema({
@@ -30,17 +36,17 @@ const PersonSchema = new Schema({
 const DepositsSchema = new Schema({
 	room: { type: Schema.Types.ObjectId, ref: 'rooms' },
 	building: { type: Schema.Types.ObjectId, ref: 'buildings' },
-	receipt: { type: Schema.Types.ObjectId, ref: 'receipts' },
+	receipt: { type: Schema.Types.ObjectId, ref: 'receipts' }, // Nếu tăng tiền cọc => tạo thêm receipt => trường này phải chứa một mảng các receipt
 	rent: { type: Number, required: true },
 	depositAmount: { type: Number, required: true },
 	actualDepositAmount: { type: Number, required: true },
 	depositCompletionDate: { type: Date },
 	checkinDate: { type: Date },
 	rentalTerm: { type: String },
+	numberOfOccupants: { type: Number, required: true },
 	fees: [FeeSchema],
 	interiors: [InteriorSchema],
 	customer: { type: PersonSchema, required: true },
-	numberOfOccupants: { type: Number, required: true, default: 1 },
 	status: { type: String, enum: ['cancelled', 'pending', 'close', 'paid', 'partial'] },
 });
 

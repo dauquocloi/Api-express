@@ -37,12 +37,15 @@ const RoomsSchema = new Schema({
 		// 1 - đang ở
 		// 2 - sắp trả phòng
 	},
-
-	service: {
-		type: Schema.Types.ObjectId,
-		ref: 'ServicesEntity',
+	isDeposited: {
+		type: Boolean,
+		default: false,
 	},
-
+	isRefundDeposit: {
+		//Trạng thái đang chờ trả cọc.
+		type: Boolean,
+		default: false,
+	},
 	building: {
 		type: Schema.Types.ObjectId,
 		ref: 'BuildingsEntity',
@@ -57,6 +60,10 @@ const RoomsSchema = new Schema({
 	roomImage: {
 		ref: [{ type: String }],
 		lastUpload: { type: Date, default: Date.now },
+	},
+	note: {
+		type: String,
+		default: '',
 	},
 });
 
@@ -82,7 +89,7 @@ RoomsSchema.post('aggregate', async function (docs, next) {
 			next();
 		}
 	} catch (error) {
-		throw new Error(error.message);
+		next(error);
 	}
 });
 

@@ -45,6 +45,9 @@ const UsersSchema = new Schema(
 		cccdIssueDate: {
 			type: Date,
 		},
+		cccdIssueAt: {
+			type: String,
+		},
 		role: {
 			type: String,
 			enum: ['owner', 'customer', 'sale', 'admin', 'manager', 'guest'],

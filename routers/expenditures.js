@@ -39,3 +39,23 @@ exports.modifyExpenditure = (req, res, next) => {
 		next,
 	);
 };
+
+exports.deleteExpenditure = (req, res, next) => {
+	var data = { ...req.params, ...req.body };
+	console.log('this is log of deleteExpenditure', data);
+
+	UseCase.deleteExpenditure(
+		data,
+		(err, result) => {
+			if (!err) {
+				return res.status(201).send({
+					errorCode: 0,
+					data: result,
+					message: 'succesfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};

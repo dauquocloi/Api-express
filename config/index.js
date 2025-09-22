@@ -26,12 +26,13 @@ switch (configType) {
 			maxDuration: 10000, // ms
 		};
 		exports.database = {
-			host: 'localhost',
-			port: 27017,
-			name: 'Test_app_nhatro',
-			username: '',
-			password: '',
-			optional: '',
+			// host: 'localhost',
+			// port: 27017,
+			username: 'dauquocloi2003',
+			password: '0982238589',
+			clusterUrl: 'cluster0-projecta-qltro.hgonw.mongodb.net',
+			appName: 'Cluster0-ProjectA-Qltro',
+			// optional: 'retryWrites=false',
 		};
 		exports.JWT = {
 			JWT_SECRET: '82371923sdasdads[]sdsadasd',

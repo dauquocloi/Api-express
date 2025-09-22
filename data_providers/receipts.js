@@ -7,10 +7,10 @@ const getContractOwnerByRoomId = require('./customers').getContractOwnerByRoomId
 
 exports.createReceipt = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
+
 		const getContractOwnerByRoomIdAsync = (data) => {
 			return new Promise((resolve, reject) => {
 				getContractOwnerByRoomId(
@@ -19,13 +19,11 @@ exports.createReceipt = async (data, cb, next) => {
 						if (err) return reject(err);
 						resolve(result);
 					},
-					reject,
+					next,
 				);
 			});
 		};
 		const getPayer = await getContractOwnerByRoomIdAsync(data);
-		let month;
-		let year;
 
 		const newReceipt = {
 			room: roomObjectId,
@@ -48,10 +46,8 @@ exports.createReceipt = async (data, cb, next) => {
 
 exports.createDepositReceipt = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
 		const roomInfo = await Entity.RoomsEntity.findOne({ _id: roomObjectId });
-		const currentPeriod = await getCurrentPeriod(roomInfo.building);
 
 		if (!roomInfo) {
 			throw new Error(`Phòng ${data.roomId} không tồn tại trong hệ thống`);
@@ -61,11 +57,14 @@ exports.createDepositReceipt = async (data, cb, next) => {
 			room: roomObjectId,
 			receiptContent: `Tiền cọc phòng ${roomInfo.roomIndex}`,
 			amount: data.amount,
-			month: currentPeriod.currentMonth,
-			year: currentPeriod.currentYear,
+			paidAmount: 0,
+			carriedOverPaidAmount: 0,
 			status: 'pending',
 			paymentContent: generatePaymentContent(),
 			payer: data.payer,
+			receiptType: 'deposit',
+			isContractCreated: false,
+			locked: false,
 		};
 
 		const createReceipt = await Entity.ReceiptsEntity.create(newReceipt);
@@ -78,7 +77,6 @@ exports.createDepositReceipt = async (data, cb, next) => {
 
 exports.getListReceiptPaymentStatus = async (data, cb, next) => {
 	try {
-		const dbs = MongoConnect.Connect(config.database.name);
 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 
 		let month;
@@ -207,6 +205,11 @@ exports.getListReceiptPaymentStatus = async (data, cb, next) => {
 				},
 			},
 			{
+				$sort: {
+					'rooms.roomIndex': 1,
+				},
+			},
+			{
 				$match: {
 					'receipts.0': {
 						$exists: true,
@@ -238,9 +241,8 @@ exports.getListReceiptPaymentStatus = async (data, cb, next) => {
 
 exports.getReceiptDetail = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
-		const receiptObjectId = mongoose.Types.ObjectId(data.receiptId);
 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		const receiptObjectId = mongoose.Types.ObjectId(data.receiptId);
 
 		const receiptInfo = await Entity.ReceiptsEntity.aggregate([
 			{
@@ -362,7 +364,167 @@ exports.getReceiptDetail = async (data, cb, next) => {
 				cb(null, { receiptInfo: receipt, transactionInfo: receiptInfo[0].transactionInfo, paymentInfo: null });
 			}
 		} else {
-			throw new Error(`Không tìm thấy dữ liệu hóa đơn ${data.receiptId}`);
+			throw new Error(`Hóa đơn không tồn tại`);
+		}
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.getDepositReceiptDetail = async (data, cb, next) => {
+	try {
+		const receiptObjectIds = data.receiptIds.map((id) => mongoose.Types.ObjectId(id));
+		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		console.log('log of receiptObjectIds: ', receiptObjectIds);
+
+		const receipts = await Entity.ReceiptsEntity.aggregate([
+			{
+				$match: {
+					_id: {
+						$in: receiptObjectIds,
+					},
+				},
+			},
+			{
+				$lookup: {
+					from: 'transactions',
+					localField: '_id',
+					foreignField: 'receipt',
+					as: 'transactions',
+				},
+			},
+			{
+				$group: {
+					_id: null,
+					allTransactions: {
+						$push: '$transactions',
+					},
+					docs: {
+						$push: '$$ROOT',
+					}, // gom tất cả doc vào mảng
+				},
+			},
+			{
+				$addFields: {
+					mainReceipt: {
+						$arrayElemAt: [
+							{
+								$filter: {
+									input: '$docs',
+									as: 'doc',
+									cond: {
+										$ne: ['$$doc.status', 'cancelled'],
+									},
+								},
+							},
+							0,
+						],
+					},
+				},
+			},
+			{
+				$lookup: {
+					from: 'rooms',
+					localField: 'mainReceipt.room',
+					foreignField: '_id',
+					as: 'roomInfo',
+				},
+			},
+			{
+				$project: {
+					_id: 0,
+					mainReceipt: {
+						$mergeObjects: [
+							{
+								_id: '$mainReceipt._id',
+								receiptType: '$mainReceipt.receiptType',
+								status: '$mainReceipt.status',
+								locked: '$mainReceipt.locked',
+								receiptContent: '$mainReceipt.receiptContent',
+								amount: '$mainReceipt.amount',
+								paymentContent: '$mainReceipt.paymentContent',
+								date: '$mainReceipt.date',
+								payer: '$mainReceipt.payer',
+							},
+							{
+								roomInfo: {
+									$let: {
+										vars: {
+											room: {
+												$arrayElemAt: ['$roomInfo', 0],
+											},
+										},
+										in: {
+											_id: '$$room._id',
+											roomIndex: '$$room.roomIndex',
+										},
+									},
+								},
+							},
+						],
+					},
+					allTransactions: {
+						$reduce: {
+							input: '$allTransactions',
+							initialValue: [],
+							in: {
+								$concatArrays: ['$$value', '$$this'],
+							},
+						},
+					},
+				},
+			},
+			{
+				$unwind: {
+					path: '$allTransactions',
+					preserveNullAndEmptyArrays: true,
+				},
+			},
+			{
+				$lookup: {
+					from: 'users',
+					localField: 'allTransactions.collector',
+					foreignField: '_id',
+					as: 'collectorInfo',
+				},
+			},
+			{
+				$unwind: {
+					path: '$collectorInfo',
+					preserveNullAndEmptyArrays: true,
+				},
+			},
+			{
+				$set: {
+					'allTransactions.collector': {
+						_id: '$collectorInfo._id',
+						fullName: '$collectorInfo.fullName',
+					},
+				},
+			},
+			{
+				$group: {
+					_id: null,
+					receipt: {
+						$first: '$mainReceipt',
+					},
+					transactions: {
+						$push: '$allTransactions',
+					},
+				},
+			},
+		]);
+
+		if (receipts.length === 0) throw new Error(`Hóa đơn đặt cọc không tồn tại.`);
+
+		let receipt = receipts[0]?.receipt;
+		let transactions = receipts[0]?.transactions;
+		if ((receipt.status === 'unpaid' || receipt.status == 'partial') && receipt.locked === false) {
+			const bankInfo = await Entity.BanksEntity.findOne({ building: { $in: [buildingObjectId] } });
+			console.log('log of bankInfo', bankInfo);
+			cb(null, { receiptInfo: receipt, transactionInfo: transactions, paymentInfo: bankInfo });
+		} else {
+			cb(null, { receiptInfo: receipt, transactionInfo: transactions, paymentInfo: null });
 		}
 	} catch (error) {
 		next(error);
@@ -371,9 +533,12 @@ exports.getReceiptDetail = async (data, cb, next) => {
 
 exports.collectCashMoney = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const receiptObjectId = mongoose.Types.ObjectId(data.receiptId);
 		const collectorObjectId = mongoose.Types.ObjectId(data.userId);
+		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+
+		const currentPeriod = await getCurrentPeriod(buildingObjectId);
+		const { currentMonth, currentYear } = currentPeriod || {};
 
 		const currentReceipt = await Entity.ReceiptsEntity.aggregate([
 			{
@@ -402,20 +567,21 @@ exports.collectCashMoney = async (data, cb, next) => {
 			receipt: receiptObjectId,
 			collector: collectorObjectId,
 			transferType: 'credit',
+			month: currentMonth,
+			year: currentYear,
 		});
 
-		var totalTransactionAmount;
+		var totalTransactionAmount = 0;
 		const { transactionInfo, amount } = currentReceipt[0];
 		if (transactionInfo?.length > 0) {
 			totalTransactionAmount = transactionInfo.reduce((sum, item) => {
 				return sum + item.amount;
 			}, 0);
-		} else {
-			totalTransactionAmount = 0;
 		}
 
 		const updatedTotalPaid = totalTransactionAmount + createTransaction.amount;
 		const remainingAmount = amount - updatedTotalPaid;
+		console.log('log of remainingAmount: ', remainingAmount);
 
 		let status = 'unpaid';
 		if (remainingAmount <= 0) {
@@ -424,7 +590,7 @@ exports.collectCashMoney = async (data, cb, next) => {
 			status = 'partial';
 		}
 
-		await Entity.ReceiptsEntity.updateOne({ _id: receiptObjectId }, { $set: { status } });
+		await Entity.ReceiptsEntity.updateOne({ _id: receiptObjectId }, { $set: { status, paidAmount: totalTransactionAmount } });
 
 		cb(null, 'success');
 	} catch (error) {
@@ -434,7 +600,6 @@ exports.collectCashMoney = async (data, cb, next) => {
 
 exports.deleteReceipt = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const receiptObjectId = mongoose.Types.ObjectId(data.receiptId);
 
 		const currentReceipt = await Entity.ReceiptsEntity.findOne({ _id: receiptObjectId });
@@ -447,6 +612,73 @@ exports.deleteReceipt = async (data, cb, next) => {
 		currentReceipt.status = 'cancelled';
 		await currentReceipt.save();
 		cb(null, 'success');
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.createDebtsReceipt = async (data, cb, next) => {
+	let session;
+	try {
+		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
+		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+
+		session = await mongoose.startSession();
+		session.startTransaction();
+
+		const currentDebts = await Entity.DebtsEntity.find({ room: roomObjectId, status: { $nin: ['terminated', 'paid'] } }).session(session);
+		if (currentDebts.length === 0) {
+			throw new Error(`Phòng không tồn tại khoản nợ nào.`);
+		}
+		const currentPeriod = await getCurrentPeriod(buildingObjectId);
+
+		const formateDebts = {
+			content: currentDebts
+				.map((d) => d.content)
+				.filter(Boolean)
+				.join(', '),
+			amount: currentDebts.reduce((sum, d) => sum + (d.amount || 0), 0),
+		};
+		console.log('log of formateDebts: ', formateDebts);
+		const getContractOwnerByRoomIdAsync = (data) => {
+			return new Promise((resolve, reject) => {
+				getContractOwnerByRoomId(
+					data,
+					(err, result) => {
+						if (err) return reject(err);
+						resolve(result);
+					},
+					next,
+				);
+			});
+		};
+		const getPayer = await getContractOwnerByRoomIdAsync(data);
+
+		const newReceipt = {
+			room: roomObjectId,
+			receiptContentDetail: formateDebts.content,
+			receiptContent: data.receiptContent,
+			amount: formateDebts.amount,
+			month: currentPeriod.currentMonth,
+			year: currentPeriod.currentYear,
+			paymentContent: generatePaymentContent(),
+			date: data.date,
+			payer: getPayer?.fullName,
+			status: 'unpaid',
+			receiptType: 'debts',
+		};
+		const [debtReceipt] = await Entity.ReceiptsEntity.create([newReceipt], { session });
+		console.log('log of debtReceipt from createDebtsReceipt: ', debtReceipt);
+
+		await Entity.DebtsEntity.findOneAndUpdate(
+			{ room: roomObjectId, status: { $nin: ['terminated', 'paid'] } },
+			{ status: 'terminated', sourceId: debtReceipt._id, sourceType: 'receipt' },
+		).session(session);
+
+		await session.commitTransaction();
+
+		cb(null, { receiptId: debtReceipt._id });
+		// 06/-8/2025
 	} catch (error) {
 		next(error);
 	}

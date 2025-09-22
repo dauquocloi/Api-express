@@ -4,7 +4,7 @@ var Entity = require('../models');
 const bcrypt = require('bcrypt');
 
 exports.getAll = (data, cb) => {
-	MongoConnect.Connect(config.database.name)
+	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
 			// do things here
 			Entity.ServicesEntity.find({ room: data.roomid }, cb);
@@ -17,7 +17,7 @@ exports.getAll = (data, cb) => {
 };
 
 exports.create = (data, cb) => {
-	MongoConnect.Connect(config.database.name)
+	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
 			Entity.UsersEntity.create(data, cb);
 		})
@@ -29,7 +29,7 @@ exports.create = (data, cb) => {
 
 // lấy user by emai
 exports.getEmail = (data, cb) => {
-	MongoConnect.Connect(config.database.name)
+	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
 			Entity.UsersEntity.findOne({ email: data.email }, cb);
 		})
@@ -42,7 +42,7 @@ exports.getEmail = (data, cb) => {
 
 // lấy user by email token
 exports.getEmailbyToken = (data, cb) => {
-	MongoConnect.Connect(config.database.name)
+	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
 			Entity.UsersEntity.findOne({ email: data }, cb);
 		})

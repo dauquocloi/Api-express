@@ -1,7 +1,7 @@
 var DataProvider = require('../data_providers/statistics');
 
 exports.getRevenues = (data, cb, next) => {
-	DataProvider.getRevenues(data, cb, next);
+	DataProvider.getRevenuesModified(data, cb, next);
 };
 
 exports.getExpenditures = (data, cb, next) => {

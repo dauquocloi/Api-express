@@ -43,3 +43,9 @@ exports.ExpendituresEntity = require('./expenditures').ExpendituresEntity;
 exports.IncidentalRevenuesEntity = require('./incidentalRevenue').IncidentalRevenuesEntity;
 
 exports.DepositsEntity = require('./deposits').DepositsEntity;
+
+exports.DebtsEntity = require('./debts').DebtsEntity;
+
+exports.DepositRefundsEntity = require('./depositRefunds').DepositRefundsEntity;
+
+exports.TasksEntity = require('./tasks').TasksEntity;

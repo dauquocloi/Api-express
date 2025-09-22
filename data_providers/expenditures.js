@@ -6,7 +6,7 @@ const getCurrentPeriod = require('../utils/getCurrentPeriod');
 
 // exports.createPeriodicExpenditure = async (data, cb, next) => {
 // 	try {
-// 		const db = MongoConnect.Connect(config.database.name);
+// 		const db = MongoConnect.Connect(config.database.fullname);
 // 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 
 // 		const newPeriodcExpenditure = new Entity.PeriodicExpendituresEntity({
@@ -24,7 +24,6 @@ const getCurrentPeriod = require('../utils/getCurrentPeriod');
 
 exports.createExpenditure = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 		const spenderObjectId = mongoose.Types.ObjectId(data.spender);
 
@@ -61,7 +60,6 @@ exports.createExpenditure = async (data, cb, next) => {
 
 exports.modifyExpenditure = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const expenditureObjectId = mongoose.Types.ObjectId(data.expenditureId);
 
 		if (data.type == 'incidental') {
@@ -79,7 +77,7 @@ exports.modifyExpenditure = async (data, cb, next) => {
 
 			Object.assign(currentExpenditure, newExpenditure);
 
-			const updatedExpenditure = await updatedExpenditure.save();
+			const updatedExpenditure = await currentExpenditure.save();
 			cb(null, updatedExpenditure);
 		}
 		if (data.type == 'periodic') {
@@ -97,6 +95,29 @@ exports.modifyExpenditure = async (data, cb, next) => {
 			const updatedExpenditure = await currentExpenditure.save();
 
 			cb(null, updatedExpenditure);
+		}
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.deleteExpenditure = async (data, cb, next) => {
+	try {
+		const expenditureObjectId = mongoose.Types.ObjectId(data.expenditureId);
+		if (data.type === 'incidental') {
+			const deletedExpenditure = await Entity.ExpendituresEntity.findOneAndDelete({ _id: expenditureObjectId });
+			if (deletedExpenditure === null) {
+				throw new Error(`Không tìm thấy khoản chi với id: ${data.expenditureId} `);
+			}
+			cb(null, 'success');
+		} else if (data.type === 'periodic') {
+			const deletedPeriodicExpenditure = await Entity.PeriodicExpendituresEntity.findOneAndDelete({ _id: expenditureObjectId });
+			if (deletedPeriodicExpenditure === null) {
+				throw new Error(`Không tìm thấy khoản chi với id: ${data.expenditureId} `);
+			}
+			cb(null, 'success');
+		} else {
+			throw new Error('Invalid input');
 		}
 	} catch (error) {
 		next(error);

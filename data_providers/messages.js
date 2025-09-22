@@ -9,7 +9,7 @@ const { getIO } = require('../utils/SocketConnect');
 
 const createMessage = (prop) => {
 	let { senderMessage, message, conversation } = prop;
-	MongoConnect.Connect(config.database.name).then(() => {
+	MongoConnect.Connect(config.database.fullname).then(() => {
 		try {
 			Entity.MessageEntity.create({
 				sender: senderMessage,
@@ -26,7 +26,7 @@ const createMessage = (prop) => {
 exports.getAllMessagesByUserId = (data, cb) => {
 	var userId = mongoose.Types.ObjectId(`${data.userId}`);
 	console.log('this is log of userId of getAllMessagesByUserId at data_provider:', userId);
-	MongoConnect.Connect(config.database.name)
+	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
 			// do things here
 			Entity.ConversationEntity.aggregate(
@@ -74,7 +74,7 @@ exports.newMessage = (data, cb) => {
 	const { messageContent, senderId, conversationId } = data.params;
 	const sender = mongoose.Types.ObjectId(`${senderId}`);
 
-	MongoConnect.Connect(config.database.name)
+	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
 			Entity.MessageEntity.create(
 				{
@@ -110,7 +110,7 @@ exports.getAllInfoByTextInput = (data, cb) => {
 	let userId = verifyToken.userId;
 	mongoose.Types.ObjectId(userId);
 	console.log('this is log of request sender Id', userId);
-	MongoConnect.Connect(config.database.name).then((db) => {
+	MongoConnect.Connect(config.database.fullname).then((db) => {
 		Entity.CustomersEntity.aggregate(
 			[
 				{
@@ -309,7 +309,7 @@ exports.getMessagesByConversationId = (data, cb) => {
 	const PAGE_SIZE = 20;
 	console.log(PAGE_NUMBER);
 
-	MongoConnect.Connect(config.database.name)
+	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
 			Entity.MessageEntity.find({ conversation: conversationId })
 				.skip(PAGE_NUMBER * PAGE_SIZE)

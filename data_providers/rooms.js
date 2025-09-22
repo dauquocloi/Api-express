@@ -3,164 +3,13 @@ const MongoConnect = require('../utils/MongoConnect');
 var Entity = require('../models');
 const bcrypt = require('bcrypt');
 const { query } = require('express');
-const uploadImage = require('../utils/uploadImage');
-
-// const config = require('../config'); // Điều này sẽ nạp `cloudinary` đã được export
-
-// get All Rooms by building name
-
-// exports.getAll = (data, cb) => {
-// 	console.log(data);
-// 	MongoConnect.Connect(config.database.name)
-// 		.then((db) => {
-// 			queryBuilding = Entity.BuildingsEntity.aggregate(
-// 				[
-// 					{
-// 						$match: {
-// 							buildingname: data.buildingname,
-// 						},
-// 					},
-// 					{
-// 						$lookup: {
-// 							from: 'rooms',
-// 							localField: '_id',
-// 							foreignField: 'building',
-// 							as: 'roomInfor',
-// 						},
-// 					},
-// 					{
-// 						$unwind: '$roomInfor',
-// 					},
-// 					{
-// 						$lookup: {
-// 							from: 'services',
-// 							localField: 'roomInfor.service',
-// 							foreignField: '_id',
-// 							as: 'servicesInfor',
-// 						},
-// 					},
-// 					{
-// 						$lookup: {
-// 							from: 'customers',
-// 							localField: 'roomInfor._id',
-// 							foreignField: 'room',
-// 							as: 'customersInfor',
-// 						},
-// 					},
-// 					{
-// 						$lookup: {
-// 							from: 'payments',
-// 							localField: 'roomInfor._id',
-// 							foreignField: 'room',
-// 							as: 'paymentsInfor',
-// 						},
-// 					},
-
-// 					{
-// 						$group: {
-// 							_id: {
-// 								_id: '$_id',
-// 								buildingadress: '$buildingadress',
-// 								buildingname: '$buildingname',
-// 								managername: '$managername',
-// 								managerphone: '$managerphonenumber',
-// 								ownername: '$ownername',
-// 								ownerphone: '$ownerphonenumber',
-// 							},
-// 							roomInfor: {
-// 								$push: {
-// 									_id: '$roomInfor._id',
-// 									motobikequantity: '$roomInfor.motobikequantity',
-// 									roomtoilet: '$roomInfor._roomtoilet',
-// 									dryingyard: '$roomInfor.dryingyard',
-// 									roomstate: '$roomInfor.roomstate',
-// 									opentime: '$roomInfor.opentime',
-// 									pet: '$roomInfor.pet',
-// 									roomindex: '$roomInfor.roomindex',
-// 									roomprice: '$roomInfor.roomprice',
-// 									roomdeposit: '$roomInfor.roomdeposit',
-// 									roomtypes: '$roomInfor.roomtypes',
-// 									roomacreage: '$roomInfor.roomacreage',
-// 									serviceInfor: {
-// 										$arrayElemAt: ['$servicesInfor', 0],
-// 									},
-// 									paymentInfor: {
-// 										$arrayElemAt: ['$paymentsInfor', 0],
-// 									},
-// 									customersInfor: '$customersInfor',
-// 								},
-// 							},
-// 						},
-// 					},
-// 				],
-// 				cb,
-// 			);
-// 		})
-// 		.catch((err) => {
-// 			console.log('rooms_Dataprovider_create: ' + err);
-// 			cb(err, null);
-// 			console.log('null');
-// 		});
-// };
-
-//this is peace of shit
-// exports.getAll = (data, cb) => {
-// 	MongoConnect.Connect(config.database.name).then((db) => {
-// 		try {
-// 			Entity.BuildingsEntity.aggregate(
-// 				[
-// 					{
-// 						$match: {
-// 							buildingName: data.buildingName,
-// 						},
-// 					},
-// 					{
-// 						$lookup: {
-// 							from: 'rooms',
-// 							localField: '_id',
-// 							foreignField: 'building',
-// 							as: 'roomInfo',
-// 						},
-// 					},
-// 					{
-// 						$unwind: {
-// 							path: '$roomInfo',
-// 						},
-// 					},
-// 					{
-// 						$project: {
-// 							_id: '$_id',
-// 							roomId: '$roomInfo._id',
-// 							roomIndex: '$roomInfo.roomIndex',
-// 							roomPrice: '$roomInfo.roomPrice',
-// 							roomState: '$roomInfo.roomState',
-// 						},
-// 					},
-// 					{
-// 						$group: {
-// 							_id: '$_id',
-// 							roomInfo: {
-// 								$push: {
-// 									_id: '$roomId',
-// 									roomIndex: '$roomIndex',
-// 									roomPrice: '$roomPrice',
-// 									roomState: '$roomState',
-// 								},
-// 							},
-// 						},
-// 					},
-// 				],
-// 				cb,
-// 			);
-// 		} catch (error) {
-// 			throw error;
-// 		}
-// 	});
-// };
+const uploadFile = require('../utils/uploadFile');
+const { generateFirstInvoice } = require('./invoices');
+const { createDepositReceipt } = require('./receipts');
+const { note } = require('pdfkit');
 
 exports.getAll = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const buildingId = mongoose.Types.ObjectId(`${data.buildingId}`);
 		const listRooms = await Entity.BuildingsEntity.aggregate([
 			{
@@ -182,14 +31,21 @@ exports.getAll = async (data, cb, next) => {
 				},
 			},
 			{
+				$sort: {
+					'roomInfo.roomIndex': 1,
+				},
+			},
+			{
 				$project: {
 					_id: '$_id',
 					roomId: '$roomInfo._id',
 					roomIndex: '$roomInfo.roomIndex',
 					roomPrice: '$roomInfo.roomPrice',
 					roomState: '$roomInfo.roomState',
+					isDeposited: '$roomInfo.isDeposited',
 				},
 			},
+
 			{
 				$group: {
 					_id: '$_id',
@@ -199,6 +55,7 @@ exports.getAll = async (data, cb, next) => {
 							roomIndex: '$roomIndex',
 							roomPrice: '$roomPrice',
 							roomState: '$roomState',
+							isDeposited: '$isDeposited',
 						},
 					},
 				},
@@ -215,68 +72,15 @@ exports.getAll = async (data, cb, next) => {
 	}
 };
 
-// exports.getRoomById = (data, cb) => {
-// 	let roomId = mongoose.Types.ObjectId(`${data.id}`);
-// 	MongoConnect.Connect(config.database.name).then((db) => {
-// 		Entity.RoomsEntity.aggregate(
-// 			[
-// 				{
-// 					$match: {
-// 						_id: roomId,
-// 					},
-// 				},
-// 				{
-// 					$lookup: {
-// 						from: 'fees',
-// 						localField: '_id',
-// 						foreignField: 'room',
-// 						as: 'feeInfo',
-// 					},
-// 				},
-// 				{
-// 					$lookup: {
-// 						from: 'contracts',
-// 						localField: '_id',
-// 						foreignField: 'room',
-// 						as: 'contractInfo',
-// 					},
-// 				},
-// 				{
-// 					$unwind: {
-// 						path: '$contractInfo',
-// 					},
-// 				},
-// 				{
-// 					$lookup: {
-// 						from: 'customers',
-// 						localField: '_id',
-// 						foreignField: 'room',
-// 						as: 'customerInfo',
-// 					},
-// 				},
-// 				{
-// 					$lookup: {
-// 						from: 'vehicles',
-// 						localField: 'customerInfo._id',
-// 						foreignField: 'owner',
-// 						as: 'vehicleInfo',
-// 					},
-// 				},
-// 			],
-// 			cb,
-// 		);
-// 	});
-// };
-
 exports.getRoom = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
-		const roomId = mongoose.Types.ObjectId(`${data.roomId}`);
+		const roomObjectId = mongoose.Types.ObjectId(`${data.roomId}`);
 
+		console.time('fetch room');
 		const roomInfo = await Entity.RoomsEntity.aggregate([
 			{
 				$match: {
-					_id: roomId,
+					_id: roomObjectId,
 				},
 			},
 			{
@@ -297,12 +101,21 @@ exports.getRoom = async (data, cb, next) => {
 						{
 							$match: {
 								$expr: {
-									$and: [{ $eq: ['$room', '$$roomId'] }],
+									$and: [
+										{
+											$eq: ['$room', '$$roomId'],
+										},
+										{
+											$ne: ['$status', 'terminated'],
+										},
+									],
 								},
 							},
 						},
 						{
-							$sort: { contractEndDate: -1 },
+							$sort: {
+								contractEndDate: -1,
+							},
 						},
 						{
 							$limit: 1,
@@ -315,6 +128,33 @@ exports.getRoom = async (data, cb, next) => {
 				$unwind: {
 					path: '$contractInfo',
 					preserveNullAndEmptyArrays: true,
+				},
+			},
+			{
+				$lookup: {
+					from: 'receipts',
+					let: {
+						receiptId: '$contractInfo.deposit.receipt',
+					},
+					pipeline: [
+						{
+							$match: {
+								$expr: {
+									$and: [
+										{
+											$not: {
+												$in: ['$status', ['cancelled']],
+											},
+										},
+										{
+											$eq: ['$_id', '$$receiptId'],
+										},
+									],
+								},
+							},
+						},
+					],
+					as: 'depositInfo',
 				},
 			},
 			{
@@ -333,7 +173,116 @@ exports.getRoom = async (data, cb, next) => {
 					as: 'vehicleInfo',
 				},
 			},
+			{
+				$lookup: {
+					from: 'debts',
+					let: {
+						roomId: '$_id',
+					},
+					pipeline: [
+						{
+							$match: {
+								$expr: {
+									$and: [
+										{
+											$eq: ['$status', 'pending'],
+										},
+										{
+											$eq: ['$room', '$$roomId'],
+										},
+									],
+								},
+							},
+						},
+					],
+					as: 'debtsInfo',
+				},
+			},
+			{
+				$lookup: {
+					from: 'deposits',
+					let: {
+						roomId: '$_id',
+						roomState: '$roomState',
+						isDeposited: '$isDeposited',
+					},
+					pipeline: [
+						{
+							$match: {
+								$expr: {
+									$and: [
+										{
+											$eq: ['$room', '$$roomId'],
+										},
+										{
+											$ne: ['$status', 'cancelled'],
+										},
+										{
+											$eq: ['$$isDeposited', true],
+										},
+									],
+								},
+							},
+						},
+						{
+							$project: {
+								_id: 1,
+							},
+						},
+					],
+					as: 'depositId',
+				},
+			},
+			{
+				$project: {
+					_id: 1,
+					roomImage: 1,
+					building: 1,
+					roomIndex: 1,
+					interior: 1,
+					roomState: 1,
+					feeInfo: 1,
+					debtsInfo: 1,
+					isRefundDeposit: 1,
+					note: 1,
+					contractInfo: {
+						_id: '$contractInfo._id',
+						rent: '$contractInfo.rent',
+						contractSignDate: '$contractInfo.contractSignDate',
+						contractEndDate: '$contractInfo.contractEndDate',
+						contractTerm: '$contractInfo.contractTerm',
+						status: '$contractInfo.status',
+						contractPdfUrl: '$contractInfo.contractPdfUrl',
+						deposit: {
+							$let: {
+								vars: {
+									firstDeposit: {
+										$arrayElemAt: ['$depositInfo', 0],
+									},
+								},
+								in: {
+									_id: '$$firstDeposit._id',
+									amount: '$$firstDeposit.amount',
+									status: '$$firstDeposit.status',
+									receipts: '$contractInfo.deposit.receipts',
+								},
+							},
+						},
+					},
+					customerInfo: 1,
+					vehicleInfo: 1,
+					depositId: {
+						$getField: {
+							field: '_id',
+							input: {
+								$arrayElemAt: ['$depositId', 0],
+							},
+						},
+					},
+				},
+			},
 		]);
+		console.timeEnd('fetch room');
 
 		if (roomInfo.length > 0) {
 			cb(null, roomInfo);
@@ -345,19 +294,8 @@ exports.getRoom = async (data, cb, next) => {
 	}
 };
 
-exports.create = (data, cb) => {
-	MongoConnect.Connect(config.database.name)
-		.then((db) => {
-			Entity.RoomsEntity.create(data, cb);
-		})
-		.catch((err) => {
-			console.log('rooms_Dataprovider_create: ' + err);
-			cb(err, null);
-		});
-};
-
 exports.update = (data, cb) => {
-	MongoConnect.Connect(config.database.name)
+	MongoConnect.Connect(config.database.fullname)
 		.then(async (db) => {
 			let RoomUpdated = await Entity.RoomsEntity.updateOne(
 				{ _id: data.roomId },
@@ -450,7 +388,7 @@ exports.update = (data, cb) => {
 // finance update
 exports.financeUpdate = (data, cb) => {
 	let roomUpdated;
-	MongoConnect.Connect(config.database.name).then(async (db) => {
+	MongoConnect.Connect(config.database.fullname).then(async (db) => {
 		roomUpdated = Entity.RoomsEntity.updateOne({ _id: data.roomId }, {});
 	});
 };
@@ -459,7 +397,7 @@ exports.financeUpdate = (data, cb) => {
 exports.finance = (data, cb) => {
 	var roomId = mongoose.Types.ObjectId(`${data.roomId}`);
 	let queryRooms;
-	MongoConnect.Connect(config.database.name).then((db) => {
+	MongoConnect.Connect(config.database.fullname).then((db) => {
 		queryRooms = Entity.RoomsEntity.aggregate(
 			[
 				{
@@ -515,22 +453,21 @@ exports.finance = (data, cb) => {
 
 exports.importImage = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const roomId = mongoose.Types.ObjectId(`${data.roomId}`);
-		const roomRecent = await Entity.RoomsEntity.findById(roomId);
+		const currentRoom = await Entity.RoomsEntity.findById(roomId);
+		if (!currentRoom) throw new Error('Phòng không tồn tại !');
 
 		const roomImages = [];
 		for (const image of data.imagesRoom) {
-			const handleUploadImage = await uploadImage(image?.buffer);
-			roomImages.push(handleUploadImage.Key);
+			const handleuploadFile = await uploadFile(image);
+			roomImages.push(handleuploadFile.Key);
 		}
 
-		if (roomRecent.roomImage?.ref) {
-			roomRecent.roomImage?.ref.push(...roomImages);
+		if (currentRoom.roomImage?.ref) {
+			currentRoom.roomImage.ref = roomImages;
 		}
 
-		console.log('log of roomRecent: ', roomRecent);
-		const importedRoomImages = await roomRecent.save();
+		const importedRoomImages = await currentRoom.save();
 		cb(null, importedRoomImages);
 	} catch (error) {
 		next(error);
@@ -539,7 +476,6 @@ exports.importImage = async (data, cb, next) => {
 
 exports.addInterior = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const roomId = mongoose.Types.ObjectId(data.roomId);
 
 		const newInteriorInfo = {
@@ -562,7 +498,6 @@ exports.addInterior = async (data, cb, next) => {
 
 exports.removeInterior = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const interiorId = mongoose.Types.ObjectId(`${data.interiorId}`);
 
 		const interiorRemoved = await Entity.RoomsEntity.findOneAndUpdate(
@@ -583,7 +518,6 @@ exports.removeInterior = async (data, cb, next) => {
 
 exports.editInterior = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const interiorId = mongoose.Types.ObjectId(`${data.interiorId}`);
 		const roomId = mongoose.Types.ObjectId(`${data.roomId}`);
 
@@ -613,8 +547,6 @@ exports.editInterior = async (data, cb, next) => {
 
 exports.setRoomUnRenting = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.datbase.name);
-
 		if (data.SetUnRentingType == 'early') {
 		}
 	} catch (error) {
@@ -624,7 +556,6 @@ exports.setRoomUnRenting = async (data, cb, next) => {
 
 exports.getListSelectingRoom = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 		const listRooms = await Entity.BuildingsEntity.aggregate([
 			{
@@ -660,6 +591,141 @@ exports.getListSelectingRoom = async (data, cb, next) => {
 			throw new Error(`Tòa nhà với Id: ${data.buildingId} không tồn tại !`);
 		}
 		cb(null, listRooms[0].listRooms);
+	} catch (error) {
+		next(error);
+	}
+};
+
+// exports.getDepositByRoomId = async (data, cb, next) => {
+// 	try {
+// 		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
+// 		const findDeposit = await Entity.DepositsEntity.findOne({ room: roomObjectId, status: { $nin: ['close', 'cancelled'] } });
+
+// 		cb(null, findDeposit);
+// 	} catch (error) {
+// 		next(error);
+// 	}
+// };
+
+exports.generateDepositReceiptAndFirstInvoice = async (data, cb, next) => {
+	let session;
+	try {
+		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
+		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+
+		session = await mongoose.startSession();
+		session.startTransaction();
+
+		const generateInvoiceAsync = (data) => {
+			return new Promise((resolve, reject) => {
+				generateFirstInvoice(
+					data,
+					(err, result) => {
+						if (err) return reject(err);
+						resolve(result);
+					},
+					next,
+				);
+			});
+		};
+
+		const createReceiptAsync = (data) => {
+			return new Promise((resolve, reject) => {
+				createDepositReceipt(
+					data,
+					(err, result) => {
+						if (err) return reject(err);
+						resolve(result);
+					},
+					next,
+				);
+			});
+		};
+
+		const generateInvoice = await generateInvoiceAsync(data);
+
+		const createReceipt = await createReceiptAsync(data);
+
+		cb(null, {
+			invoiceId: generateInvoice._id,
+			receiptId: createReceipt._id,
+		});
+	} catch (error) {
+		if (session) await session.abortTransaction();
+		next(error);
+	} finally {
+		if (session) session.endSession();
+	}
+};
+
+exports.generateDepositRefund = async (data, cb, next) => {
+	let session;
+	try {
+		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
+		const receiptObjectId = mongoose.Types.ObjectId(data.receiptId);
+
+		session = await mongoose.startSession();
+		session.startTransaction();
+
+		const receiptDeposit = await Entity.ReceiptsEntity.findOne({ _id: receiptObjectId }).session(session);
+
+		if (!receiptDeposit) throw new Error(`Hóa đơn đặt cọc không tồn tại`);
+
+		const [newDepositRefund] = await Entity.DepositRefundsEntity.create(
+			[
+				{
+					room: roomObjectId,
+					feesIndex: data.fees,
+					feesOther: data.feesOther,
+					depositRefundAmount: data.depositRefundAmount,
+					currentDeposit: {
+						amount: receiptDeposit.amount,
+						receipt: receiptObjectId,
+					},
+					isRefundedDeposited: false,
+				},
+			],
+			{ session },
+		);
+
+		await Entity.ReceiptsEntity.updateOne({ _id: receiptObjectId }, { $set: { locked: true } }, { session });
+		await Entity.RoomsEntity.updateOne({ _id: roomObjectId }, { $set: { isRefundDeposit: true } }, { session });
+
+		await session.commitTransaction();
+
+		cb(null, newDepositRefund);
+	} catch (error) {
+		if (session) await session.abortTransaction();
+		next(error);
+	} finally {
+		if (session) session.endSession();
+	}
+};
+
+exports.getDepositRefund = async (data, cb, next) => {
+	try {
+		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
+
+		const depositRefund = await Entity.DepositRefundsEntity.findOne({ room: roomObjectId, isRefundedDeposit: false });
+
+		if (!depositRefund) throw new Error('Phiếu đặt cọc không tồn tại');
+
+		cb(null, depositRefund);
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.updateNoteRoom = async (data, cb, next) => {
+	try {
+		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
+		const updatedRoom = await Entity.RoomsEntity.findByIdAndUpdate(
+			roomObjectId,
+			{ $set: { note: data.note } },
+			{ new: true, runValidators: true },
+		);
+		if (!updatedRoom) throw new Error('Cập nhật ghi chú không thành công !');
+		cb(null, 'Cập nhật ghi chú thành công !');
 	} catch (error) {
 		next(error);
 	}

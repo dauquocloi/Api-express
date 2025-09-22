@@ -14,8 +14,8 @@ exports.getAll = (data, cb, next) => {
 	);
 };
 
-exports.getByRoomId = (data, cb, next) => {
-	DataProvider.getByRoomId(
+exports.getFeeForGenerateInvoice = (data, cb, next) => {
+	DataProvider.getFeeForGenerateInvoice(
 		data,
 		(err, result) => {
 			if (err) {
@@ -62,6 +62,18 @@ exports.getInvoicesPaymentStatus = (data, cb, next) => {
 
 exports.getInvoiceDetail = (data, cb, next) => {
 	DataProvider.getInvoiceDetail(data, cb, next);
+};
+
+exports.generateFirstInvoice = (data, cb, next) => {
+	DataProvider.generateFirstInvoice(data, cb, next);
+};
+
+exports.collectCashMoney = (data, cb, next) => {
+	DataProvider.collectCashMoney(data, cb, next);
+};
+
+exports.getInvoiceInfoByInvoiceCode = (data, cb, next) => {
+	DataProvider.getInvoiceInfoByInvoiceCode(data, cb, next);
 };
 
 // exports.getEmail = (data, cb) => {

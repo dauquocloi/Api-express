@@ -38,3 +38,19 @@ exports.getEmail = (data, cb) => {
 exports.getBankStatus = (data, cb, next) => {
 	DataProvider.getBankStatus(data, cb, next);
 };
+
+exports.getBuildingContract = (data, cb, next) => {
+	DataProvider.getBuildingContract(data, cb, next);
+};
+
+exports.importContractFile = (data, cb, next) => {
+	DataProvider.importContractFile(data, cb, next);
+};
+
+exports.importDepositTermFile = (data, cb, next) => {
+	DataProvider.importDepositTermFile(data, cb, next);
+};
+
+exports.getDepositTermFile = (data, cb, next) => {
+	DataProvider.getDepositTermFile(data, cb, next);
+};

@@ -5,8 +5,6 @@ var Entity = require('../models');
 
 exports.createCompany = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
-
 		const companyInfo = {
 			full_name: data.fullName,
 			short_name: data.shortName,

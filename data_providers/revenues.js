@@ -6,7 +6,6 @@ const formatFee = require('../utils/formatFee');
 
 exports.createIncidentalRevenue = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
@@ -26,7 +25,6 @@ exports.createIncidentalRevenue = async (data, cb, next) => {
 
 exports.modifyIncidentalRevenue = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const incidentalRevenueObjectId = mongoose.Types.ObjectId(data.incidentalRevenueId);
 
 		const incidentalRevenue = await Entity.IncidentalRevenuesEntity.findOne({ _id: incidentalRevenueObjectId });
@@ -46,7 +44,6 @@ exports.modifyIncidentalRevenue = async (data, cb, next) => {
 
 exports.deleteIncidentalRevenue = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const incidentalRevenueObjectId = mongoose.Types.ObjectId(data.incidentalRevenueId);
 
 		const incidentalRevenue = await Entity.IncidentalRevenuesEntity.deleteOne({ _id: incidentalRevenueObjectId });
@@ -63,7 +60,6 @@ exports.deleteIncidentalRevenue = async (data, cb, next) => {
 
 exports.getFeeRevenueDetail = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 
 		var month;
@@ -189,17 +185,20 @@ exports.getFeeRevenueDetail = async (data, cb, next) => {
 		}
 
 		const { feeRevenueInfo } = feeRevenue[0];
+		console.log('log of feeRevenueInfo: ', feeRevenueInfo);
 
 		// kiểm tra tính tồn tại của feeKey gửi về:
 		const checkExistedRoom = feeRevenueInfo.some((roomItem) =>
 			roomItem.invoice.fee.some((feeItem) => {
-				if (feeItem.feeKey === data.feeKey) {
+				const trimmedFeeKey = feeItem.feeKey?.slice(0, -2);
+				if (trimmedFeeKey === data.feeKey) {
 					feeName = feeItem.feeName;
 					return true;
 				}
 				return false;
 			}),
 		);
+
 		if (!checkExistedRoom) throw new Error(`Phí ${data.feeKey} không tồn tại!`);
 
 		var totalFeeAmount = 0;
@@ -208,7 +207,6 @@ exports.getFeeRevenueDetail = async (data, cb, next) => {
 			const { invoice, transaction } = roomItem;
 			const listFeeFormated = formatFee(invoice.fee);
 			const totalTransaction = transaction.reduce((sum, item) => sum + item.amount, 0);
-			console.log('log of totalTransaction: ', totalTransaction);
 			var remaining = totalTransaction;
 
 			for (const feeItem of listFeeFormated) {
@@ -217,16 +215,11 @@ exports.getFeeRevenueDetail = async (data, cb, next) => {
 
 				if (feeItem.feeKey === data.feeKey) {
 					totalFeeAmount += feeItem.amount;
-					console.log(feeItem, data.feeKey);
-					console.log('log of paidAmount: ', actualFeePaidAmount);
 					totalActualCurrentFeePaidAmount += actualFeePaidAmount;
 				}
 				remaining -= actualPaid;
 			}
 		}
-
-		console.log('log of totalFee: ', totalFeeAmount);
-		console.log('log of totalActualCurrentFeePaid: ', totalActualCurrentFeePaidAmount);
 
 		const listRoomUnPaid =
 			status === 'lock'
@@ -244,8 +237,6 @@ exports.getFeeRevenueDetail = async (data, cb, next) => {
 							} else return null;
 						})
 						.filter(Boolean);
-
-		console.log('listRoomUnPaid: ', listRoomUnPaid);
 
 		cb(null, {
 			feeDetail: { totalFeeAmount: totalFeeAmount, totalActualFeePaidAmount: totalActualCurrentFeePaidAmount, feeName: feeName },

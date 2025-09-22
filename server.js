@@ -17,6 +17,8 @@ const io = new Server(server, {
 		methods: ['GET', 'POST'],
 	},
 });
+const mongoose = require('mongoose');
+const { Connect } = require('./utils/MongoConnect');
 
 // const { getIO } = require('./utils/SocketConnect');
 // const io = getIO(server);
@@ -72,10 +74,20 @@ io.on('connection', (socket) => {
 	});
 });
 
+// Gọi hàm Connect và chỉ chạy server nếu kết nối thành công
+Connect('Qltro-test')
+	.then(() => {
+		console.log('✅ Đã kết nối MongoDB Atlas');
+	})
+	.catch((err) => {
+		console.error('❌ Kết nối MongoDB thất bại:', err);
+	});
+
 //khai báo router
 routers.routerApi(app);
 adminRouters.adminRouters(app);
 //middleware handle error
 app.use(errorHandler);
 server.listen(port);
+
 console.log('Server is listening on port ' + port);

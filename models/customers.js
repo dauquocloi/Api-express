@@ -29,9 +29,13 @@ const CustomersSchema = new Schema(
 			type: String,
 			unique: true,
 			trim: true,
+			unique: true,
 		},
 		cccdIssueDate: {
 			type: Date,
+		},
+		cccdIssueAt: {
+			type: String,
 		},
 		status: {
 			type: Number,

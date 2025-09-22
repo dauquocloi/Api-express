@@ -46,63 +46,86 @@ FeeInvoiceSchema.pre('validate', function (next) {
 	next();
 });
 
-const InvoicesSchema = new Schema({
-	stayDays: {
-		type: Number,
-		default: 30,
-		min: [1, 'stayDays must be at least 1'],
-		max: [30, 'stayDays cannot exceed 30'],
-		validate: {
-			validator: Number.isInteger,
-			message: 'stayDays must be an integer',
+const InvoicesSchema = new Schema(
+	{
+		stayDays: {
+			type: Number,
+			default: 30,
+
+			validate: {
+				validator: Number.isInteger,
+				message: 'stayDays must be an integer',
+			},
+		},
+		month: {
+			type: Number,
+			required: true,
+			min: [1, 'month must be at least 1'],
+			max: [12, 'month cannot exceed 30'],
+			validate: {
+				validator: Number.isInteger,
+				message: 'month must be an integer',
+			},
+		}, // Tháng (1 - 12)
+		year: {
+			type: Number,
+			required: true,
+			validate: {
+				validator: Number.isInteger,
+				message: 'years must be an integer',
+			},
+		}, // Năm
+		room: {
+			type: Schema.Types.ObjectId,
+			ref: 'RoomsEntity',
+		},
+		total: {
+			type: Number,
+			required: true,
+			default: 0,
+		},
+		paidAmount: {
+			type: Number,
+			min: 0,
+		},
+		status: { type: String, enum: ['unpaid', 'paid', 'partial', 'cencelled'], default: 'unpaid' },
+		fee: [FeeInvoiceSchema],
+		debts: [{ content: { type: String }, amount: { type: Number, default: 0 } }],
+		payer: {
+			type: String,
+			trim: true,
+			required: true,
+		},
+		paymentContent: {
+			type: String,
+			required: true,
+			trim: true,
+		},
+		locked: {
+			// biểu thị việc hóa đơn đã chốt sổ hay chưa ? => thay đổi khi statistics(lock);
+			type: Boolean,
+			default: false,
+		},
+		invoiceCode: {
+			type: String,
+			trim: true,
+			unique: true,
+		},
+		note: {
+			type: String,
+			trim: true,
+		},
+		creater: {
+			type: Schema.Types.ObjectId,
+			ref: 'users',
 		},
 	},
-	month: {
-		type: Number,
-		required: true,
-		min: [1, 'month must be at least 1'],
-		max: [12, 'month cannot exceed 30'],
-		validate: {
-			validator: Number.isInteger,
-			message: 'month must be an integer',
-		},
-	}, // Tháng (1 - 12)
-	year: {
-		type: Number,
-		required: true,
-		validate: {
-			validator: Number.isInteger,
-			message: 'years must be an integer',
-		},
-	}, // Năm
-	room: {
-		type: Schema.Types.ObjectId,
-		ref: 'RoomsEntity',
+	{
+		versionKey: false,
+		collation: { locale: 'vi' },
+		timestamps: true, // Thêm thời gian tạo và cập nhật
 	},
-	total: {
-		type: Number,
-		required: true,
-		default: 0,
-	},
-	status: { type: String, enum: ['unpaid', 'paid', 'partial'], default: 'unpaid' },
-	fee: [FeeInvoiceSchema],
-	debts: [{ content: { type: String }, amount: { type: Number, default: 0 } }],
-	payer: {
-		type: String,
-		trim: true,
-		required: true,
-	},
-	paymentContent: {
-		type: String,
-		required: true,
-		trim: true,
-	},
-	locked: {
-		// biểu thị việc hóa đơn đã chốt sổ hay chưa ? => thay đổi khi statistics(lock);
-		type: Boolean,
-		default: false,
-	},
-});
+);
 
 InvoicesSchema.pre('save', async function (next) {
 	if (!this.payer) {

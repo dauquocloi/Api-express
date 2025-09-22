@@ -6,7 +6,6 @@ const bcrypt = require('bcrypt');
 exports.getAll = async (data, cb, next) => {
 	try {
 		let buildingId = mongoose.Types.ObjectId(`${data.buildingId}`);
-		const db = MongoConnect.Connect(config.database.name);
 
 		const customerInfo = await Entity.BuildingsEntity.aggregate([
 			{
@@ -72,7 +71,6 @@ exports.getAll = async (data, cb, next) => {
 
 exports.getCustomerById = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const customerId = mongoose.Types.ObjectId(`${data.customerId}`);
 
 		const customerInfo = await Entity.CustomersEntity.aggregate([
@@ -125,7 +123,6 @@ exports.getCustomerById = async (data, cb, next) => {
 
 exports.editCustomer = async (data, cb, next) => {
 	try {
-		let db = MongoConnect.Connect(config.database.name);
 		let customerId = mongoose.Types.ObjectId(`${data.customerId}`);
 
 		const customerInfo = await Entity.CustomersEntity.findById(customerId);
@@ -145,7 +142,6 @@ exports.editCustomer = async (data, cb, next) => {
 
 exports.addCustomer = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const roomId = mongoose.Types.ObjectId(`${data.roomId}`);
 
 		const encryptedPassword = await bcrypt.hash(data.phone, 5);
@@ -154,6 +150,7 @@ exports.addCustomer = async (data, cb, next) => {
 			username: data.phone,
 			password: encryptedPassword,
 			role: 'customer',
+			phone: data.phone,
 		});
 		const newCustomerInfo = {
 			room: roomId,
@@ -181,7 +178,6 @@ exports.addCustomer = async (data, cb, next) => {
 
 exports.setCustomerStatus = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const customerId = mongoose.Types.ObjectId(`${data.customerId}`);
 
 		const customerRecent = await Entity.CustomersEntity.findOne({ _id: customerId });
@@ -201,7 +197,6 @@ exports.setCustomerStatus = async (data, cb, next) => {
 
 exports.getContractOwnerByRoomId = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
 		const contractOwnerInfo = await Entity.CustomersEntity.findOne({ room: roomObjectId, status: { $in: [1, 2] }, isContractOwner: true });
 		console.log('log of contractOwnerInfo: ', contractOwnerInfo);
@@ -216,7 +211,6 @@ exports.getContractOwnerByRoomId = async (data, cb, next) => {
 
 exports.getCustomerLeaved = async (data, cb, next) => {
 	try {
-		const dbs = MongoConnect.Connect(config.database.name);
 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 
 		const getCustomerLeaved = await Entity.BuildingsEntity.aggregate([
@@ -291,6 +285,23 @@ exports.getCustomerLeaved = async (data, cb, next) => {
 		}
 
 		cb(null, getCustomerLeaved[0].data);
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.getListSelectingCustomer = async (data, cb, next) => {
+	try {
+		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
+
+		const customersInfo = await Entity.CustomersEntity.find({ room: roomObjectId });
+		// if(!customerInfo) throw new Error(`Không`)
+		const customer = customersInfo.map((cus) => ({
+			_id: cus._id,
+			fullName: cus.fullName,
+		}));
+
+		cb(null, customer);
 	} catch (error) {
 		next(error);
 	}

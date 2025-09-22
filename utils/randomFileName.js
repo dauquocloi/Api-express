@@ -3,13 +3,11 @@ const path = require('path');
 
 function randomFileName(originalName) {
 	try {
-		// console.log(originalName);
-		// const ext = path.extname(originalName);
-		const randomHex = (byte = 32) => CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Hex);
-		// throw new Error('Lỗi');
-		return `${randomHex()}.jpg`;
+		const ext = path.extname(originalName) || '.bin'; // fallback nếu không có đuôi
+		const randomHex = CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Hex);
+		return `${randomHex}${ext}`;
 	} catch (error) {
-		return new Error(error.message);
+		throw new Error(error.message);
 	}
 }
 

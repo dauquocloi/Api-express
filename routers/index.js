@@ -22,6 +22,8 @@ const Expenditure = require('./expenditures');
 const Revenue = require('./revenues');
 const Transaction = require('./transactions');
 const Deposit = require('./deposits');
+const Debt = require('./debts');
+const Task = require('./tasks');
 
 // Route với nhiều middleware
 const firstMiddleware = (req, res, next) => {
@@ -88,11 +90,17 @@ exports.routerApi = (app) => {
 
 	app.get('/buildings/:buildingId/rooms', verifyToken, Room.getAll);
 
+	app.get('/buildings/:buildingId/contract', Building.getBuildingContract);
+
 	app.get('/rooms/finance', Room.finance);
 
 	app.post('/rooms/update', Room.update);
 
-	app.post('/contracts/create', Contracts.create);
+	app.post('/contracts/create', Contracts.create); // this is piece of shit;
+
+	app.post('/contracts/generate', Contracts.generateContract);
+
+	app.get('/rooms/:roomId/contracts', Contracts.getContractPdfSignedUrl);
 
 	app.post('/contracts/update', Contracts.updateOne);
 
@@ -100,7 +108,13 @@ exports.routerApi = (app) => {
 
 	app.get('/buildings', Building.getAll);
 
-	app.get(`/buildings/:buildingId/managements`, User.getAllManagement);
+	app.get(`/managements`, verifyToken, User.getAllManagement);
+
+	app.post('/buildings/:buildingId/contract', upload.single('file'), Building.importContractFile);
+
+	app.post('/buildings/:buildingId/depositTermFile', upload.single('file'), Building.importDepositTermFile);
+
+	app.get('/buildings/:buildingId/depositTermFile', Building.getDepositTermFile);
 
 	// app.get('/buildings/banks', Building.getBankStatus);
 
@@ -108,13 +122,15 @@ exports.routerApi = (app) => {
 
 	app.post('/invoices/create', Invoice.create);
 
+	app.post('/invoices/first-invoice', Invoice.generateFirstInvoice);
+
 	// app.get('/invoices/getall', Invoice.getAll);
 
 	app.get('/buildings/:buildingId/invoices', Invoice.getAll);
 
 	app.get('/buildings/:buildingId/Invoices/invoicesPaymentStatus', Invoice.getInvoicesPaymentStatus);
 
-	app.get('/rooms/:roomId/invoices', Invoice.getByRoomId);
+	app.get('/rooms/:roomId/invoices', Invoice.getFeeForGenerateInvoice);
 
 	app.get('/buildings/:buildingId/invoices/status', Invoice.getInvoiceStatus); // this is peace of shit
 
@@ -132,13 +148,15 @@ exports.routerApi = (app) => {
 
 	app.get('/conversations/getAll', Conversation.getAll);
 
-	app.post('/file/upload', upload.single('image'), File.upLoadImages);
+	app.post('/file/upload', upload.single('image'), File.uploadFiles);
 
 	app.get('/file/readExcel', File.readExcel);
 
 	app.post('/file/readDocx', upload.single('file'), File.readDocx);
 
 	app.get('/buildings/:buildingId/customers', Customer.getAll);
+
+	app.get('/rooms/:roomId/listSelectingCustomer', Customer.getListSelectingCustomer);
 
 	app.get('/buildings/:buildingId/customers/leaved', Customer.getCustomerLeaved);
 
@@ -158,7 +176,7 @@ exports.routerApi = (app) => {
 
 	app.patch('/fees/:feeId', Fee.editFee); //Only owner
 
-	app.post('/files/s3', upload.single('image'), File.importS3Iamge);
+	app.post('/files/s3', upload.single('file'), File.importS3Iamge);
 
 	app.patch('/vehicles/:vehicleId', upload.single('image'), Vehicle.editVehicle);
 
@@ -166,13 +184,15 @@ exports.routerApi = (app) => {
 
 	app.get('/vehicles/:vehicleId', Vehicle.getVehicle);
 
-	app.post('/rooms/:roomId/import-image', upload.array('image', 10), Room.importImage);
+	app.post('/rooms/:roomId/import-image', upload.array('image', 5), Room.importImage);
 
 	app.post('/rooms/:roomId/interiors', Room.addInterior);
 
 	app.delete('/rooms/interiors/:interiorId', Room.removeInterior);
 
 	app.patch('/rooms/:roomId/interiors/:interiorId', Room.editInterior);
+
+	app.delete('/rooms/:roomId/debts', Debt.deleteDebts);
 
 	app.post('/rooms/:roomId/receipts', Receipt.createReceipt);
 
@@ -184,9 +204,11 @@ exports.routerApi = (app) => {
 
 	app.post('/buildings/:buildingId/expenditures', Expenditure.createExpenditure);
 
-	app.get('/buildings/:buildingId/expenditures', Statistic.getExpenditures);
-
 	app.patch('/expenditures/:expenditureId', Expenditure.modifyExpenditure);
+
+	app.delete('/expenditures/:expenditureId', Expenditure.deleteExpenditure);
+
+	app.get('/buildings/:buildingId/expenditures', Statistic.getExpenditures);
 
 	app.post('/buildings/:buildingId/incidentalRevenues', Revenue.createIncidentalRevenue);
 
@@ -200,13 +222,25 @@ exports.routerApi = (app) => {
 
 	app.post('/rooms/:roomId/deposits', Deposit.createDeposit);
 
+	app.post('/rooms/depositReceipt-invoice', Room.generateDepositReceiptAndFirstInvoice);
+
+	app.patch('/deposits/:depositId', Deposit.modifyDeposit);
+
 	app.post('/rooms/:roomId/receipts-deposit', Receipt.createDepositReceipt);
+
+	app.post('/rooms/:roomId/receipts-debt', Receipt.createDebtsReceipt);
 
 	app.get('/buildings/:buildingId/deposits', Deposit.getListDeposits);
 
 	app.get('/deposits/:depositId', Deposit.getDepositDetail);
 
+	app.get('/deposits', Deposit.getDepositDetailByRoomId);
+
+	app.post('/deposits/:depositId/terminated', Deposit.terminateDeposit);
+
 	app.get('/buildings/:buildingId/receipts', Receipt.getListReceiptPaymentStatus);
+
+	app.get('/receipts/deposit', Receipt.getDepositReceiptDetail);
 
 	app.get('/receipts/:receiptId', Receipt.getReceiptDetail);
 
@@ -214,9 +248,31 @@ exports.routerApi = (app) => {
 
 	app.post('/receipts/:receiptId/collect-cash', verifyToken, Receipt.collectCashMoney);
 
+	app.post('/invoices/:invoiceId/collect-cash', verifyToken, Invoice.collectCashMoney);
+
 	app.delete('/receipts/:receiptId', Receipt.deleteReceipt);
 
 	app.patch('/transactions/:transactionId/collect-money-employee', verifyToken, Transaction.collectCashFromEmployee);
+
+	app.get('/rooms/:roomId/debts-receiptsUnpaid', Debt.getDebtsByRoomId);
+
+	app.post('/rooms/:roomId/deposit-refund', Room.generateDepositRefund);
+
+	app.get('/rooms/:roomId/deposit-refund', Room.getDepositRefund);
+
+	app.put('/rooms/:roomId/note', Room.updateNoteRoom);
+
+	app.post('/tasks', verifyToken, Task.createTask);
+
+	app.get('/tasks', verifyToken, Task.getTasks);
+
+	app.patch('/tasks/:taskId', verifyToken, upload.array('image', 4), Task.modifyTask);
+
+	app.delete('/tasks/:taskId', verifyToken, Task.deleteTask);
+
+	app.get('/tasks/:taskId', Task.getTaskDetail);
+
+	app.get('/api/v1/bills/:billCode', Invoice.getInvoiceInfoByInvoiceCode);
 
 	// ----TRANSACTION RECEIVING API------//
 

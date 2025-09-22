@@ -23,3 +23,11 @@ exports.collectCashMoney = (data, cb, next) => {
 exports.deleteReceipt = (data, cb, next) => {
 	DataProvider.deleteReceipt(data, cb, next);
 };
+
+exports.createDebtsReceipt = (data, cb, next) => {
+	DataProvider.createDebtsReceipt(data, cb, next);
+};
+
+exports.getDepositReceiptDetail = (data, cb, next) => {
+	DataProvider.getDepositReceiptDetail(data, cb, next);
+};

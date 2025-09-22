@@ -1,12 +1,11 @@
 const mongoose = require('mongoose');
 const MongoConnect = require('../utils/MongoConnect');
-const uploadImage = require('../utils/uploadImage');
+const uploadFile = require('../utils/uploadFile');
 const getFileUrl = require('../utils/getFileUrl');
 var Entity = require('../models');
 
 exports.getAll = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		let buildingId = mongoose.Types.ObjectId(`${data.id}`);
 
 		const matchStage = {
@@ -99,18 +98,13 @@ exports.getAll = async (data, cb, next) => {
 										vehicleInfo: {
 											$ifNull: [
 												{
-													$arrayElemAt: [
-														{
-															$filter: {
-																input: '$vehicleInfo',
-																as: 'vehicle',
-																cond: {
-																	$eq: ['$$vehicle.owner', '$$customer._id'],
-																},
-															},
+													$filter: {
+														input: '$vehicleInfo',
+														as: 'vehicle',
+														cond: {
+															$eq: ['$$vehicle.owner', '$$customer._id'],
 														},
-														0,
-													],
+													},
 												},
 												{},
 											],
@@ -119,7 +113,9 @@ exports.getAll = async (data, cb, next) => {
 								},
 							},
 							as: 'item',
-							cond: { $ne: ['$$item.vehicleInfo', {}] },
+							cond: {
+								$gt: [{ $size: '$$item.vehicleInfo' }, 0],
+							},
 						},
 					},
 				},
@@ -151,7 +147,6 @@ exports.getAll = async (data, cb, next) => {
 
 exports.editVehicle = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const vehicleId = mongoose.Types.ObjectId(`${data.vehicleId}`);
 
 		let vehicleRecent = await Entity.VehiclesEntity.findById(vehicleId);
@@ -162,8 +157,8 @@ exports.editVehicle = async (data, cb, next) => {
 		let vehicleImage;
 
 		if (data.vehicleImage != undefined) {
-			const handleUploadImage = await uploadImage(data.vehicleImage?.buffer);
-			vehicleImage = handleUploadImage.Key;
+			const handleuploadFile = await uploadFile(data.vehicleImage?.buffer);
+			vehicleImage = handleuploadFile.Key;
 		} else {
 			vehicleImage = data.image;
 		}
@@ -188,33 +183,33 @@ exports.editVehicle = async (data, cb, next) => {
 
 exports.addVehicle = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
-		let customerId = mongoose.Types.ObjectId(`${data.customerId}`);
-		let roomId = mongoose.Types.ObjectId(`${data.room}`);
+		let customerObjectId = mongoose.Types.ObjectId(`${data.customerId}`);
+		let roomObjectId = mongoose.Types.ObjectId(`${data.roomId}`);
 
-		const roomImage = await uploadImage(data.buffer);
-		console.log(roomImage);
+		let image = '';
+		if (data.vehicle && data.vehicle !== '') {
+			image = await uploadFile(data.buffer);
+			image = image.key;
+		}
 
 		const vehicle = {
 			licensePlate: data.licensePlate,
-			owner: customerId,
-			room: roomId,
-			fromDate: data.from,
-			status: 1,
-			image: roomImage.Key,
+			owner: customerObjectId,
+			room: roomObjectId,
+			fromDate: data.fromDate,
+			status: data.status,
+			image: image,
 		};
 
 		let vehicleCreated = await Entity.VehiclesEntity.create(vehicle);
 		cb(null, vehicleCreated);
 	} catch (error) {
-		next(new Error(error.message));
+		next(error);
 	}
 };
 
 exports.getVehicle = async (data, cb, next) => {
-	console.log(data);
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const vehicleId = mongoose.Types.ObjectId(`${data.vehicleId}`);
 
 		const vehicle = await Entity.VehiclesEntity.aggregate([
@@ -255,7 +250,7 @@ exports.getVehicle = async (data, cb, next) => {
 		]);
 		console.log('log of vehicleRecent: ', vehicle);
 
-		if (vehicle[0].image != undefined || vehicle[0].image != null) {
+		if (vehicle[0].image != undefined && vehicle[0].image != null && vehicle[0].image != '') {
 			const url = await getFileUrl(vehicle[0].image);
 
 			vehicle[0].url = url;
@@ -264,6 +259,6 @@ exports.getVehicle = async (data, cb, next) => {
 
 		cb(null, vehicle);
 	} catch (error) {
-		next(new Error(error.message));
+		next(error);
 	}
 };

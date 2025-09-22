@@ -6,7 +6,7 @@ const utils = require('../utils/HandleText');
 const jwt = require('jsonwebtoken');
 
 exports.getAll = (data, cb) => {
-	MongoConnect.Connect(config.database.name)
+	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
 			// do things here
 			Entity.UsersEntity.find({}, cb);
@@ -19,7 +19,7 @@ exports.getAll = (data, cb) => {
 };
 
 exports.create = (data, cb) => {
-	MongoConnect.Connect(config.database.name)
+	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
 			Entity.UsersEntity.create(data, cb);
 		})
@@ -31,7 +31,7 @@ exports.create = (data, cb) => {
 
 // lấy user by emai
 exports.getEmail = (data, cb) => {
-	MongoConnect.Connect(config.database.name)
+	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
 			Entity.UsersEntity.findOne({ email: data.params?.email }).lean().exec(cb);
 		})
@@ -44,7 +44,7 @@ exports.getEmail = (data, cb) => {
 
 // lấy user by email token
 exports.getEmailbyToken = (data, cb) => {
-	MongoConnect.Connect(config.database.name)
+	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
 			Entity.CustomersEntity.findOne({ email: data }).lean().exec(cb);
 		})
@@ -56,7 +56,7 @@ exports.getEmailbyToken = (data, cb) => {
 };
 
 exports.getByRoomId = (data, cb) => {
-	MongoConnect.Connect(config.database.name)
+	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
 			// do things here
 			Entity.UsersEntity.find({}, cb);
@@ -69,7 +69,7 @@ exports.getByRoomId = (data, cb) => {
 };
 
 exports.getUserByUserId = (data, cb) => {
-	MongoConnect.Connect(config.database.name)
+	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
 			Entity.UsersEntity.findById(data.id).exec();
 			cb;
@@ -81,7 +81,7 @@ exports.getUserByUserId = (data, cb) => {
 };
 
 exports.getUserByFullName = (data, cb) => {
-	MongoConnect.Connect(config.database.name).then(async (db) => {
+	MongoConnect.Connect(config.database.fullname).then(async (db) => {
 		// let message = await utils.removeVietnameseTones(data.message); // xử lý văn bản
 		await Entity.UsersEntity.createIndex({ fullname: 1, phonenumber: 1 });
 		Entity.UsersEntity.find({ $text: { $search: 'Anh Le' } }, cb);
@@ -91,7 +91,6 @@ exports.getUserByFullName = (data, cb) => {
 exports.login = async (data, cb, next, res) => {
 	console.log(data);
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const currentUser = await Entity.UsersEntity.findOne({ phone: data.userName });
 		console.log(currentUser);
 		if (currentUser != null) {
@@ -127,7 +126,6 @@ exports.login = async (data, cb, next, res) => {
 
 exports.modifyPassword = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const userId = mongoose.Types.ObjectId(data.userId);
 
 		const userCurrent = await Entity.UsersEntity.findOne({ _id: userId });
@@ -153,7 +151,6 @@ exports.modifyPassword = async (data, cb, next) => {
 // role owner & admin only
 exports.modifyUserInfo = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const userId = mongoose.Types.ObjectId(data.userId);
 
 		const userCurrent = await Entity.UsersEntity.findOne({ _id: userId });
@@ -173,10 +170,10 @@ exports.modifyUserInfo = async (data, cb, next) => {
 	}
 };
 
-// role owner & admin only (this is shit)
+// role admin only (this is shit)
+// cho trang phân quyền role admin
 exports.getAllManagers = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
 		const ownerId = mongoose.Types.ObjectId(data.userId);
 
 		const managerInfo = await Entity.UsersEntity.aggregate([
@@ -299,7 +296,6 @@ exports.getAllManagers = async (data, cb, next) => {
 
 exports.createManager = async (data, cb, next) => {
 	try {
-		const dbs = MongoConnect.Connect(config.database.name);
 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 		let encryptedPassword = await bcrypt.hash(data.phone, 5);
 
@@ -332,44 +328,51 @@ exports.createManager = async (data, cb, next) => {
 	}
 };
 
+// list chọn manager
 exports.getAllManagement = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		const userObjectId = mongoose.Types.ObjectId(data.userId);
 
 		const managements = await Entity.BuildingsEntity.aggregate([
 			{
-				$match:
-					/**
-					 * query: The query in MQL.
-					 */
-					{
-						_id: buildingObjectId,
+				$match: {
+					'management.user': userObjectId,
+				},
+			},
+			{
+				$addFields: {
+					userQueryId: userObjectId,
+				},
+			},
+			{
+				$unwind: {
+					path: '$management',
+				},
+			},
+			{
+				$group: {
+					_id: '$userQueryId',
+					listManagementObjectIds: {
+						$addToSet: '$management.user',
 					},
+				},
 			},
 			{
 				$lookup: {
 					from: 'users',
-					localField: 'management.user',
+					localField: 'listManagementObjectIds',
 					foreignField: '_id',
-					as: 'userInfo',
-				},
-			},
-			{
-				$project: {
-					buildingName: 1,
-					listManagements: {
-						$map: {
-							input: '$userInfo',
-							as: 'user',
-							in: {
-								_id: '$$user._id',
-								avata: '$$user.avatar',
-								role: '$$user.role',
-								fullName: '$$user.fullName',
+					pipeline: [
+						{
+							$project: {
+								_id: 1,
+								fullName: 1,
+								role: 1,
+								avatar: 1,
 							},
 						},
-					},
+					],
+					as: 'listManagements',
 				},
 			},
 		]);
@@ -377,7 +380,7 @@ exports.getAllManagement = async (data, cb, next) => {
 			throw new Error('Không có dữ liệu');
 		}
 
-		cb(null, managements[0]);
+		cb(null, { listManagements: managements[0].listManagements });
 	} catch (error) {
 		next(error);
 	}
@@ -386,7 +389,6 @@ exports.getAllManagement = async (data, cb, next) => {
 // role owner & admin only
 exports.removeManager = async (data, cb, next) => {
 	try {
-		const dbs = MongoConnect.Connect(config.database.name);
 		const managerId = mongoose.Types.ObjectId(data.managerId);
 		const currentUser = await Entity.UsersEntity.findOne({ _id: managerId });
 		if (currentUser == null) {
@@ -403,7 +405,6 @@ exports.removeManager = async (data, cb, next) => {
 
 exports.getRefreshToken = async (req, cb, next) => {
 	try {
-		const dbs = MongoConnect.Connect(config.database.name);
 		const userId = mongoose.Types.ObjectId(req.params?.userId);
 		const currentRefreshToken = await Entity.UsersEntity.findOne({ _id: userId }).lean();
 		console.log('log of currentRefreshToken: ', currentRefreshToken);

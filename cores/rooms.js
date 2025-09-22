@@ -65,6 +65,22 @@ exports.getListSelectingRoom = (data, cb, next) => {
 	DataProvider.getListSelectingRoom(data, cb, next);
 };
 
+exports.generateDepositReceiptAndFirstInvoice = (data, cb, next) => {
+	DataProvider.generateDepositReceiptAndFirstInvoice(data, cb, next);
+};
+
+exports.generateDepositRefund = (data, cb, next) => {
+	DataProvider.generateDepositRefund(data, cb, next);
+};
+
+exports.getDepositRefund = (data, cb, next) => {
+	DataProvider.getDepositRefund(data, cb, next);
+};
+
+exports.updateNoteRoom = (data, cb, next) => {
+	DataProvider.updateNoteRoom(data, cb, next);
+};
+
 // exports.getEmail = (data, cb) => {
 // 	DataProvider.getEmail(data, (errs, result) => {
 // 		if (errs) {

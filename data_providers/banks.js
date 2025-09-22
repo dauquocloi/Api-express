@@ -5,7 +5,7 @@ const { default: axios } = require('axios');
 
 exports.createBank = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
+		const db = MongoConnect.Connect(config.database.fullname);
 		var ownerId = mongoose.Types.ObjectId(data.userId);
 
 		const getBankOwnerName = await axios.post('http://localhost:8080/mb/individual/bankAccount/lookUpAccountHolderName', {

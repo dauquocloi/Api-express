@@ -5,7 +5,7 @@ var Entity = require('../models');
 exports.createConversation = ({ data }) => {
 	// const firstUserId = mongoose.Types.ObjectId(`${firstUser}`)
 
-	MongoConnect.Connect(config.database.name).then(() => {
+	MongoConnect.Connect(config.database.fullname).then(() => {
 		Entity.ConversationEntity.create({});
 	});
 };
@@ -14,7 +14,7 @@ exports.getAll = (data, cb) => {
 	const { userId } = data;
 
 	const _id = mongoose.Types.ObjectId(userId);
-	MongoConnect.Connect(config.database.name).then(() => {
+	MongoConnect.Connect(config.database.fullname).then(() => {
 		Entity.ConversationEntity.aggregate(
 			[
 				{

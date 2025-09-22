@@ -297,9 +297,9 @@ exports.removeManager = async (req, res, next) => {
 };
 
 exports.getAllManagement = async (req, res, next) => {
-	let data = req.params;
-	// const { error } = modifyUserSchema(data);
-	console.log('log of data from getAllManagers: ', data);
+	let data = req.user;
+
+	console.log('log of data from getAllManagement: ', data);
 	UseCase.getAllManagement(
 		data,
 		(err, result) => {

@@ -22,10 +22,10 @@ const s3 = new S3Client({
 	region: process.env.BUCKET_REGION,
 });
 
-exports.upLoadImages = (req, res) => {
+exports.uploadFiles = (req, res) => {
 	var data = req.file;
-	console.log('[routers/files<upLoadImages>req.files: ', data);
-	UseCase.upLoadImages(data, (err, result) => {
+	console.log('[routers/files<uploadFiles>req.files: ', data);
+	UseCase.uploadFiles(data, (err, result) => {
 		if (err) {
 			return res.status(204).send({
 				errorCode: 0,
@@ -37,7 +37,7 @@ exports.upLoadImages = (req, res) => {
 			return res.status(200).send({
 				errorCode: 0,
 				data: result,
-				message: 'upLoadImages succesfull',
+				message: 'uploadFiles succesfull',
 				errors: [],
 			});
 		}
@@ -105,26 +105,40 @@ exports.readDocx = (req, res, next) => {
 
 exports.importS3Iamge = async (req, res, next) => {
 	try {
-		console.log('log of file:', req.file);
+		console.log('log of file:', req);
+		const { file } = req;
 
 		let randomImageName = generateRandomFileName(req.file?.originalname);
 
-		const optimizeImage = await optimizedImage(req.file?.buffer);
+		let fileBuffer;
+		if (file.mimetype.startsWith('image/')) {
+			fileBuffer = await optimizedImage(file.buffer); // tối ưu ảnh
+		} else {
+			fileBuffer = file.buffer; // giữ nguyên file gốc (vd: PDF)
+		}
 
 		const params = {
 			Bucket: process.env.BUCKET_NAME,
 			Key: randomImageName,
-			Body: optimizeImage,
-			ContentType: 'image/jpeg',
+			Body: fileBuffer,
+			ContentType: file.mimetype,
+			ContentDisposition: 'inline',
+			ACL: 'public-read', // go public to read
 		};
-		console.log('params: ', params);
-		const command = new PutObjectCommand(params);
 
+		const command = new PutObjectCommand(params);
 		const sendFile = await s3.send(command);
 
-		res.send({});
+		res.send({
+			message: 'success',
+			data: {
+				...sendFile,
+				key: randomImageName,
+				url: `https://${process.env.BUCKET_NAME}.s3.${process.env.BUCKET_REGION}.amazonaws.com/${randomImageName}`,
+			},
+		});
 	} catch (error) {
-		next(new Error(error.message));
+		next(error);
 	}
 };
 

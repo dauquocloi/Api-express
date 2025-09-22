@@ -1,17 +1,17 @@
 var DataProvider = require('../data_providers/files');
 
-exports.upLoadImages = async (data, cb) => {
+exports.uploadFiles = async (data, cb) => {
 	try {
-		const uploadImages = [];
+		const uploadFiles = [];
 
 		const resultUpLoad = await config.cloudinary.uploader.upload(data.path, { resource_type: 'image' }); // took so long
-		console.log('[cores/files<upLoadImages>resultUpLoad :', resultUpLoad);
-		uploadImages.push({
+		console.log('[cores/files<uploadFiles>resultUpLoad :', resultUpLoad);
+		uploadFiles.push({
 			url: resultUpLoad.secure_url,
 			publicId: resultUpLoad.public_id,
 		});
 
-		DataProvider.upLoadImages(resultUpLoad, (errs, result) => {
+		DataProvider.uploadFiles(resultUpLoad, (errs, result) => {
 			if (errs) {
 				cb(errs, null);
 			} else {

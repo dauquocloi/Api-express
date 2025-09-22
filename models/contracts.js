@@ -16,7 +16,7 @@ const FeeSchema = new Schema({
 		enum: ['person', 'index', 'vehicle', 'room'],
 		required: true,
 	},
-	key: {
+	feeKey: {
 		type: String,
 	},
 });
@@ -25,7 +25,7 @@ const PersonSchema = new Schema({
 	fullName: { type: String, required: true }, // Họ và tên
 	phone: { type: String, required: true }, // Số điện thoại
 	email: { type: String }, // Email (không bắt buộc)
-	CCCD: { type: String }, // CMND/CCCD
+	cccd: { type: String }, // CMND/CCCD
 	cccdIssueDate: { type: Date },
 	cccdIssueAt: { type: String },
 	address: { type: String }, // Địa chỉ thường trú
@@ -46,15 +46,16 @@ const ContractsSchema = new Schema({
 		type: PersonSchema,
 		required: true, // Thông tin bên A (chủ hợp đồng)
 	},
-	fees: [FeeSchema], // Danh sách các khoản phí (mảng)
+	fees: [FeeSchema],
 	rent: {
 		type: Number,
 		required: true,
 	},
 	deposit: {
-		type: Number,
-		required: true,
-	},
+		amount: { type: Number },
+		receipt: { type: Schema.Types.ObjectId, ref: 'receipts' },
+		// status: { type: String, enum: ['paid', 'partial', 'unpaid'] },
+	}, // deposit nên là một mảng chứa các receipt vì tiền cọc có thể tăng  = > thu thêm cọc
 	user: {
 		type: Schema.Types.ObjectId,
 		ref: 'UsersEntity',
@@ -85,6 +86,9 @@ const ContractsSchema = new Schema({
 		enum: ['active', 'expired', 'terminated'],
 		default: 'active',
 		required: true,
+	},
+	contractPdfUrl: {
+		type: String,
 	},
 });
 

@@ -4,7 +4,7 @@ var Entity = require('../../models');
 
 exports.createBuilding = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.name);
+		const db = MongoConnect.Connect(config.database.fullname);
 	} catch (error) {
 		next(error);
 	}

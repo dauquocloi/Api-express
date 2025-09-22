@@ -19,23 +19,12 @@ exports.Connect = function (dbName) {
 		mongoose.Promise = global.Promise;
 
 		// create connection string
-		var connectionString = '';
-		if (config.database.username == '' || config.database.password == '') {
-			connectionString = 'mongodb://' + config.database.host + ':' + config.database.port + '/' + dbName + config.database.optional;
-		} else {
-			connectionString =
-				'mongodb://' +
-				config.database.username +
-				':' +
-				config.database.password +
-				'@' +
-				config.database.host +
-				':' +
-				config.database.port +
-				'/' +
-				dbName +
-				config.database.optional;
-		}
+		// MongoDB Atlas URI
+		const dbUsername = encodeURIComponent(config.database.username);
+		const dbPassword = encodeURIComponent(config.database.password); // đảm bảo escape ký tự đặc biệt
+		const connectionString = `mongodb+srv://${dbUsername}:${dbPassword}@${config.database.clusterUrl}/${dbName}?retryWrites=true&w=majority&appName=${config.database.appName}`;
+
+		console.log('MongoDB URI:', connectionString);
 
 		// connect to database
 		mongoose

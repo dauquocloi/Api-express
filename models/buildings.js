@@ -1,6 +1,7 @@
 var mongoose = require('mongoose');
 // (Schema = mongoose.Schema), (ObjectId = Schema.ObjectId);
 require('mongoose-double')(mongoose);
+const getFileUrl = require('../utils/getFileUrl');
 
 const Schema = mongoose.Schema;
 // Create a Mongoose Schema
@@ -41,6 +42,10 @@ var BuildingsSchema = new Schema(
 			ref: 'banks',
 			default: null,
 		},
+		contractDocxUrl: { type: String },
+		contractPdfUrl: { type: String },
+		depositTermUrl: { type: String },
+
 		management: [
 			{
 				_id: false, // Tắt tự động thêm _id
@@ -48,6 +53,7 @@ var BuildingsSchema = new Schema(
 				role: { type: String, enum: ['owner', 'manager'], required: true },
 			},
 		],
+		invoiceNotes: { type: String, default: '' },
 	},
 	{
 		versionKey: false,
@@ -55,6 +61,14 @@ var BuildingsSchema = new Schema(
 		timestamps: true, // Thêm thời gian tạo và cập nhật
 	},
 );
+
+// BuildingsSchema.post('find', async (docs, next) => {
+// 	try {
+// 		if (docs?.contractDocxUrl) {
+
+// 		}
+// 	}
+// })
 
 // Register the room schema
 exports.BuildingsEntity = mongoose.model('BuildingsEntity', BuildingsSchema, 'buildings');

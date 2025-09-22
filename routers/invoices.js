@@ -27,10 +27,10 @@ exports.getAll = (req, res, next) => {
 	});
 };
 
-exports.getByRoomId = (req, res, next) => {
+exports.getFeeForGenerateInvoice = (req, res, next) => {
 	var data = { ...req.params, ...req.query };
-	console.log('This is log of req.params from getByRoomId', data);
-	UseCase.getByRoomId(
+	console.log('This is log of req.params from getFeeForGenerateInvoice', data);
+	UseCase.getFeeForGenerateInvoice(
 		data,
 		(err, result) => {
 			if (err) {
@@ -189,6 +189,82 @@ exports.getInvoiceDetail = (req, res, next) => {
 						data: result,
 						message: 'succesfull',
 						errors: [],
+					});
+				}
+			},
+			next,
+		);
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.generateFirstInvoice = (req, res, next) => {
+	try {
+		const data = req.body;
+		console.log('log of data from generateFirstInvoice: ', data);
+		UseCase.generateFirstInvoice(
+			data,
+			(err, result) => {
+				if (!err) {
+					return res.status(201).send({
+						errorCode: 0,
+						data: result,
+						message: 'succesfull',
+						errors: [],
+					});
+				}
+			},
+			next,
+		);
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.collectCashMoney = (req, res, next) => {
+	try {
+		const data = { ...req.params, ...req.body, ...req.user };
+		console.log('log of data from collectCashMoney: ', data);
+
+		UseCase.collectCashMoney(
+			data,
+			(err, result) => {
+				if (!err) {
+					return res.status(201).send({
+						errorCode: 0,
+						data: result,
+						message: 'succesfull',
+						errors: [],
+					});
+				}
+			},
+			next,
+		);
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.getInvoiceInfoByInvoiceCode = (req, res, next) => {
+	try {
+		const data = req.params;
+		console.log('log of data from getInvoiceInfoByInvoiceCode: ', data);
+
+		UseCase.getInvoiceInfoByInvoiceCode(
+			data,
+			(err, result) => {
+				if (result) {
+					return res.status(200).send({
+						errorCode: 0,
+						data: result,
+						message: 'succesfull',
+						errors: [],
+					});
+				} else {
+					return res.status(err.status).send({
+						errorCode: err.status,
+						message: err.message,
 					});
 				}
 			},

@@ -1,5 +1,5 @@
 const UseCase = require('../cores/customers');
-const { modifyCustomerSchema } = require('../utils/validator');
+const { validateCreateCustomer } = require('../utils/validator');
 exports.getAll = (req, res, next) => {
 	try {
 		var data = req.params;
@@ -59,7 +59,7 @@ exports.getCustomerById = (req, res, next) => {
 exports.editCustomer = (req, res, next) => {
 	let data = { ...req.params, ...req.body };
 	console.log('log of data from editCustomer: ', data);
-	const { error, value } = modifyCustomerSchema(data);
+	const { error, value } = validateCreateCustomer(data);
 	if (error) {
 		console.log(error);
 		return res.status(400).send({
@@ -81,7 +81,7 @@ exports.editCustomer = (req, res, next) => {
 					errors: [],
 				});
 			} else {
-				return res.status(200).send({
+				return res.status(201).send({
 					errorCode: 0,
 					data: result,
 					message: 'succesfull',
@@ -94,9 +94,9 @@ exports.editCustomer = (req, res, next) => {
 };
 
 exports.addCustomer = (req, res, next) => {
-	const { error, value } = modifyCustomerSchema(req.body);
+	console.log('log of data from addCustomer: ', req.body);
+	const { error, value } = validateCreateCustomer(req.body);
 	if (error) {
-		console.log(error);
 		return res.status(400).send({
 			errorCode: 1,
 			data: {},
@@ -117,7 +117,7 @@ exports.addCustomer = (req, res, next) => {
 					errors: [],
 				});
 			} else {
-				return res.status(200).send({
+				return res.status(201).send({
 					errorCode: 0,
 					data: result,
 					message: 'succesfull',
@@ -170,6 +170,32 @@ exports.getCustomerLeaved = (req, res, next) => {
 	let data = req.params;
 	console.log('log of getCustomerLeaved', data);
 	UseCase.getCustomerLeaved(
+		data,
+		(err, result) => {
+			if (err) {
+				return res.status(204).send({
+					errorCode: 0,
+					data: {},
+					message: 'err',
+					errors: [],
+				});
+			} else {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'succesfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.getListSelectingCustomer = (req, res, next) => {
+	let data = req.params;
+	console.log('log of getListSelectingCustomer', data);
+	UseCase.getListSelectingCustomer(
 		data,
 		(err, result) => {
 			if (err) {

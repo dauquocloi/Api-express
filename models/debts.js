@@ -13,11 +13,21 @@ const DebtsSchema = new Schema(
 			type: Schema.Types.ObjectId,
 			ref: 'rooms',
 		},
+		// Trạng thái nợ
 		status: {
 			type: String,
-			enum: ['pending', 'paid'],
+			enum: ['pending', 'paid', 'terminated'],
 			default: 'pending',
-		}, // Trạng thái nợ
+		},
+		sourceType: {
+			type: String,
+			enum: ['invoice', 'receipt', 'pending'],
+			default: 'pending',
+		},
+		sourceId: {
+			type: Schema.Types.ObjectId,
+			default: null,
+		},
 	},
 	{
 		versionKey: false,

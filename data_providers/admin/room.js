@@ -11,7 +11,7 @@ exports.addManyRooms = async (data, cb, next) => {
 	// const session = await mongoose.startSession(); // Bắt đầu transaction
 	// session.startTransaction();
 	try {
-		const db = MongoConnect.Connect(config.database.name);
+		const db = MongoConnect.Connect(config.database.fullname);
 		const { buildingInfo } = data;
 		let workBook = XLSX.read(data.roomFile, { type: 'buffer' });
 		let workSheet = workBook.Sheets[workBook.SheetNames[0]];

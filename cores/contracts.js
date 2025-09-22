@@ -17,6 +17,14 @@ exports.create = (data, cb) => {
 exports.updateOne = (data, cb) => {
 	DataProvider.updateOne(data, cb);
 };
+
+exports.generateContract = (data, cb, next) => {
+	DataProvider.generateContract(data, cb, next);
+};
+
+exports.getContractPdfSignedUrl = (data, cb, next) => {
+	DataProvider.getContractPdfSignedUrl(data, cb, next);
+};
 // exports.getEmail = (data, cb) => {
 // 	DataProvider.getEmail(data, (errs, result) => {
 // 		if (errs) {

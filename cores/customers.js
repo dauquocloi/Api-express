@@ -73,3 +73,7 @@ exports.setCustomerStatus = (data, cb, next) => {
 exports.getCustomerLeaved = (data, cb, next) => {
 	DataProvider.getCustomerLeaved(data, cb, next);
 };
+
+exports.getListSelectingCustomer = (data, cb, next) => {
+	DataProvider.getListSelectingCustomer(data, cb, next);
+};
