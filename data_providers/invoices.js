@@ -7,6 +7,9 @@ const { last, result } = require('underscore');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const generatePaymentContent = require('../utils/generatePaymentContent');
 const customerProvider = require('./customers');
+const { CANCELLED, NOT_EXIST } = require('../constants/errorCodes');
+const AppError = require('../AppError');
+
 // const { config } = require('dotenv');
 
 //  query Invoice by Period
@@ -1165,7 +1168,7 @@ exports.getInvoiceInfoByInvoiceCode = async (data, cb, next) => {
 			},
 		]);
 		if (invoiceInfo) {
-			if (invoiceInfo.status === 'cancelled') return cb({ message: 'Hóa đơn đã bị hủy', status: 200, errorCode: 40010 }, null);
+			if (invoiceInfo.status === 'cancelled') throw new AppError(CANCELLED, 'Hóa đơn đã bị hủy', 200);
 			else return cb(null, { ...invoiceInfo, type: 'invoice' });
 		}
 
@@ -1269,12 +1272,13 @@ exports.getInvoiceInfoByInvoiceCode = async (data, cb, next) => {
 		]);
 
 		if (receiptInfo) {
-			if (receiptInfo.status != 'cancelled' && receiptInfo.status != 'terminated') return cb(null, { ...receiptInfo, type: 'receipt' });
-			else return cb({ message: 'Hóa đơn đã bị hủy', status: 200, errorCode: 40010 }, null);
+			if (receiptInfo.status != 'cancelled' && receiptInfo.status != 'terminated') {
+				return cb(null, { ...receiptInfo, type: 'receipt' });
+			} else throw new AppError(CANCELLED, 'Hóa đơn đã bị hủy', 200);
 		}
 
-		return cb({ message: 'Hóa đơn không tồn tại', status: 200, errorCode: 40401 }, null);
+		throw new AppError(NOT_EXIST, 'Hóa đơn không tồn tại', 200);
 	} catch (error) {
-		next({ statusCode: 500, message: 'Sever hiện đang bận vui lòng thử lại sau.', errorCode: 5001 });
+		next(error);
 	}
 };

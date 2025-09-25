@@ -9,6 +9,7 @@ const BanksSchema = new Schema({
 	bankId: {
 		type: String,
 		trim: true,
+		required: true,
 	},
 	brandName: {
 		type: String,

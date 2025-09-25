@@ -1,3 +1,6 @@
+require('./instrument.js');
+const Sentry = require('@sentry/node');
+
 const express = require('express');
 const app = express();
 const errorHandler = require('./middleware/errorMidlewares');
@@ -86,6 +89,10 @@ Connect('Qltro-test')
 //khai báo router
 routers.routerApi(app);
 adminRouters.adminRouters(app);
+
+// The error handler must be registered before any other error middleware and after all controllers
+Sentry.setupExpressErrorHandler(app);
+
 //middleware handle error
 app.use(errorHandler);
 server.listen(port);

@@ -2,6 +2,9 @@ const UseCase = require('../cores/invoices');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { result } = require('underscore');
+const fs = require('fs');
+const path = require('path');
+const { generateQrCode } = require('../utils/generateQrCode');
 
 const JWT_SECRET = '82371923sdasdads[]sdsadasd';
 
@@ -253,11 +256,25 @@ exports.getInvoiceInfoByInvoiceCode = (req, res, next) => {
 
 		UseCase.getInvoiceInfoByInvoiceCode(
 			data,
-			(err, result) => {
+			async (err, result) => {
 				if (result) {
+					const { bankId, shortName } = result.transferInfo ?? {};
+					const { paymentContent } = result;
+					const amount = result.type === 'receipt' ? result.amount : result.total;
+
+					const qrCode = await generateQrCode(bankId, shortName, amount, paymentContent);
+					let qrBase64;
+					if (!qrCode) {
+						qrBase64 = null;
+					} else {
+						const buffer = await qrCode.arrayBuffer();
+						const nodeBuffer = Buffer.from(buffer);
+						qrBase64 = `data:image/png;base64,${nodeBuffer.toString('base64')}`;
+					}
+
 					return res.status(200).send({
 						errorCode: 0,
-						data: result,
+						data: { ...result, qrBase64 },
 						message: 'succesfull',
 						errors: [],
 					});
