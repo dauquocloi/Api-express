@@ -9,8 +9,7 @@ const uploadFile = require('../utils/uploadFile');
 const withSignedUrls = require('../utils/withSignedUrls');
 // const { config } = require('dotenv');
 // const { config } = require('dotenv');
-var workBook = XLSX.readFile('D:excelData/tempData.xlsx');
-let workSheet = workBook.Sheets[workBook.SheetNames[0]];
+
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 
 //  get all buildings by managername
@@ -105,22 +104,22 @@ exports.create = async (data, cb, next) => {
 	}
 };
 
-exports.createBuilding = (data, cb) => {
-	for (let index = 2; index < 4; index++) {
-		const buildingName = workSheet[`A${index}`].v;
-		const buildingAdress = workSheet[`B${index}`].v;
-		const ownerName = workSheet[`C${index}`].v;
-		const roomQuantity = workSheet[`D${index}`].v;
+// exports.createBuilding = (data, cb) => {
+// 	for (let index = 2; index < 4; index++) {
+// 		const buildingName = workSheet[`A${index}`].v;
+// 		const buildingAdress = workSheet[`B${index}`].v;
+// 		const ownerName = workSheet[`C${index}`].v;
+// 		const roomQuantity = workSheet[`D${index}`].v;
 
-		console.log({
-			buildingName,
-			buildingAdress,
-			ownerName,
-			roomQuantity,
-		});
-	}
-	cb('TempData');
-};
+// 		console.log({
+// 			buildingName,
+// 			buildingAdress,
+// 			ownerName,
+// 			roomQuantity,
+// 		});
+// 	}
+// 	cb('TempData');
+// };
 
 // lấy user by emai
 exports.getEmail = (data, cb) => {

@@ -1,7 +1,6 @@
 const UseCase = require('../cores/files');
 var XLSX = require('xlsx');
-var workBook = XLSX.readFile('D:excelData/tempData.xlsx');
-let workSheet = workBook.Sheets[workBook.SheetNames[0]];
+
 const fs = require('fs');
 const Docxtemplater = require('docxtemplater');
 const PizZip = require('pizzip');

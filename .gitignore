@@ -22,3 +22,5 @@ build/
 # IDE files
 .idea/
 *.vscode/
+node_modules
+
