@@ -14,7 +14,7 @@ exports.exchangeToken = async (authCode, mode) => {
 			const body = qs.stringify({
 				code: authCode,
 				app_id: ZALO_APP_ID,
-				grand_type: 'authorization_code',
+				grant_type: 'authorization_code',
 				code_verify: ZALO_VERIFY_CODE,
 			});
 			const response = await axios.post(`https://oauth.zaloapp.com/v4/oa/access_token`, body, {
