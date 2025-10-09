@@ -299,6 +299,20 @@ exports.routerApi = (app) => {
 
 	//  ------------ZALO API---------------- //
 
+	app.get('/zalo-verification', (req, res) => {
+		res.send(`
+    <!DOCTYPE html>
+    <html lang="vi">
+      <head>
+        <meta name="zalo-platform-site-verification" content="O-JXEx_tCsPMqULFa_rZJ6hOnNM6hX8kCZ4q" />
+      </head>
+      <body>
+        Zalo Verification Page
+      </body>
+    </html>
+  `);
+	});
+
 	app.get('/api/v1/zalo/callback', Zalo.zaloCallback);
 
 	// ----TRANSACTION RECEIVING API------//
