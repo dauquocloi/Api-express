@@ -40,7 +40,19 @@ const firstMiddleware = (req, res, next) => {
 exports.routerApi = (app) => {
 	// default
 	app.get('/', (req, res) => {
-		return res.send('Welcome to API Gateway version 1.0.0');
+		return res.send(`
+    		<!DOCTYPE html>
+    			<html lang="vi">
+					<head>
+						<meta charset="UTF-8" />
+						<meta name="zalo-platform-site-verification" content="O-JXEx_tCsPMqULFa_rZJ6hOnNM6hX8kCZ4q" />
+						<title>API Express Server</title>
+					</head>
+					<body>
+						<h1>Welcome to API Express Server!</h1>
+					</body>
+   				 </html>
+  `);
 	});
 
 	app.post('/send-notification', Notification.sendNotification);
