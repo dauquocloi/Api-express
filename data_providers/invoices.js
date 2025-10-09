@@ -9,6 +9,7 @@ const generatePaymentContent = require('../utils/generatePaymentContent');
 const customerProvider = require('./customers');
 const { CANCELLED, NOT_EXIST } = require('../constants/errorCodes');
 const AppError = require('../AppError');
+const { errorCodes } = require('../constants/errorCodes');
 
 // const { config } = require('dotenv');
 
@@ -25,7 +26,7 @@ exports.getAll = (data, cb, next) => {
 // get fees create invoice
 exports.getFeeForGenerateInvoice = async (data, cb, next) => {
 	try {
-		let roomObjectId = mongoose.Types.ObjectId(data.roomId);
+		let roomObjectId = mongoose.Types.ObjectId(data.roomObjectId);
 		let buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
@@ -36,18 +37,14 @@ exports.getFeeForGenerateInvoice = async (data, cb, next) => {
 		});
 
 		if (findExistedInvoice) {
-			throw new Error(`Hóa đơn kỳ ${currentPeriod.currentMonth}, năm${currentPeriod.currentYear} đã tồn tại!`);
+			throw new AppError(errorCodes.conflict, `Hóa đơn kỳ ${currentPeriod.currentMonth}, năm${currentPeriod.currentYear} đã tồn tại!`, 409);
 		}
 
-		const invoiceRecent = await Entity.RoomsEntity.aggregate([
+		const feeInfo = await Entity.RoomsEntity.aggregate([
 			{
-				$match:
-					/**
-					 * query: The query in MQL.
-					 */
-					{
-						_id: roomObjectId,
-					},
+				$match: {
+					_id: roomObjectId,
+				},
 			},
 			{
 				$lookup: {
@@ -84,9 +81,6 @@ exports.getFeeForGenerateInvoice = async (data, cb, next) => {
 					shouldLookupVehicle: {
 						$eq: ['$feeInfo.unit', 'vehicle'],
 					},
-					shouldLookupInvoice: {
-						$eq: ['$feeInfo.unit', 'index'],
-					},
 				},
 			},
 			{
@@ -102,8 +96,24 @@ exports.getFeeForGenerateInvoice = async (data, cb, next) => {
 						{
 							$match: {
 								$expr: {
-									$eq: ['$$shouldLookup', true],
+									$and: [
+										{
+											$eq: ['$$shouldLookup', true],
+										},
+										{
+											$not: {
+												$in: ['$status', [0, 2]],
+											},
+										},
+									],
 								},
+							},
+						},
+						{
+							$project: {
+								_id: 1,
+								isContractOwner: 1,
+								fullName: 1,
 							},
 						},
 					],
@@ -122,38 +132,18 @@ exports.getFeeForGenerateInvoice = async (data, cb, next) => {
 						{
 							$match: {
 								$expr: {
-									$eq: ['$$shouldLookup', true],
+									$and: [
+										{
+											$eq: ['$$shouldLookup', true],
+										},
+										{
+											$not: {
+												$in: ['$status', [0, 2]],
+											},
+										},
+									],
 								},
 							},
-						},
-					],
-				},
-			},
-			{
-				$lookup: {
-					from: 'invoices',
-					localField: '_id',
-					foreignField: 'room',
-					as: 'recentInvoice',
-					let: {
-						shouldLookup: '$shouldLookupInvoice',
-					},
-					pipeline: [
-						{
-							$match: {
-								$expr: {
-									$eq: ['$$shouldLookup', true],
-								},
-							},
-						},
-						{
-							$sort: {
-								year: -1,
-								month: -1,
-							},
-						},
-						{
-							$limit: 1,
 						},
 					],
 				},
@@ -181,79 +171,8 @@ exports.getFeeForGenerateInvoice = async (data, cb, next) => {
 					roomIndex: 1,
 					feeInfo: 1,
 					debtsInfo: 1,
-					customerInfo: {
-						$filter: {
-							input: '$customerInfo',
-							as: 'customer',
-							cond: {
-								$eq: ['$$customer.status', 1],
-							},
-						},
-					},
-					vehicleInfo: {
-						$filter: {
-							input: '$vehicleInfo',
-							as: 'vehicle',
-							cond: {
-								$eq: ['$$vehicle.status', 1],
-							},
-						},
-					},
-					recentInvoice: {
-						$let: {
-							vars: {
-								filteredInvoice: {
-									$map: {
-										input: {
-											$ifNull: ['$recentInvoice', []], // Kiểm tra nếu recentInvoice là null hoặc không tồn tại, trả về một mảng rỗng.
-										},
-										as: 'invoice',
-										in: {
-											fee: {
-												$arrayElemAt: [
-													{
-														$filter: {
-															input: '$$invoice.fee',
-															as: 'recentFee',
-															cond: {
-																$and: [
-																	{
-																		$eq: ['$$recentFee.unit', 'index'],
-																	},
-																	{
-																		$eq: ['$$recentFee.feeName', '$feeInfo.feeName'],
-																	},
-																],
-															},
-														},
-													},
-													0,
-												],
-											},
-										},
-									},
-								},
-							},
-							in: {
-								$cond: {
-									if: {
-										$eq: [
-											{
-												$size: '$$filteredInvoice',
-											},
-											0,
-										],
-									},
-									// Kiểm tra nếu mảng filteredInvoice rỗng.
-									then: null,
-									// Nếu mảng rỗng, trả về null.
-									else: {
-										$arrayElemAt: ['$$filteredInvoice', 0],
-									}, // Nếu không rỗng, trả về phần tử đầu tiên.
-								},
-							},
-						},
-					},
+					customerInfo: 1,
+					vehicleInfo: 1,
 					rent: '$contractInfo.rent',
 				},
 			},
@@ -290,43 +209,28 @@ exports.getFeeForGenerateInvoice = async (data, cb, next) => {
 									else: null,
 								},
 							},
-							lastIndex: {
-								$cond: {
-									if: {
-										$and: [
-											{
-												$eq: ['$feeInfo.unit', 'index'],
-											},
-											{
-												$ne: ['$recentInvoice', null],
-											},
-										],
-									},
-									then: '$recentInvoice.fee.lastIndex',
-									else: null,
-								},
-							},
+							lastIndex: '$feeInfo.lastIndex',
 						},
 					},
 				},
 			},
 		]);
 
-		if (invoiceRecent.length > 0) {
-			cb(null, invoiceRecent[0]);
-		} else {
-			throw new Error('Can not find invoice !');
-		}
+		if (!feeInfo || feeInfo.lenth === 0)
+			throw new AppError(errorCodes.invariantViolation, `Phòng với Id: ${data.roomObjectId} Không tồn tại trong hệ thống!`, 200);
+
+		cb(null, feeInfo[0]);
 	} catch (error) {
 		next(error);
 	}
 };
 
 exports.create = async (data, cb, next) => {
+	let session;
 	try {
 		const { fees, stayDays } = data;
-		let roomId = mongoose.Types.ObjectId(`${data.roomId}`);
-		let buildingId = mongoose.Types.ObjectId(data.buildingId);
+		const roomObjectId = mongoose.Types.ObjectId(`${data.roomId}`);
+		const buildingId = mongoose.Types.ObjectId(data.buildingId);
 
 		const roomFeeInfo = await new Promise((resolve, reject) => {
 			exports.getFeeForGenerateInvoice(
@@ -478,7 +382,7 @@ exports.create = async (data, cb, next) => {
 			stayDays: dayOfStay,
 			month: currentPeriod?.currentMonth,
 			year: currentPeriod?.currentYear,
-			room: roomId,
+			room: roomObjectId,
 			status: 'unpaid',
 			fee: newFees,
 			total: calculateInvoiceTotalAmount(),
@@ -546,7 +450,7 @@ exports.getInvoiceStatus = async (data, cb, next) => {
 				$lookup: {
 					from: 'invoices',
 					let: {
-						roomId: '$roomInfo._id',
+						roomObjectId: '$roomInfo._id',
 						month: currentMonth,
 						year: currentYear,
 					},
@@ -556,7 +460,7 @@ exports.getInvoiceStatus = async (data, cb, next) => {
 								$expr: {
 									$and: [
 										{
-											$eq: ['$room', '$$roomId'],
+											$eq: ['$room', '$$roomObjectId'],
 										},
 										{
 											$eq: ['$month', '$$month'],
@@ -595,7 +499,7 @@ exports.getInvoiceStatus = async (data, cb, next) => {
 					_id: '$_id',
 					listInvoiceInfo: {
 						$push: {
-							roomId: '$roomInfo._id',
+							roomObjectId: '$roomInfo._id',
 							roomIndex: '$roomInfo.roomIndex',
 							invoiceStatus: '$invoiceStatus',
 							roomState: '$roomInfo.roomState',
@@ -733,7 +637,7 @@ exports.getInvoicesPaymentStatus = async (data, cb, next) => {
 						$push: {
 							invoiceId: '$invoiceInfo._id',
 							roomIndex: '$roomInfo.roomIndex',
-							roomId: '$roomInfo._id',
+							roomObjectId: '$roomInfo._id',
 							total: '$invoiceInfo.total',
 							month: '$invoiceInfo.month',
 							year: '$invoiceInfo.year',
@@ -904,7 +808,7 @@ exports.getInvoiceDetail = async (data, cb, next) => {
 exports.generateFirstInvoice = async (data, cb, next) => {
 	try {
 		console.log('log of fees from generateFirstInvoice: ', data.fees);
-		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
+		const roomObjectId = mongoose.Types.ObjectId(data.roomObjectId);
 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);

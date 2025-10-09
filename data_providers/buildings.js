@@ -11,6 +11,7 @@ const withSignedUrls = require('../utils/withSignedUrls');
 // const { config } = require('dotenv');
 
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
+const AppError = require('../AppError');
 
 //  get all buildings by managername
 exports.getAll = async (data, cb, next) => {
@@ -363,3 +364,169 @@ exports.getHomeData = async (data, cb, next) => {
 // 		next(error);
 // 	}
 // };
+
+exports.getBillCollectionProgress = async (data, cb, next) => {
+	try {
+		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+
+		const currentPeriod = await getCurrentPeriod(buildingObjectId);
+		const { currentMonth, currentYear } = currentPeriod;
+
+		const [getAllBill] = await Entity.BuildingsEntity.aggregate([
+			{
+				$match: {
+					_id: buildingObjectId,
+				},
+			},
+			{
+				$lookup: {
+					from: 'rooms',
+					localField: '_id',
+					foreignField: 'building',
+					as: 'rooms',
+				},
+			},
+			{
+				$lookup: {
+					from: 'invoices',
+					let: {
+						roomIds: {
+							$map: {
+								input: '$rooms',
+								as: 'r',
+								in: '$$r._id',
+							},
+						},
+						month: currentMonth,
+						year: currentYear,
+					},
+					pipeline: [
+						{
+							$match: {
+								$expr: {
+									$and: [
+										{
+											$in: ['$room', '$$roomIds'],
+										},
+										{
+											$ne: ['$status', 'cencelled'],
+										},
+										{
+											$eq: ['$month', '$$month'],
+										},
+										{
+											$eq: ['$year', '$$year'],
+										},
+									],
+								},
+							},
+						},
+						{
+							$project: {
+								_id: 1,
+								month: 1,
+								year: 1,
+								total: 1,
+								status: 1,
+								paidAmount: 1,
+							},
+						},
+					],
+					as: 'invoices',
+				},
+			},
+			{
+				$lookup: {
+					from: 'receipts',
+					let: {
+						roomIds: {
+							$map: {
+								input: '$rooms',
+								as: 'r',
+								in: '$$r._id',
+							},
+						},
+						month: currentMonth,
+						year: currentYear,
+					},
+					pipeline: [
+						{
+							$match: {
+								$expr: {
+									$and: [
+										{
+											$in: ['$room', '$$roomIds'],
+										},
+										{
+											$ne: ['$status', 'cencelled'],
+										},
+										{
+											$eq: ['$month', '$$month'],
+										},
+										{
+											$eq: ['$year', '$$year'],
+										},
+									],
+								},
+							},
+						},
+						{
+							$project: {
+								_id: 1,
+								month: 1,
+								year: 1,
+								status: 1,
+								amount: 1,
+								paidAmount: 1,
+								receiptType: 1,
+							},
+						},
+					],
+					as: 'receipts',
+				},
+			},
+			{
+				$project: {
+					_id: 1,
+					buildingName: 1,
+					buildingAddress: 1,
+					invoices: 1,
+					receipts: 1,
+				},
+			},
+		]);
+
+		if (!getAllBill || getAllBill?.length === 0) throw new AppError(50001, 'Tòa nhà không tồn tại', 200);
+
+		const calculateTotalAmount = () => {
+			let totalAmount = 0;
+			totalAmount += getAllBill.invoices.reduce((sum, item) => sum + item.total, 0);
+			totalAmount += getAllBill.receipts.reduce((sum, item) => sum + item.amount, 0);
+			return totalAmount;
+		};
+
+		const calculateTotalPaidAmount = () => {
+			let totalPaidAmount = 0;
+			totalPaidAmount += getAllBill.invoices.reduce((sum, item) => sum + (item.paidAmount ?? 0), 0);
+			totalPaidAmount += getAllBill.receipts.reduce((sum, item) => sum + (item.paidAmount ?? 0), 0);
+			return totalPaidAmount;
+		};
+
+		const billCollectedProgress = Math.round((calculateTotalPaidAmount() / calculateTotalAmount()) * 100);
+
+		const totalBill = getAllBill.invoices.length + getAllBill.receipts.length;
+		const totalBillUnpaid =
+			getAllBill.invoices.filter((i) => i.status != 'unpaid').length + getAllBill.receipts.filter((r) => r.status != 'unpaid').length;
+
+		console.log('log of calculateTotalAmount: ', calculateTotalAmount());
+		console.log('log of calculateTotalPaidAmount: ', calculateTotalPaidAmount());
+
+		cb(null, {
+			totalBill: totalBill,
+			totalBillUnpaid: totalBillUnpaid,
+			billCollectedProgress,
+		});
+	} catch (error) {
+		next(error);
+	}
+};

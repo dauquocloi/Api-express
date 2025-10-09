@@ -165,3 +165,23 @@ exports.getDepositTermFile = (req, res, next) => {
 		next,
 	);
 };
+
+exports.getBillCollectionProgress = (req, res, next) => {
+	var data = req.params;
+	console.log('log of data from getBillCollectionProgress: ', data);
+
+	UseCase.getBillCollectionProgress(
+		data,
+		(err, result) => {
+			if (!err) {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'succesfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};

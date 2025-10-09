@@ -4,6 +4,8 @@ var Entity = require('../models');
 const bcrypt = require('bcrypt');
 const utils = require('../utils/HandleText');
 const jwt = require('jsonwebtoken');
+const AppError = require('../AppError');
+const { errorCodes } = require('../constants/errorCodes');
 
 exports.getAll = (data, cb) => {
 	MongoConnect.Connect(config.database.fullname)
@@ -172,6 +174,7 @@ exports.modifyUserInfo = async (data, cb, next) => {
 
 // role admin only (this is shit)
 // cho trang phân quyền role admin
+// Lấy tất cả các quản trị viên, nhân viên
 exports.getAllManagers = async (data, cb, next) => {
 	try {
 		const ownerId = mongoose.Types.ObjectId(data.userId);
@@ -214,7 +217,7 @@ exports.getAllManagers = async (data, cb, next) => {
 								$expr: {
 									$and: [
 										{
-											$eq: ['$role', 'manager'],
+											$in: ['$role', ['manager', 'staff']],
 										},
 										{
 											$eq: ['$$managements.user', '$_id'],
@@ -415,5 +418,120 @@ exports.getRefreshToken = async (req, cb, next) => {
 		}
 	} catch (error) {
 		next(error);
+	}
+};
+
+exports.modifyUserPermission = async (data, cb, next) => {
+	try {
+		const userObjectId = mongoose.Types.ObjectId(data.userId);
+
+		const modifyUserRoleInBuildings = await Entity.BuildingsEntity.findOneAndUpdate(
+			{ 'management.user': userObjectId },
+			{
+				$set: {
+					'management.$.role': data.newPermission,
+				},
+			},
+			{ new: true },
+		);
+
+		if (!modifyUserRoleInBuildings) throw new AppError(errorCodes.invariantViolation, 'Người dùng không tồn tại!', 200);
+		const modifyUserPermission = await Entity.UsersEntity.findOneAndUpdate({ _id: userObjectId }, { role: data.newPermission }, { new: true });
+		if (!modifyUserPermission) throw new AppError(errorCodes.invariantViolation, 'Người dùng không tồn tại trong hệ thống!', 200);
+
+		cb(null, 'success');
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.checkManagerCollectedCash = async (data, cb, next) => {
+	try {
+		const userObjectId = mongoose.Types.ObjectId(data.userId);
+
+		const [getTransactions] = await Entity.UsersEntity.aggregate([
+			{
+				$match: {
+					_id: userObjectId,
+				},
+			},
+
+			{
+				$lookup: {
+					from: 'transactions',
+					localField: '_id',
+					foreignField: 'collector',
+					pipeline: [
+						{
+							$project: {
+								_id: 1,
+								collector: 1,
+								amount: 1,
+								invoice: 1,
+								receipt: 1,
+								createdAt: 1,
+							},
+						},
+					],
+					as: 'transactionInfos',
+				},
+			},
+
+			{
+				$project: {
+					_id: 1,
+					fullName: 1,
+					transactions: '$transactionInfos',
+				},
+			},
+		]);
+
+		if (!getTransactions) throw new AppError(errorCodes.invariantViolation, 'Quản lý không tồn tại!', 200);
+
+		cb(null, getTransactions);
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.changeUserBuildingManagement = async (data, cb, next) => {
+	let session;
+	try {
+		const userObjectId = mongoose.Types.ObjectId(data.userId);
+		const listBuildingObjectIds = data.buildingIds.map((b) => mongoose.Types.ObjectId(b));
+		session = await mongoose.startSession();
+		session.startTransaction();
+
+		const pullBuildingManagement = await Entity.BuildingsEntity.updateMany(
+			{ 'management.user': userObjectId },
+			{
+				$pull: {
+					management: { user: userObjectId },
+				},
+			},
+			{ session },
+		);
+
+		const pushBuildingManagement = await Entity.BuildingsEntity.updateMany(
+			{ _id: { $in: listBuildingObjectIds } },
+			{
+				$push: {
+					management: {
+						user: userObjectId,
+						role: data.role,
+					},
+				},
+			},
+			{ session },
+		);
+
+		await session.commitTransaction();
+
+		cb(null, 'success');
+	} catch (error) {
+		if (session) await session.abortTransaction();
+		next(error);
+	} finally {
+		if (session) session.endSession();
 	}
 };

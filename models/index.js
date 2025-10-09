@@ -49,3 +49,5 @@ exports.DebtsEntity = require('./debts').DebtsEntity;
 exports.DepositRefundsEntity = require('./depositRefunds').DepositRefundsEntity;
 
 exports.TasksEntity = require('./tasks').TasksEntity;
+
+exports.OATokensEntity = require('./OA').OATokensEntity;

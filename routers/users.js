@@ -258,7 +258,7 @@ exports.modifyUserInfo = async (req, res, next) => {
 };
 
 exports.getAllManagers = async (req, res, next) => {
-	let data = { ...req.body, ...req.params };
+	let data = req.user;
 	// const { error } = modifyUserSchema(data);
 	console.log('log of data from getAllManagers: ', data);
 	UseCase.getAllManagers(
@@ -328,6 +328,61 @@ exports.createManager = async (req, res, next) => {
 					errorCode: 0,
 					data: result,
 					message: 'successfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.modifyUserPermission = async (req, res, next) => {
+	let data = { ...req.body, ...req.params };
+	console.log('log of data from modifyUserPermission: ', data);
+	UseCase.modifyUserPermission(
+		data,
+		(err, result) => {
+			if (result) {
+				return res.status(200).send({
+					errorCode: 0,
+					message: 'success',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.checkManagerCollectedCash = async (req, res, next) => {
+	let data = req.params;
+	console.log('log of data from checkManagerCollectedCash: ', data);
+	UseCase.checkManagerCollectedCash(
+		data,
+		(err, result) => {
+			if (result) {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'success',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};
+
+exports.changeUserBuildingManagement = async (req, res, next) => {
+	let data = { ...req.params, ...req.body };
+	console.log('log of data from changeUserBuildingManagement: ', data);
+	UseCase.changeUserBuildingManagement(
+		data,
+		(err, result) => {
+			if (result) {
+				return res.status(200).send({
+					errorCode: 0,
+					message: 'success',
 					errors: [],
 				});
 			}

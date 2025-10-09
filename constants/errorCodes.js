@@ -4,4 +4,6 @@ exports.CANCELLED = 40010;
 exports.errorCodes = {
 	notExist: 40004,
 	cancelled: 40010,
+	invariantViolation: 50001,
+	conflict: 40009,
 };

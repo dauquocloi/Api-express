@@ -59,3 +59,24 @@ exports.getStatistics = async (req, res, next) => {
 		next,
 	);
 };
+
+exports.getStatisticGeneral = (req, res, next) => {
+	let data = { ...req.params, ...req.query };
+
+	console.log('log of data from getStatisticGeneral: ', data);
+
+	UseCase.getStatisticGeneral(
+		data,
+		(err, result) => {
+			if (result) {
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'success',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
+};

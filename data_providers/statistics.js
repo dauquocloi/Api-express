@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const MongoConnect = require('../utils/MongoConnect');
 var Entity = require('../models');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
+const AppError = require('../AppError');
 
 exports.getRevenues = async (data, cb, next) => {
 	try {
@@ -766,42 +767,80 @@ exports.getRevenuesModified = async (data, cb, next) => {
 					},
 			},
 			{
-				$lookup:
-					/**
-					 * from: The target collection.
-					 * localField: The local join field.
-					 * foreignField: The target join field.
-					 * as: The name for the results.
-					 * pipeline: Optional pipeline to run on the foreign collection.
-					 * let: Optional variables to use in the pipeline field stages.
-					 */
-					{
-						from: 'incidentalRevenues',
-						let: {
-							buildingId: '$_id',
-							month: month,
-							year: year,
-						},
-						pipeline: [
-							{
-								$match: {
-									$expr: {
-										$and: [
-											{
-												$eq: ['$$buildingId', '$building'],
-											},
-											{
-												$eq: ['$$month', '$month'],
-											},
-											{
-												$eq: ['$$year', '$year'],
-											},
-										],
-									},
+				$lookup: {
+					from: 'incidentalRevenues',
+					let: {
+						buildingId: '$_id',
+						month: month,
+						year: year,
+					},
+					pipeline: [
+						{
+							$match: {
+								$expr: {
+									$and: [
+										{
+											$eq: ['$$buildingId', '$building'],
+										},
+										{
+											$eq: ['$$month', '$month'],
+										},
+										{
+											$eq: ['$$year', '$year'],
+										},
+									],
 								},
 							},
-						],
-						as: 'otherRevenues',
+						},
+					],
+					as: 'otherRevenues',
+				},
+			},
+			{
+				$unwind: {
+					path: '$otherRevenues',
+					preserveNullAndEmptyArrays: true,
+				},
+			},
+			{
+				$lookup: {
+					from: 'users',
+					localField: 'otherRevenues.collector',
+					foreignField: '_id',
+					pipeline: [
+						{
+							$project: {
+								_id: 1,
+								fullName: 1,
+							},
+						},
+					],
+					as: 'collector',
+				},
+			},
+			{
+				$group:
+					/**
+					 * _id: The id of the group.
+					 * fieldN: The first field name.
+					 */
+					{
+						_id: '$_id',
+						revenues: {
+							$first: '$revenues',
+						},
+						otherRevenues: {
+							$push: {
+								$mergeObjects: [
+									'$otherRevenues',
+									{
+										collector: {
+											$arrayElemAt: ['$collector', 0],
+										},
+									},
+								],
+							},
+						},
 					},
 			},
 		]);
@@ -944,9 +983,6 @@ exports.getRevenuesModified = async (data, cb, next) => {
 
 		// convert Map về mảng
 		const periodicRevenue = Array.from(periodicRevenueMap.values());
-		console.log('log of periodicRevenue: ', periodicRevenue);
-
-		console.log('log of listPeriodicRevenue: ', listPeriodicRevenue);
 
 		// ----INCIDENTAL REVENUE ------//
 		let totalIncidentalRevenue = 0;
@@ -961,7 +997,6 @@ exports.getRevenuesModified = async (data, cb, next) => {
 				let depositReceiptPaidAmount = 0;
 				if (receiptItem.receiptType === 'deposit') {
 					// we work here
-					console.log('log of transaction receipt: ', receiptItem.transactionReceipt);
 					totalOlderAmountDepositReceipt =
 						receiptItem.transactionReceipt?.reduce((sum, { month: transactionMonth, year: transactionYear, amount = 0 }) => {
 							if (!transactionMonth || !transactionYear) return sum;
@@ -979,8 +1014,6 @@ exports.getRevenuesModified = async (data, cb, next) => {
 							}
 							return sum;
 						}, 0) || 0;
-
-					console.log('log of depositReceiptPaidAmount: ', depositReceiptPaidAmount);
 
 					totalIncidentalRevenue += amount - totalOlderAmountDepositReceipt;
 				} else {
@@ -1209,31 +1242,31 @@ exports.getStatistics = async (data, cb, next) => {
 					as: 'invoiceInfo',
 				},
 			},
-			{
-				$lookup: {
-					from: 'transactions',
-					let: {
-						invoiceId: '$invoiceInfo._id',
-					},
-					pipeline: [
-						{
-							$match: {
-								$expr: {
-									$and: [
-										{
-											$in: ['$invoice', '$$invoiceId'],
-										},
-										{
-											$ne: ['$invoice', null],
-										},
-									],
-								},
-							},
-						},
-					],
-					as: 'transactionInvoice',
-				},
-			},
+			// {
+			//   $lookup: {
+			//     from: "transactions",
+			//     let: {
+			//       invoiceId: "$invoiceInfo._id"
+			//     },
+			//     pipeline: [
+			//       {
+			//         $match: {
+			//           $expr: {
+			//             $and: [
+			//               {
+			//                 $in: ["$invoice", "$$invoiceId"]
+			//               },
+			//               {
+			//                 $ne: ["$invoice", null]
+			//               }
+			//             ]
+			//           }
+			//         }
+			//       }
+			//     ],
+			//     as: "transactionInvoice"
+			//   }
+			// }
 			{
 				$lookup: {
 					from: 'receipts',
@@ -1260,6 +1293,9 @@ exports.getStatistics = async (data, cb, next) => {
 										{
 											$eq: ['$month', month],
 										},
+										{
+											$ne: ['$status', 'terminated'],
+										},
 									],
 								},
 							},
@@ -1284,7 +1320,17 @@ exports.getStatistics = async (data, cb, next) => {
 						{
 							$match: {
 								$expr: {
-									$in: ['$receipt', '$$receiptIds'],
+									$and: [
+										{
+											$in: ['$receipt', '$$receiptIds'],
+										},
+										{
+											$eq: ['$month', month],
+										},
+										{
+											$eq: ['$year', year],
+										},
+									],
 								},
 							},
 						},
@@ -1407,7 +1453,7 @@ exports.getStatistics = async (data, cb, next) => {
 											$eq: ['$month', month === 1 ? 12 : month - 1],
 										},
 										{
-											$eq: ['$year', month === 1 ? year - 1 : year],
+											$eq: ['$year', 2025],
 										},
 									],
 								},
@@ -1433,9 +1479,9 @@ exports.getStatistics = async (data, cb, next) => {
 					totalInvoice: {
 						$sum: {
 							$map: {
-								input: '$transactionInvoice',
+								input: '$invoiceInfo',
 								as: 'invoice',
-								in: '$$invoice.amount',
+								in: '$$invoice.paidAmount',
 							},
 						},
 					},
@@ -1658,10 +1704,58 @@ exports.getStatistics = async (data, cb, next) => {
 		]);
 
 		if (statistics.length == 0) {
-			throw new Error(`Không có dữ liệu thống kê cho kỳ ${data.month}, ${data.year}`);
+			throw new AppError(50001, `Không có dữ liệu thống kê cho kỳ ${data.month}, ${data.year}`, 200);
 		}
 
 		cb(null, { statistics: statistics[0], period: { month, year } });
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.getStatisticGeneral = async (data, cb, next) => {
+	try {
+		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+
+		let year;
+		if (!data.year) {
+			const currentPeriod = await getCurrentPeriod(buildingObjectId);
+			const { currentMonth, currentYear } = currentPeriod;
+			year = currentYear;
+		} else year = Number(data.year);
+
+		const statistics = await Entity.StatisticsEntity.aggregate([
+			{
+				$match: {
+					building: buildingObjectId,
+					year: year,
+				},
+			},
+			{
+				$project: {
+					_id: 1,
+					building: 1,
+					year: 1,
+					month: 1,
+					revenue: 1,
+					revenueComparitionRate: 1,
+					statisticsStatus: 1,
+					expenditure: 1,
+					expenditureComparitionRate: 1,
+					profit: 1,
+					profitComparisonRate: 1,
+				},
+			},
+			{
+				$sort: {
+					month: 1,
+				},
+			},
+		]);
+
+		if (!statistics || statistics.length === 0) throw new AppError(50001, 'Dữ liệu khởi tạo không tồn tại', 200);
+
+		cb(null, statistics);
 	} catch (error) {
 		next(error);
 	}

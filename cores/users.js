@@ -93,3 +93,15 @@ exports.getAllManagement = (data, cb, next) => {
 exports.createManager = (data, cb, next) => {
 	DataProvider.createManager(data, cb, next);
 };
+
+exports.modifyUserPermission = (data, cb, next) => {
+	DataProvider.modifyUserPermission(data, cb, next);
+};
+
+exports.checkManagerCollectedCash = (data, cb, next) => {
+	DataProvider.checkManagerCollectedCash(data, cb, next);
+};
+
+exports.changeUserBuildingManagement = (data, cb, next) => {
+	DataProvider.changeUserBuildingManagement(data, cb, next);
+};

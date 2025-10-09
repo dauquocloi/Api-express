@@ -99,9 +99,17 @@ let StatisticsSchema = new Schema(
 			type: Schema.Types.ObjectId,
 			ref: 'revenue',
 		},
+		revenueComparisonRate: {
+			type: Number,
+			required: true,
+		},
 		expenditure: {
 			type: Schema.Types.ObjectId,
 			ref: 'expenditures',
+		},
+		expenditureComparitionRate: {
+			type: Number,
+			required: true,
 		},
 		profit: {
 			type: Number,

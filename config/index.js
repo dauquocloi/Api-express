@@ -6,6 +6,7 @@ var home = require('os').homedir();
 var configType = 0;
 var path = require('path');
 var cloudinary = require('./cloudinary');
+require('dotenv').config;
 
 switch (configType) {
 	case 0: // Development environment
@@ -28,15 +29,15 @@ switch (configType) {
 		exports.database = {
 			// host: 'localhost',
 			// port: 27017,
-			username: 'dauquocloi2003',
-			password: '0982238589',
-			clusterUrl: 'cluster0-projecta-qltro.hgonw.mongodb.net',
+			username: process.env.ATLAS_USERNAME,
+			password: process.env.ATLAS_PASSWORD,
+			clusterUrl: process.env.ATLAS_URL,
 			appName: 'Cluster0-ProjectA-Qltro',
 			// optional: 'retryWrites=false',
 		};
 		exports.JWT = {
-			JWT_SECRET: '82371923sdasdads[]sdsadasd',
-			JWT_REFRESH: '0982238589@13/10/03',
+			JWT_SECRET: process.env.JWT_SECRET,
+			JWT_REFRESH: process.env.JWT_REFRESH,
 		};
 		exports.cloudinary = cloudinary;
 		break;

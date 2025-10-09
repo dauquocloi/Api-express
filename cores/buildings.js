@@ -54,3 +54,7 @@ exports.importDepositTermFile = (data, cb, next) => {
 exports.getDepositTermFile = (data, cb, next) => {
 	DataProvider.getDepositTermFile(data, cb, next);
 };
+
+exports.getBillCollectionProgress = (data, cb, next) => {
+	DataProvider.getBillCollectionProgress(data, cb, next);
+};

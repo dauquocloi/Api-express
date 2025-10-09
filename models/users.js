@@ -50,7 +50,7 @@ const UsersSchema = new Schema(
 		},
 		role: {
 			type: String,
-			enum: ['owner', 'customer', 'sale', 'admin', 'manager', 'guest'],
+			enum: ['owner', 'customer', 'sale', 'admin', 'manager', 'guest', 'staff'],
 			required: true,
 		},
 		expoPushToken: {

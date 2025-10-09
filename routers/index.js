@@ -24,6 +24,7 @@ const Transaction = require('./transactions');
 const Deposit = require('./deposits');
 const Debt = require('./debts');
 const Task = require('./tasks');
+const Zalo = require('./admin/zalo');
 
 // Route với nhiều middleware
 const firstMiddleware = (req, res, next) => {
@@ -49,7 +50,7 @@ exports.routerApi = (app) => {
 	// get all user
 	app.get('/users/getAll', [firstMiddleware], User.getAll);
 
-	app.get('/users/:userId/managers', User.getAllManagers);
+	app.get('/users/managers', verifyToken, User.getAllManagers);
 
 	// test api
 	app.get('/users/thu', (req, res) => {
@@ -272,7 +273,21 @@ exports.routerApi = (app) => {
 
 	app.get('/tasks/:taskId', Task.getTaskDetail);
 
+	app.patch('/users/managements/:userId', User.modifyUserPermission);
+
+	app.get('/users/managements/collectedCash/:userId', User.checkManagerCollectedCash); //owner only
+
+	app.patch('/users/managements/buildingManagement/:userId', User.changeUserBuildingManagement); //owner only
+
 	app.get('/api/v1/bills/:billCode', Invoice.getInvoiceInfoByInvoiceCode);
+
+	app.get('/buildings/:buildingId/statisticGeneral', verifyToken, Statistic.getStatisticGeneral);
+
+	app.get('/buildings/:buildingId/bill-collection-progress', Building.getBillCollectionProgress);
+
+	//  ------------ZALO API---------------- //
+
+	app.get('/api/v1/zalo/callback', Zalo.zaloCallback);
 
 	// ----TRANSACTION RECEIVING API------//
 
