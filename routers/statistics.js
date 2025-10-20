@@ -16,6 +16,7 @@ exports.getRevenues = async (req, res, next) => {
 				});
 			}
 		},
+
 		next,
 	);
 };

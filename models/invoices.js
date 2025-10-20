@@ -89,6 +89,7 @@ const InvoicesSchema = new Schema(
 			min: 0,
 		},
 		status: { type: String, enum: ['unpaid', 'paid', 'partial', 'cencelled'], default: 'unpaid' },
+		invoiceType: { type: String, enum: ['firstInvoice', 'rental'], default: 'rental' },
 		fee: [FeeInvoiceSchema],
 		debts: [{ content: { type: String }, amount: { type: Number, default: 0 } }],
 		payer: {
@@ -118,6 +119,10 @@ const InvoicesSchema = new Schema(
 		creater: {
 			type: Schema.Types.ObjectId,
 			ref: 'users',
+		},
+		invoiceContent: {
+			type: String,
+			trim: true,
 		},
 	},
 	{

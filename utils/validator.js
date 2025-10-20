@@ -30,6 +30,22 @@ const feeContractSchema = Joi.object({
 	lastIndex: Joi.number().optional(),
 });
 
+const feeInvoiceSchema = Joi.object({
+	_id: Joi.string().optional(),
+	feeName: Joi.string(),
+	feeKey: Joi.string().required(),
+	feeAmount: Joi.number().required(),
+	firstIndex: Joi.number().optional(),
+	secondIndex: Joi.number().optional(),
+	quantity: Joi.number().optional(),
+	unit: Joi.string(),
+}).custom((value, helpers) => {
+	if (value.firstIndex !== undefined && value.secondIndex !== undefined && value.secondIndex < value.firstIndex) {
+		return helpers.message(`"Chỉ số cuối" phải lớn hơn hoặc bằng "chỉ số đầu"`);
+	}
+	return value;
+}, 'Kiểm tra logic giữa firstIndex và secondIndex');
+
 // -----------------------------//
 const addFeeSchema = Joi.object({
 	roomId: Joi.string().required(),
@@ -41,12 +57,12 @@ const addFeeSchema = Joi.object({
 });
 
 const editFeeSchema = Joi.object({
-	roomId: Joi.string(),
+	roomId: Joi.string().optional(),
 	feeId: Joi.string(),
-	feeName: Joi.string(),
+	feeName: Joi.string().optional(),
 	feeAmount: Joi.number().positive(),
-	unit: Joi.string(),
-	description: Joi.string().max(255),
+	unit: Joi.string().optional(),
+	description: Joi.string().max(255).optional(),
 });
 
 const modifyCustomerSchema = Joi.object({
@@ -145,9 +161,28 @@ const generateContractSchema = Joi.object({
 	fees: Joi.array().items(feeContractSchema),
 });
 
+const generateInvoiceSchema = Joi.object({
+	roomId: Joi.string().required(),
+	buildingId: Joi.string().required(),
+	fees: Joi.array().items(feeInvoiceSchema),
+	debts: Joi.array()
+		.items(
+			Joi.object({
+				debtId: Joi.string().optional(),
+				content: Joi.string(),
+				amount: Joi.number(),
+			}),
+		)
+		.optional(),
+	stayDays: Joi.number().min(1).max(31).note('Ngày ko được vượt quá 31 ngày'),
+	roomIndex: Joi.string(),
+	buildingName: Joi.string(),
+	// oaId: Joi.string(),
+});
+
 exports.addFeeSchema = validator(addFeeSchema);
 
-exports.editFeeSchema = validator(editFeeSchema);
+// exports.editFeeSchema = validator(editFeeSchema);
 
 exports.editVehicleSchema = validator(editVehicleSchema);
 
@@ -167,4 +202,6 @@ module.exports = {
 	validateCreateVehicle: validator(addVehicleSchema),
 	validateModifyInterior: validator(modifyInteriorSchema),
 	validateImportRoomImageSchema: validator(importRoomImageSchema),
+	validateGenerateInvoice: validator(generateInvoiceSchema),
+	validateEditFee: validator(editFeeSchema),
 };

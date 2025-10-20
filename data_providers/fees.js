@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 const MongoConnect = require('../utils/MongoConnect');
 var Entity = require('../models');
 const getListFeeInitial = require('../utils/getListFeeInital');
+const AppError = require('../AppError');
+const { errorCodes } = require('../constants/errorCodes');
 
 exports.getFeesByRoomId = async (data, cb, next) => {
 	try {
@@ -59,27 +61,26 @@ exports.deleteFee = async (data, cb, next) => {
 
 		await Entity.FeesEntity.deleteOne({ _id: feeId }).exec(cb);
 	} catch (error) {
-		next(new Error(error.message));
+		next(error);
 	}
 };
 
 exports.editFee = async (data, cb, next) => {
 	try {
-		let feeId = mongoose.Types.ObjectId(`${data.feeId}`);
+		const feeObjectId = mongoose.Types.ObjectId(data.feeId);
 
-		const feeRcent = await Entity.FeesEntity.findOne({ _id: feeId });
+		const feeRecent = await Entity.FeesEntity.findOne({ _id: feeObjectId });
 
-		if (!feeRcent) {
-			console.log('fee không tồn tại');
-			next(new Error('fee does not exist'));
+		if (!feeRecent) {
+			throw new AppError(errorCodes.notExist, `Phí không tồn tại`, 200);
 		}
 
-		Object.assign(feeRcent, data);
+		Object.assign(feeRecent, data);
 
-		const updatedFee = await feeRcent.save();
+		const updatedFee = await feeRecent.save();
 
 		cb(null, updatedFee);
 	} catch (error) {
-		next(new Error(error));
+		next(error);
 	}
 };

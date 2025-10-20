@@ -2,13 +2,14 @@ const axios = require('axios');
 const qs = require('qs');
 const Entity = require('../models');
 const AppError = require('../AppError');
+const crypto = require('crypto');
 
 const ZALO_CHALLENGE_CODE = process.env.ZALO_CHALLENGE_CODE;
 const ZALO_VERIFY_CODE = process.env.ZALO_VERIFY_CODE;
 const ZALO_SECRET = process.env.ZALO_SECRET_KEY;
 const ZALO_APP_ID = process.env.ZALO_APP_ID;
 
-exports.exchangeToken = async (authCode, mode) => {
+exports.exchangeToken = async (authCode, mode, next) => {
 	try {
 		if (mode === 'get') {
 			const body = qs.stringify({
@@ -64,15 +65,67 @@ exports.exchangeToken = async (authCode, mode) => {
 			});
 
 			// DB updating
-			tokenDoc.accessToken = res.data.access_token;
-			tokenDoc.refreshToken = res.data.refresh_token;
-			tokenDoc.expiresIn = Number(res.data.expires_in);
+			tokenDoc.accessToken = response.data.access_token;
+			tokenDoc.refreshToken = response.data.refresh_token;
+			tokenDoc.expiresIn = Number(response.data.expires_in);
 			tokenDoc.updatedAt = new Date();
 			await tokenDoc.save();
 
 			return response.data;
 		}
 	} catch (error) {
-		nextTick(error);
+		next(error);
+	}
+};
+
+exports.sendZNSInvoice = async (accessToken, reqData, next) => {
+	console.log('log of reqData: ', reqData);
+	try {
+		const trackingId = `msg_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+
+		const sendZNS = await axios.post(
+			`https://business.openapi.zalo.me/message/template`,
+			{
+				phone: reqData.phone,
+				template_id: process.env.ZALO_ZNS_CODE_INVOICE,
+				template_data: {
+					building_name: reqData.buildingName,
+					amount: reqData.amount,
+					bill_code: reqData.billCode,
+					sender_name: reqData.senderName,
+					customer_name: reqData.customerName,
+					room_index: reqData.roomIndex,
+					status: reqData.billStatus,
+				},
+			},
+			{
+				headers: {
+					Content_Type: 'application/json',
+					access_token: accessToken,
+				},
+			},
+		);
+
+		const { data, error } = sendZNS?.data || {};
+		if (error !== 0) {
+			throw new AppError(error, sendZNS.data.message, 200);
+		}
+
+		await Entity.ZaloZnsEntity.create({
+			trackingId,
+			sender: reqData.sender ?? 'Lợi gửi',
+			sentAt: new Date(),
+			templateId: process.env.ZALO_ZNS_CODE_INVOICE,
+			toPhone: reqData.phone,
+			sendingMode: data.sending_mode,
+			status: 'fulfilled',
+		});
+
+		return {
+			message: 'successfully',
+			errorCode: 0,
+		};
+	} catch (error) {
+		next(error);
 	}
 };

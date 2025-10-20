@@ -5,7 +5,6 @@ const AppError = require('./../AppError');
 
 // very important !!!
 const currentPeriod = async (buildingId) => {
-	console.log('log of buildingId: ', buildingId);
 	try {
 		const statisticsStatusInfo = await Entity.StatisticsEntity.findOne({ building: buildingId }).sort({ year: -1, month: -1 }).exec();
 

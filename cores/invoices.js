@@ -76,6 +76,10 @@ exports.getInvoiceInfoByInvoiceCode = (data, cb, next) => {
 	DataProvider.getInvoiceInfoByInvoiceCode(data, cb, next);
 };
 
+exports.modifyInvoice = (data, cb, next) => {
+	DataProvider.modifyInvoice(data, cb, next);
+};
+
 // exports.getEmail = (data, cb) => {
 // 	DataProvider.getEmail(data, (errs, result) => {
 // 		if (errs) {

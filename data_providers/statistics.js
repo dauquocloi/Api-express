@@ -1242,31 +1242,6 @@ exports.getStatistics = async (data, cb, next) => {
 					as: 'invoiceInfo',
 				},
 			},
-			// {
-			//   $lookup: {
-			//     from: "transactions",
-			//     let: {
-			//       invoiceId: "$invoiceInfo._id"
-			//     },
-			//     pipeline: [
-			//       {
-			//         $match: {
-			//           $expr: {
-			//             $and: [
-			//               {
-			//                 $in: ["$invoice", "$$invoiceId"]
-			//               },
-			//               {
-			//                 $ne: ["$invoice", null]
-			//               }
-			//             ]
-			//           }
-			//         }
-			//       }
-			//     ],
-			//     as: "transactionInvoice"
-			//   }
-			// }
 			{
 				$lookup: {
 					from: 'receipts',
@@ -1424,11 +1399,8 @@ exports.getStatistics = async (data, cb, next) => {
 							},
 						},
 						{
-							$project: {
-								_id: 1,
+							$sort: {
 								month: 1,
-								year: 1,
-								profit: 1,
 							},
 						},
 					],
@@ -1453,7 +1425,7 @@ exports.getStatistics = async (data, cb, next) => {
 											$eq: ['$month', month === 1 ? 12 : month - 1],
 										},
 										{
-											$eq: ['$year', 2025],
+											$eq: ['$year', month === 1 ? year - 1 : year],
 										},
 									],
 								},
@@ -1466,8 +1438,8 @@ exports.getStatistics = async (data, cb, next) => {
 								year: 1,
 								profit: 1,
 								roomOccupancyRate: '$room.occupancyRate',
-								totalVehicle: '$vehicle.totalVehicleCount',
-								totalCustomer: '$customer.totalCustomerCount',
+								totalVehicle: '$vehicle.totalVehicle',
+								totalCustomer: '$customer.totalCustomer',
 							},
 						},
 					],
@@ -1578,10 +1550,10 @@ exports.getStatistics = async (data, cb, next) => {
 			{
 				$project: {
 					_id: 1,
-					totalRevenue: {
+					revenue: {
 						$add: ['$totalInvoice', '$totalReceipt', '$totalIncidentalRevenue'],
 					},
-					totalExpenditure: {
+					expenditure: {
 						$add: ['$totalPeriodicExpenditure', '$totalIncidentalExpenditure'],
 					},
 					profit: {
@@ -1625,9 +1597,9 @@ exports.getStatistics = async (data, cb, next) => {
 					},
 					room: {
 						totalRoom: '$totalRoom',
-						totalRoomHired: '$totalRoomStateHired',
-						totalRoomUnHired: '$totalRoomStateUnHired',
-						roomOccupancyRate: {
+						rentedRoom: '$totalRoomStateHired',
+						emptyRoom: '$totalRoomStateUnHired',
+						occupancyRate: {
 							$round: [
 								{
 									$multiply: [
@@ -1676,7 +1648,7 @@ exports.getStatistics = async (data, cb, next) => {
 								},
 							],
 						},
-						customerTemporaryResidence: '$customerTemporaryResidence',
+						temporaryResidentTotal: '$customerTemporaryResidence',
 					},
 					vehicle: {
 						totalVehicle: '$totalVehicle',
@@ -1701,13 +1673,39 @@ exports.getStatistics = async (data, cb, next) => {
 					recentStatistics: 1,
 				},
 			},
+			{
+				$addFields: {
+					recentStatistics: {
+						$concatArrays: [
+							{
+								$ifNull: ['$recentStatistics', []],
+							},
+							[
+								{
+									_id: mongoose.Types.ObjectId(),
+									revenue: '$revenue',
+									expenditure: '$expenditure',
+									profit: '$profit',
+									profitComparisonRate: '$profitComparisonRate',
+									room: '$room',
+									customer: '$customer',
+									vehicle: '$vehicle',
+									statisticStatus: 'unLock',
+									month: month,
+									year: year,
+								},
+							],
+						],
+					},
+				},
+			},
 		]);
 
 		if (statistics.length == 0) {
 			throw new AppError(50001, `Không có dữ liệu thống kê cho kỳ ${data.month}, ${data.year}`, 200);
 		}
 
-		cb(null, { statistics: statistics[0], period: { month, year } });
+		cb(null, { statistics: statistics[0].recentStatistics });
 	} catch (error) {
 		next(error);
 	}

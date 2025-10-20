@@ -7,15 +7,15 @@ const Schema = mongoose.Schema;
 // Create a Mongoose Schema
 
 let RoomStatisticsSchema = new Schema({
-	totalRoomCount: {
+	totalRoom: {
 		type: Number,
 		min: 0,
 	},
-	rentedRoomCount: {
+	rentedRoom: {
 		type: Number,
 		min: 0,
 	},
-	emptyRoomCount: {
+	emptyRoom: {
 		type: Number,
 		min: 0,
 	},
@@ -34,7 +34,7 @@ let RoomStatisticsSchema = new Schema({
 });
 
 const VehicleStatisticSchema = new Schema({
-	totalVehicleCount: {
+	totalVehicle: {
 		type: Number,
 		min: 0,
 	},
@@ -47,11 +47,11 @@ const VehicleStatisticSchema = new Schema({
 });
 
 const CustomerStatisticsSchema = new Schema({
-	temporaryResidentTotalCount: {
+	temporaryResidentTotalTotal: {
 		type: Number,
 		min: 0,
 	},
-	totalCustomerCount: {
+	totalCustomer: {
 		type: Number,
 		min: 0,
 	},

@@ -135,6 +135,8 @@ exports.routerApi = (app) => {
 
 	app.post('/invoices/create', Invoice.create);
 
+	app.patch('/invoices/:invoiceId', Invoice.modifyInvoice);
+
 	app.post('/invoices/first-invoice', Invoice.generateFirstInvoice);
 
 	// app.get('/invoices/getall', Invoice.getAll);

@@ -41,6 +41,13 @@ exports.getAll = async (data, cb, next) => {
 					from: 'rooms',
 					localField: '_id',
 					foreignField: 'building',
+					pipeline: [
+						{
+							$sort: {
+								roomIndex: 1,
+							},
+						},
+					],
 					as: 'roomInfo',
 				},
 			},

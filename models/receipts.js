@@ -85,6 +85,10 @@ const ReceiptsSchema = new Schema({
 		type: Boolean,
 		default: true,
 	},
+	receiptCode: {
+		type: String,
+		trim: true,
+	},
 });
 
 ReceiptsSchema.pre('save', async function (next) {

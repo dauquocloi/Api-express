@@ -6,4 +6,5 @@ exports.errorCodes = {
 	cancelled: 40010,
 	invariantViolation: 50001,
 	conflict: 40009,
+	invalidInput: 40000,
 };

@@ -1,9 +1,10 @@
 const UseCase = require('../cores/fees');
-const { addFeeSchema, editFeeSchema } = require('../utils/validator');
+const { addFeeSchema, validateEditFee } = require('../utils/validator');
 const listFeeInitial = require('../utils/getListFeeInital');
+const { errorCodes } = require('../constants/errorCodes');
 
 exports.addFee = (req, res, next) => {
-	console.log('log of new Fee: ', req.params);
+	console.log('log of data from addFee: ', req.params);
 	let data = { ...req.body, ...req.params };
 	// const { error, value } = addFeeSchema(data);
 
@@ -69,31 +70,23 @@ exports.deleteFee = (req, res, next) => {
 
 exports.editFee = (req, res, next) => {
 	let data = { ...req.params, ...req.body };
-	console.log(data);
 
-	const { error, value } = editFeeSchema(data);
+	console.log('log of data from editFee: ', data);
+
+	const { error, value } = validateEditFee(data);
 	if (error) {
-		console.log(error.details);
+		console.error('log of error input from edit fee:', error.details);
 		return res.status(400).send({
-			errorCode: 1,
-			data: {},
+			errorCode: errorCodes.invalidInput,
 			message: 'Invalid input data',
 			errors: error.details.map((err) => err.message),
 		});
 	}
 
 	UseCase.editFee(
-		data,
+		value,
 		(errs, result) => {
-			console.log(result);
-			if (errs) {
-				return res.status(204).json({
-					errorCode: 0,
-					data: {},
-					message: 'err',
-					errors: [],
-				});
-			} else {
+			if (!errs) {
 				return res.status(200).send({
 					errorCode: 0,
 					data: result,

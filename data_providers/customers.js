@@ -2,15 +2,17 @@ const mongoose = require('mongoose');
 const MongoConnect = require('../utils/MongoConnect');
 var Entity = require('../models');
 const bcrypt = require('bcrypt');
+const AppError = require('../AppError');
+const { errorCodes } = require('../constants/errorCodes');
 
 exports.getAll = async (data, cb, next) => {
 	try {
-		let buildingId = mongoose.Types.ObjectId(`${data.buildingId}`);
+		let buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 
-		const customerInfo = await Entity.BuildingsEntity.aggregate([
+		const [customerInfo] = await Entity.BuildingsEntity.aggregate([
 			{
 				$match: {
-					_id: buildingId,
+					_id: buildingObjectId,
 				},
 			},
 			{
@@ -18,52 +20,138 @@ exports.getAll = async (data, cb, next) => {
 					from: 'rooms',
 					localField: '_id',
 					foreignField: 'building',
-					as: 'roomInfo',
+					as: 'rooms',
 				},
 			},
 			{
 				$unwind: {
-					path: '$roomInfo',
+					path: '$rooms',
+				},
+			},
+			{
+				$sort: {
+					'rooms.roomIndex': 1,
 				},
 			},
 			{
 				$lookup: {
 					from: 'customers',
-					localField: 'roomInfo._id',
-					foreignField: 'room',
-					as: 'customerInfo',
-				},
-			},
-			{
-				$project: {
-					_id: 1,
-					buildingName: 1,
-					'roomInfo._id': 1,
-					'roomInfo.roomIndex': 1,
-					'roomInfo.roomState': 1,
-					'customerInfo._id': 1,
-					'customerInfo.fullName': 1,
-					'customerInfo.phone': 1,
+					let: {
+						roomId: '$rooms._id',
+					},
+					pipeline: [
+						{
+							$match: {
+								$expr: {
+									$and: [
+										{
+											$eq: ['$room', '$$roomId'],
+										},
+										{
+											$in: ['$status', data.status === 'leaved' ? [0] : [1, 2]],
+										},
+									],
+								},
+							},
+						},
+						{
+							$project: {
+								_id: 1,
+								fullName: 1,
+								avatar: 1,
+								phone: 1,
+								checkoutDate: {
+									$cond: {
+										if: { $eq: [data.status, 'leaved'] },
+										then: '$checkoutDate',
+										else: '$$REMOVE',
+									},
+								},
+							},
+						},
+					],
+					as: 'customers',
 				},
 			},
 			{
 				$group: {
 					_id: '$_id',
-					listCustomer: {
+					data: {
 						$push: {
-							roomId: '$roomInfo._id',
-							roomIndex: '$roomInfo.roomIndex',
-							roomState: '$roomInfo.roomState',
-							customerInfo: '$customerInfo',
+							roomId: '$rooms._id',
+							roomIndex: '$rooms.roomIndex',
+							roomState: '$rooms.roomState',
+							customerInfo: '$customers',
 						},
 					},
 				},
 			},
 		]);
 
-		if (customerInfo.length > 0) {
-			cb(null, customerInfo[0].listCustomer);
-		}
+		// else {
+
+		// 	[customerInfo] = await Entity.BuildingsEntity.aggregate([
+		// 	   {
+		// 		   $match: {
+		// 			   _id: buildingId,
+		// 		   },
+		// 	   },
+		// 	   {
+		// 		   $lookup: {
+		// 			   from: 'rooms',
+		// 			   localField: '_id',
+		// 			   foreignField: 'building',
+		// 			   as: 'roomInfo',
+		// 		   },
+		// 	   },
+		// 	   {
+		// 		   $unwind: {
+		// 			   path: '$roomInfo',
+		// 		   },
+		// 	   },
+		// 	   {
+		// 		   $sort: {
+		// 			   'roomInfo.roomIndex': 1,
+		// 		   },
+		// 	   },
+		// 	   {
+		// 		   $lookup: {
+		// 			   from: 'customers',
+		// 			   localField: 'roomInfo._id',
+		// 			   foreignField: 'room',
+		// 			   as: 'customerInfo',
+		// 		   },
+		// 	   },
+		// 	   {
+		// 		   $project: {
+		// 			   _id: 1,
+		// 			   buildingName: 1,
+		// 			   'roomInfo._id': 1,
+		// 			   'roomInfo.roomIndex': 1,
+		// 			   'roomInfo.roomState': 1,
+		// 			   'customerInfo._id': 1,
+		// 			   'customerInfo.fullName': 1,
+		// 			   'customerInfo.phone': 1,
+		// 		   },
+		// 	   },
+		// 	   {
+		// 		   $group: {
+		// 			   _id: '$_id',
+		// 			   listCustomer: {
+		// 				   $push: {
+		// 					   roomId: '$roomInfo._id',
+		// 					   roomIndex: '$roomInfo.roomIndex',
+		// 					   roomState: '$roomInfo.roomState',
+		// 					   customerInfo: '$customerInfo',
+		// 				   },
+		// 			   },
+		// 		   },
+		// 	   },
+		//    ]);
+		// }
+
+		if (!customerInfo) throw new AppError(errorCodes.invariantViolation, `Dữ liệu không tồn tại`, 200);
+		cb(null, customerInfo.data);
 	} catch (error) {
 		next(error);
 	}
@@ -146,24 +234,24 @@ exports.addCustomer = async (data, cb, next) => {
 
 		const encryptedPassword = await bcrypt.hash(data.phone, 5);
 
-		const newUser = await Entity.UsersEntity.create({
-			username: data.phone,
-			password: encryptedPassword,
-			role: 'customer',
-			phone: data.phone,
-		});
+		// const newUser = await Entity.UsersEntity.create({
+		// 	username: data.phone,
+		// 	password: encryptedPassword,
+		// 	role: 'customer',
+		// 	phone: data.phone,
+		// });
 		const newCustomerInfo = {
 			room: roomId,
-			user: newUser._id,
+			// user: newUser._id,
 			fullName: data.fullName,
 			gender: data.gender,
 			iscontractowner: data.iscontractowner,
-			birthday: data.dayOfBirth,
+			birthday: data.birthday,
 			permanentAddress: data.permanentAddress,
 			phone: data.phone,
 			cccd: data.cccd,
 			cccdIssueDate: data.cccdIssueDate,
-			status: data.customerStatus,
+			status: 1,
 			room: data.roomId,
 			temporaryResidence: false,
 		};

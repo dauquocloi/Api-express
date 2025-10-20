@@ -571,13 +571,18 @@ exports.getListSelectingRoom = async (data, cb, next) => {
 						{
 							$match: {
 								$expr: {
-									$eq: ['$building', '$$buildingId'],
+									$and: [{ $eq: ['$building', '$$buildingId'] }, { $ne: ['$roomState', 0] }],
 								},
 							},
 						},
 						{
 							$project: {
 								_id: 1,
+								roomIndex: 1,
+							},
+						},
+						{
+							$sort: {
 								roomIndex: 1,
 							},
 						},

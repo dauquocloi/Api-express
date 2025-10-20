@@ -75,12 +75,16 @@ exports.getReceiptDetail = (req, res, next) => {
 			data,
 			(err, result) => {
 				if (!err) {
-					return res.status(200).send({
-						errorCode: 0,
-						data: result,
-						message: 'succesfull',
-						errors: [],
-					});
+					setTimeout(
+						() =>
+							res.status(200).send({
+								errorCode: 0,
+								data: result,
+								message: 'succesfull',
+								errors: [],
+							}),
+						2000,
+					);
 				}
 			},
 			next,
