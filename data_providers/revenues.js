@@ -185,7 +185,6 @@ exports.getFeeRevenueDetail = async (data, cb, next) => {
 		}
 
 		const { feeRevenueInfo } = feeRevenue[0];
-		console.log('log of feeRevenueInfo: ', feeRevenueInfo);
 
 		// kiểm tra tính tồn tại của feeKey gửi về:
 		const checkExistedRoom = feeRevenueInfo.some((roomItem) =>

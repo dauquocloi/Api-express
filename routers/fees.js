@@ -41,24 +41,14 @@ exports.addFee = (req, res, next) => {
 };
 
 exports.deleteFee = (req, res, next) => {
-	console.log(req.params);
 	let data = req.params;
-
+	console.log('log of data from deleteFee: ', data);
 	UseCase.deleteFee(
 		data,
 		(errs, result) => {
-			console.log(result);
-			if (errs) {
-				return res.status(204).json({
+			if (!error) {
+				return res.status(200).json({
 					errorCode: 0,
-					data: {},
-					message: 'err',
-					errors: [],
-				});
-			} else {
-				return res.status(200).send({
-					errorCode: 0,
-					data: result,
 					message: 'succesfull',
 					errors: [],
 				});

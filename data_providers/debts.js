@@ -1,75 +1,96 @@
 const mongoose = require('mongoose');
 const Entity = require('../models');
+const AppError = require('../AppError');
+const { errorCodes } = require('../constants/errorCodes');
+const getCurrentPeriod = require('../utils/getCurrentPeriod');
 
 exports.deleteDebts = async (data, cb, next) => {
+	let session;
 	try {
+		session = await mongoose.startSession();
+		session.startTransaction();
 		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
-		const removeDebts = await Entity.DebtsEntity.deleteMany({ room: roomObjectId, status: { $nin: ['paid', 'terminated'] } });
 
-		if (removeDebts.deletedCount === 0) {
-			cb(null, 'Không có khoản nợ nào được xóa');
-		} else {
-			cb(null, 'Đã xóa nợ thành công');
+		const findDebts = await Entity.DebtsEntity.find({ room: roomObjectId, status: { $in: ['closed', 'pending'] } });
+		if (!findDebts || findDebts.length === 0) throw new AppError(errorCodes.notExist, 'Không tồn tại khoản nợ nào', 200);
+
+		const totalDebts = findDebts.reduce((sum, debt) => sum + debt.amount, 0);
+		if (findDebts[0].status === 'closed' && findDebts[0].sourceId !== null) {
+			const currentInvoice = await Entity.InvoicesEntity.findOne({ _id: findDebts[0].sourceId });
+			if (!currentInvoice) throw new AppError(errorCodes.notExist, 'Hóa đơn cho khoản nợ không tồn tại!', 404);
+
+			const calculateInvoiceTotalAmount = currentInvoice.total - totalDebts;
+			currentInvoice.debts = null;
+			currentInvoice.total = calculateInvoiceTotalAmount;
+			currentInvoice.status = calculateInvoiceTotalAmount <= currentInvoice.paidAmount ? 'paid' : currentInvoice.status;
+			//=> send new invoice to customer;
+			await currentInvoice.save({ session });
 		}
+
+		await Entity.DebtsEntity.updateMany(
+			{ room: roomObjectId, status: { $in: ['closed', 'pending'] } },
+			{ $set: { status: 'terminated' } },
+			{ session },
+		);
+
+		await session.commitTransaction();
+		cb(null, 'success');
 	} catch (error) {
+		if (session) await session.abortTransaction();
 		next(error);
+	} finally {
+		if (session) session.endSession();
 	}
 };
 
-exports.getDebtsByRoomId = async (data, cb, next) => {
+exports.getCreateDepositRefundInfo = async (data, cb, next) => {
 	try {
 		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
+		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 
-		const debtsAndReceiptUnpaid = await Entity.RoomsEntity.aggregate([
+		const currentPeriod = await getCurrentPeriod(buildingObjectId);
+
+		const [debtsAndReceiptUnpaid] = await Entity.RoomsEntity.aggregate([
 			{
 				$match: {
 					_id: roomObjectId,
 				},
 			},
 			{
-				$lookup:
-					/**
-					 * from: The target collection.
-					 * localField: The local join field.
-					 * foreignField: The target join field.
-					 * as: The name for the results.
-					 * pipeline: Optional pipeline to run on the foreign collection.
-					 * let: Optional variables to use in the pipeline field stages.
-					 */
-					{
-						from: 'receipts',
-						let: {
-							roomObjectId: '$_id',
-						},
-						pipeline: [
-							{
-								$match: {
-									$expr: {
-										$and: [
-											{
-												$eq: ['$room', '$$roomObjectId'],
-											},
-											{
-												$eq: ['$receiptType', 'deposit'],
-											},
-											{
-												$eq: ['$isActive', true],
-											},
-										],
-									},
-								},
-							},
-							{
-								$project: {
-									_id: 1,
-									amount: 1,
-									paidAmount: 1,
-									isActive: 1,
-								},
-							},
-						],
-						as: 'receiptDeposit',
+				$lookup: {
+					from: 'receipts',
+					let: {
+						roomObjectId: '$_id',
 					},
+					pipeline: [
+						{
+							$match: {
+								$expr: {
+									$and: [
+										{
+											$eq: ['$room', '$$roomObjectId'],
+										},
+										{
+											$eq: ['$receiptType', 'deposit'],
+										},
+										{
+											$eq: ['$isActive', true],
+										},
+									],
+								},
+							},
+						},
+						{
+							$project: {
+								_id: 1,
+								amount: 1,
+								paidAmount: 1,
+								isActive: 1,
+							},
+						},
+					],
+					as: 'receiptDeposit',
+				},
 			},
 			{
 				$lookup: {
@@ -130,22 +151,90 @@ exports.getDebtsByRoomId = async (data, cb, next) => {
 				},
 			},
 			{
+				$lookup: {
+					from: 'invoices',
+					localField: '_id',
+					foreignField: 'room',
+					pipeline: [
+						{
+							$match: {
+								month: currentPeriod.currentMonth,
+								year: currentPeriod.currentYear,
+								status: 'unpaid',
+							},
+						},
+						{
+							$project: {
+								_id: 1,
+								month: 1,
+								year: 1,
+								status: 1,
+								paidAmount: 1,
+								total: 1,
+								invoiceContent: 1,
+							},
+						},
+					],
+					as: 'invoiceUnpaid',
+				},
+			},
+
+			{
+				$lookup: {
+					from: 'fees',
+					localField: '_id',
+					foreignField: 'room',
+					pipeline: [
+						{
+							$match: {
+								unit: {
+									$eq: 'index',
+								},
+							},
+						},
+						{
+							$project: {
+								_id: 1,
+								feeName: 1,
+								unit: 1,
+								lastIndex: 1,
+								feeKey: 1,
+								room: 1,
+								feeAmount: 1,
+							},
+						},
+					],
+					as: 'fees',
+				},
+			},
+
+			{
 				$addFields: {
 					receiptDeposit: {
 						$arrayElemAt: ['$receiptDeposit', 0],
+					},
+					invoiceUnpaid: {
+						$ifNull: [
+							{
+								$arrayElemAt: ['$invoiceUnpaid', 0],
+							},
+							null,
+						],
 					},
 				},
 			},
 		]);
 
-		if (!debtsAndReceiptUnpaid.length || !debtsAndReceiptUnpaid[0].receiptDeposit) {
-			throw new Error(`Không tồn tại hóa đơn đặt cọc !`);
-		}
+		if (!debtsAndReceiptUnpaid) throw new AppError(errorCodes.notExist, `Phòng với Id: ${data.roomId} không tồn tại !`, 404);
+		if (!debtsAndReceiptUnpaid.receiptDeposit) throw new AppError(errorCodes.notExist, `Hóa đơn đặt cọc không tồn tại !`, 404);
+
 		cb(null, {
-			_id: debtsAndReceiptUnpaid[0]?._id,
-			debts: debtsAndReceiptUnpaid[0]?.debts || [],
-			receiptsUnpaid: debtsAndReceiptUnpaid[0]?.receiptsUnpaid || [],
-			receiptDeposit: debtsAndReceiptUnpaid[0]?.receiptDeposit,
+			_id: debtsAndReceiptUnpaid?._id,
+			debts: debtsAndReceiptUnpaid?.debts || [],
+			receiptsUnpaid: debtsAndReceiptUnpaid?.receiptsUnpaid || [],
+			invoiceUnpaid: debtsAndReceiptUnpaid?.invoiceUnpaid,
+			receiptDeposit: debtsAndReceiptUnpaid.receiptDeposit,
+			fees: debtsAndReceiptUnpaid.fees,
 		});
 	} catch (error) {
 		next(error);

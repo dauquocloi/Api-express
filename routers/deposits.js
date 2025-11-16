@@ -3,7 +3,7 @@ const { validateCreateDeposit } = require('../utils/validator');
 
 exports.createDeposit = (req, res, next) => {
 	let data = { ...req.params, ...req.body };
-	console.log('this is log of createDeposit: ', data);
+	console.log('log of data from createDeposit: ', data);
 
 	const { error, value } = validateCreateDeposit(data.room, data.customer, data.receiptId);
 	if (error) {
@@ -73,19 +73,23 @@ exports.getDepositDetail = (req, res, next) => {
 };
 
 exports.getDepositDetailByRoomId = (req, res, next) => {
-	let data = req.query;
+	let data = req.params;
 	console.log('this is log of getDepositDetailByRoomId: ', data);
 
 	UseCase.getDepositDetailByRoomId(
 		data,
 		(error, result) => {
 			if (!error) {
-				return res.status(200).json({
-					errorCode: 0,
-					data: result,
-					message: 'succesfull',
-					errors: [],
-				});
+				setTimeout(
+					() =>
+						res.status(200).json({
+							errorCode: 0,
+							data: result,
+							message: 'succesfull',
+							errors: [],
+						}),
+					2000,
+				);
 			}
 		},
 		next,

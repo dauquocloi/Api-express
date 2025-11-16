@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
 const MongoConnect = require('../utils/MongoConnect');
 var Entity = require('../models');
+const AppError = require('../AppError');
+const { errorCodes } = require('../constants/errorCodes');
 
 exports.handleSepayIPN = (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.fullname);
-
 		if (data.transfer_type === 'credit') {
 			const tracsactionContent = data.content;
 		}
@@ -14,30 +14,20 @@ exports.handleSepayIPN = (data, cb, next) => {
 	}
 };
 
-exports.collectCash = (data, cb, next) => {
-	try {
-		const db = MongoConnect.Connect(config.database.fullname);
-	} catch (error) {
-		next(error);
-	}
-};
-
 exports.collectCashFromEmployee = async (data, cb, next) => {
 	try {
-		const db = MongoConnect.Connect(config.database.fullname);
 		const transactionObjectId = mongoose.Types.ObjectId(data.transactionId);
 		const ownerObjectId = mongoose.Types.ObjectId(data.userId);
 
 		const transaction = await Entity.TransactionsEntity.findOne({ _id: transactionObjectId });
 		if (!transaction) {
-			throw new Error(`Giao dịch ${data.transaction} không tồn tại!`);
+			throw new AppError(errorCodes.notExist, `Giao dịch không tồn tại!`, 200);
 		}
 
-		if (transaction.collector != ownerObjectId) {
-			transaction.collector = ownerObjectId;
-			await transaction.save();
-			cb(null, 'modified');
-		} else cb(null, 'no content');
+		transaction.collector = ownerObjectId;
+		await transaction.save();
+
+		cb(null, { type: transaction.invoice == null ? 'receipt' : 'invoice' });
 	} catch (error) {
 		next(error);
 	}

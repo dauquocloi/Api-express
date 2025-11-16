@@ -13,10 +13,16 @@ const DebtsSchema = new Schema(
 			type: Schema.Types.ObjectId,
 			ref: 'rooms',
 		},
-		// Trạng thái nợ
+		period: {
+			month: { type: Number },
+			year: { type: Number },
+		},
+
 		status: {
 			type: String,
-			enum: ['pending', 'paid', 'terminated'],
+			// pending: "Sau khi chốt sổ", terminated: "Đã xóa",
+			// closed: "Đã được gắn vào hóa đơn tiền nhà"
+			enum: ['pending', 'closed', 'terminated'],
 			default: 'pending',
 		},
 		sourceType: {
@@ -32,7 +38,7 @@ const DebtsSchema = new Schema(
 	{
 		versionKey: false,
 		collation: { locale: 'vi' },
-		timestamps: true, // Thêm thời gian tạo và cập nhật
+		timestamps: true,
 	},
 );
 

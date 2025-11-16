@@ -53,3 +53,5 @@ exports.TasksEntity = require('./tasks').TasksEntity;
 exports.OATokensEntity = require('./OA').OATokensEntity;
 
 exports.ZaloZnsEntity = require('./zaloZns').ZaloZnsEntity;
+
+exports.NotisEntity = require('./notifications').NotificationsEntity;

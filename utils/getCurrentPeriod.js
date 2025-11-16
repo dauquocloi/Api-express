@@ -31,7 +31,7 @@ const currentPeriod = async (buildingId) => {
 
 		return currentPeriod;
 	} catch (error) {
-		next(error);
+		throw error;
 	}
 };
 

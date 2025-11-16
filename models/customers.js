@@ -45,14 +45,14 @@ const CustomersSchema = new Schema(
 		},
 		room: {
 			type: Schema.Types.ObjectId,
-			ref: 'RoomsEntity',
+			ref: 'rooms',
 			required: true,
 		},
-		user: {
-			type: Schema.Types.ObjectId,
-			ref: 'UsersEntity',
-		},
-		customerPermission: String,
+		// user: {
+		// 	type: Schema.Types.ObjectId,
+		// 	ref: 'UsersEntity',
+		// },
+		// customerPermission: String,
 		temporaryResidence: {
 			type: Boolean,
 			default: false,
@@ -63,6 +63,11 @@ const CustomersSchema = new Schema(
 		},
 		checkoutDate: {
 			type: Date,
+		},
+		paymentInfo: {
+			bank: { type: String },
+			accountNumber: { type: String },
+			accountOwnerName: { type: String },
 		},
 	},
 	{

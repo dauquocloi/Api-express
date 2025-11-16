@@ -1,4 +1,5 @@
 var DataProvider = require('../data_providers/receipts');
+const { notificationQueue } = require('../queues');
 
 exports.createReceipt = (data, cb, next) => {
 	DataProvider.createReceipt(data, cb, next);
@@ -17,7 +18,45 @@ exports.getReceiptDetail = (data, cb, next) => {
 };
 
 exports.collectCashMoney = (data, cb, next) => {
-	DataProvider.collectCashMoney(data, cb, next);
+	DataProvider.collectCashMoney(
+		data,
+		(err, result) => {
+			if (err) {
+				return cb(err, null);
+			}
+
+			console.log('log of result: ', result);
+
+			if (result.role != 'owner') {
+				notificationQueue.add(
+					{
+						type: 'collectCash',
+						payload: {
+							buildingId: result.buildingId, // getBuildingName
+							collectorName: result.collectorName,
+							billType: 'receipt',
+							amount: result.amount,
+							receiptId: result.receiptId,
+						},
+					},
+					{
+						attempts: 1,
+						backoff: 1000,
+						removeOnComplete: true,
+						removeOnFail: false, // bỏ nếu tác dụ thất bại
+					},
+				);
+				console.log('✅ Job added to notification queue');
+			}
+
+			cb(null, result);
+		},
+		next,
+	);
+};
+
+exports.modifyReceipt = (data, cb, next) => {
+	DataProvider.modifyReceipt(data, cb, next);
 };
 
 exports.deleteReceipt = (data, cb, next) => {

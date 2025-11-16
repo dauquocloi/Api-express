@@ -55,11 +55,10 @@ exports.addFee = async (data, cb, next) => {
 };
 
 exports.deleteFee = async (data, cb, next) => {
-	console.log(data);
 	try {
-		let feeId = mongoose.Types.ObjectId(`${data.feeId}`);
-
-		await Entity.FeesEntity.deleteOne({ _id: feeId }).exec(cb);
+		const feeObjectId = mongoose.Types.ObjectId(data.feeId);
+		await Entity.FeesEntity.deleteOne({ _id: feeObjectId });
+		cb(null, 'success');
 	} catch (error) {
 		next(error);
 	}
@@ -69,17 +68,20 @@ exports.editFee = async (data, cb, next) => {
 	try {
 		const feeObjectId = mongoose.Types.ObjectId(data.feeId);
 
-		const feeRecent = await Entity.FeesEntity.findOne({ _id: feeObjectId });
+		const feeRecent = await Entity.FeesEntity.findOne({ _id: feeObjectId }).exec();
 
 		if (!feeRecent) {
 			throw new AppError(errorCodes.notExist, `Phí không tồn tại`, 200);
 		}
 
-		Object.assign(feeRecent, data);
+		if (feeRecent.unit === 'index') {
+			feeRecent.lastIndex = data.lastIndex;
+		}
+		feeRecent.feeAmount = data.feeAmount;
 
-		const updatedFee = await feeRecent.save();
+		await feeRecent.save();
 
-		cb(null, updatedFee);
+		cb(null, 'success');
 	} catch (error) {
 		next(error);
 	}

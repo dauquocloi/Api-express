@@ -57,12 +57,23 @@ exports.getAll = async (data, cb, next) => {
 						{
 							$project: {
 								_id: 1,
+								room: 1,
 								fullName: 1,
 								avatar: 1,
 								phone: 1,
+								isContractOwner: 1,
+								gender: 1,
+								birthday: 1,
+								permanentAddress: 1,
+								cccd: 1,
+								cccdIssueDate: 1,
+								cccdIssueAt: 1,
+								status: 1,
+								temporaryResidence: 1,
+								checkinDate: 1,
 								checkoutDate: {
 									$cond: {
-										if: { $eq: [data.status, 'leaved'] },
+										if: { $eq: ['', 'leaved'] },
 										then: '$checkoutDate',
 										else: '$$REMOVE',
 									},
@@ -88,68 +99,6 @@ exports.getAll = async (data, cb, next) => {
 			},
 		]);
 
-		// else {
-
-		// 	[customerInfo] = await Entity.BuildingsEntity.aggregate([
-		// 	   {
-		// 		   $match: {
-		// 			   _id: buildingId,
-		// 		   },
-		// 	   },
-		// 	   {
-		// 		   $lookup: {
-		// 			   from: 'rooms',
-		// 			   localField: '_id',
-		// 			   foreignField: 'building',
-		// 			   as: 'roomInfo',
-		// 		   },
-		// 	   },
-		// 	   {
-		// 		   $unwind: {
-		// 			   path: '$roomInfo',
-		// 		   },
-		// 	   },
-		// 	   {
-		// 		   $sort: {
-		// 			   'roomInfo.roomIndex': 1,
-		// 		   },
-		// 	   },
-		// 	   {
-		// 		   $lookup: {
-		// 			   from: 'customers',
-		// 			   localField: 'roomInfo._id',
-		// 			   foreignField: 'room',
-		// 			   as: 'customerInfo',
-		// 		   },
-		// 	   },
-		// 	   {
-		// 		   $project: {
-		// 			   _id: 1,
-		// 			   buildingName: 1,
-		// 			   'roomInfo._id': 1,
-		// 			   'roomInfo.roomIndex': 1,
-		// 			   'roomInfo.roomState': 1,
-		// 			   'customerInfo._id': 1,
-		// 			   'customerInfo.fullName': 1,
-		// 			   'customerInfo.phone': 1,
-		// 		   },
-		// 	   },
-		// 	   {
-		// 		   $group: {
-		// 			   _id: '$_id',
-		// 			   listCustomer: {
-		// 				   $push: {
-		// 					   roomId: '$roomInfo._id',
-		// 					   roomIndex: '$roomInfo.roomIndex',
-		// 					   roomState: '$roomInfo.roomState',
-		// 					   customerInfo: '$customerInfo',
-		// 				   },
-		// 			   },
-		// 		   },
-		// 	   },
-		//    ]);
-		// }
-
 		if (!customerInfo) throw new AppError(errorCodes.invariantViolation, `Dữ liệu không tồn tại`, 200);
 		cb(null, customerInfo.data);
 	} catch (error) {
@@ -157,6 +106,7 @@ exports.getAll = async (data, cb, next) => {
 	}
 };
 
+// remove this 08/11/2025
 exports.getCustomerById = async (data, cb, next) => {
 	try {
 		const customerId = mongoose.Types.ObjectId(`${data.customerId}`);
@@ -230,35 +180,31 @@ exports.editCustomer = async (data, cb, next) => {
 
 exports.addCustomer = async (data, cb, next) => {
 	try {
-		const roomId = mongoose.Types.ObjectId(`${data.roomId}`);
+		const roomId = mongoose.Types.ObjectId(data.roomId);
 
-		const encryptedPassword = await bcrypt.hash(data.phone, 5);
-
-		// const newUser = await Entity.UsersEntity.create({
-		// 	username: data.phone,
-		// 	password: encryptedPassword,
-		// 	role: 'customer',
-		// 	phone: data.phone,
-		// });
 		const newCustomerInfo = {
 			room: roomId,
-			// user: newUser._id,
 			fullName: data.fullName,
 			gender: data.gender,
-			iscontractowner: data.iscontractowner,
+			isContractOwner: data?.isContractOwner ?? false,
 			birthday: data.birthday,
 			permanentAddress: data.permanentAddress,
 			phone: data.phone,
 			cccd: data.cccd,
 			cccdIssueDate: data.cccdIssueDate,
 			status: 1,
-			room: data.roomId,
 			temporaryResidence: false,
 		};
 
 		const customer = await Entity.CustomersEntity.create(newCustomerInfo);
 
-		cb(null, customer);
+		cb(null, {
+			_id: customer._id,
+			fullName: customer.fullName,
+			avatar: customer.avatar,
+			phone: customer.phone,
+			roomId: customer.room,
+		});
 	} catch (error) {
 		next(error);
 	}

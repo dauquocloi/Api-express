@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 var Entity = require('../models');
 const uploadFile = require('../utils/uploadFile');
+const AppError = require('../AppError');
+const { errorCodes } = require('../constants/errorCodes');
 
 exports.createTask = async (data, cb, next) => {
 	try {
@@ -195,10 +197,10 @@ exports.getTasks = async (data, cb, next) => {
 			{ $limit: daysPerPage + 1 },
 		]);
 
-		const isListEnd = tasks.length > daysPerPage; // like has more
+		const isListEnd = tasks.length <= daysPerPage; // like has more
 		console.log('log of is hasMore: ', isListEnd);
 
-		cb(null, { tasks, page, isListEnd: !isListEnd });
+		cb(null, { tasks, page, isListEnd });
 	} catch (error) {
 		next(error);
 	}
@@ -207,17 +209,17 @@ exports.getTasks = async (data, cb, next) => {
 exports.modifyTask = async (data, cb, next) => {
 	try {
 		const taskObjectId = mongoose.Types.ObjectId(data.taskId);
-		console.log('log of parse performers: ', JSON.parse(data.performers));
+
 		const performerObjectIds = JSON.parse(data.performers).map((p) => mongoose.Types.ObjectId(p));
 
 		const getTaskInfo = await Entity.TasksEntity.findOne({ _id: taskObjectId });
-		if (!getTaskInfo) throw new Erorr(`Công việc với id: ${data.taskId} không tồn tại !`);
+		if (!getTaskInfo) throw new AppError(errorCodes.notExist, `Công việc với id: ${data.taskId} không tồn tại !`, 200);
 
 		getTaskInfo.taskContent = data.taskContent;
 		getTaskInfo.detail = data.detail;
 		getTaskInfo.executionDate = data.executionDate;
 		getTaskInfo.performers = performerObjectIds;
-		getTaskInfo.status = data.status;
+		getTaskInfo.status = data.status; // Done task
 
 		if (data.taskImages.length > 0) {
 			const images = [];
@@ -230,7 +232,15 @@ exports.modifyTask = async (data, cb, next) => {
 
 		await getTaskInfo.save();
 
-		cb(null, 'modified');
+		cb(null, {
+			taskId: data.taskId,
+			completedRole: data.role,
+			type: data.type, // ['modify', 'doneTask']
+			performerIds: JSON.parse(data.performers),
+			taskTitle: getTaskInfo.taskContent,
+			taskStatus: data.status,
+			managementIds: getTaskInfo.managements,
+		});
 	} catch (error) {
 		next(error);
 	}

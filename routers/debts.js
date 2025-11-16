@@ -19,11 +19,11 @@ exports.deleteDebts = (req, res, next) => {
 	);
 };
 
-exports.getDebtsByRoomId = (req, res, next) => {
-	var data = req.params;
-	console.log('log of data from getDebtsByRoomId: ', data);
+exports.getCreateDepositRefundInfo = (req, res, next) => {
+	var data = { ...req.params, ...req.query };
+	console.log('log of data from get debs receipt unpaid: ', data);
 
-	UseCase.getDebtsByRoomId(
+	UseCase.getCreateDepositRefundInfo(
 		data,
 		(err, result) => {
 			if (!err) {

@@ -7,6 +7,8 @@ const uploadFile = require('../utils/uploadFile');
 const { generateFirstInvoice } = require('./invoices');
 const { createDepositReceipt } = require('./receipts');
 const { note } = require('pdfkit');
+const { errorCodes } = require('../constants/errorCodes');
+const AppError = require('../AppError');
 
 exports.getAll = async (data, cb, next) => {
 	try {
@@ -74,10 +76,10 @@ exports.getAll = async (data, cb, next) => {
 
 exports.getRoom = async (data, cb, next) => {
 	try {
-		const roomObjectId = mongoose.Types.ObjectId(`${data.roomId}`);
+		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
 
 		console.time('fetch room');
-		const roomInfo = await Entity.RoomsEntity.aggregate([
+		const [roomInfo] = await Entity.RoomsEntity.aggregate([
 			{
 				$match: {
 					_id: roomObjectId,
@@ -237,6 +239,7 @@ exports.getRoom = async (data, cb, next) => {
 				$project: {
 					_id: 1,
 					roomImage: 1,
+					roomPrice: 1,
 					building: 1,
 					roomIndex: 1,
 					interior: 1,
@@ -283,107 +286,105 @@ exports.getRoom = async (data, cb, next) => {
 			},
 		]);
 		console.timeEnd('fetch room');
+		if (!roomInfo) throw new AppError(errorCodes.notExist, 'Phòng không tồn tại', 200);
 
-		if (roomInfo.length > 0) {
-			cb(null, roomInfo);
-		} else {
-			next(new Error('can not find rooms !'));
-		}
+		cb(null, roomInfo);
 	} catch (error) {
 		next(error);
 	}
 };
 
-exports.update = (data, cb) => {
-	MongoConnect.Connect(config.database.fullname)
-		.then(async (db) => {
-			let RoomUpdated = await Entity.RoomsEntity.updateOne(
-				{ _id: data.roomId },
-				{
-					$set: {
-						roomprice: data.roomprice,
-						roomdeposit: data.roomdeposit,
-						roomtypes: data.roomtypes,
-						roomacreage: data.roomacreage,
-						maylanh: data.maylanh,
-						giengtroi: data.giengtroi,
-						gac: data.gac,
-						kebep: data.kebep,
-						bonruachen: data.bonruachen,
-						cuaso: data.cuaso,
-						bancong: data.bancong,
-						tulanh: data.tulanh,
-						tivi: data.tivi,
-						thangmay: data.tivi,
-						nuocnong: data.nuocnong,
-						giuong: data.giuong,
-						nem: data.nem,
-						tuquanao: data.tuquanao,
-						chungchu: data.chungchu,
-						baove: data.baove,
-					},
-				},
-				{
-					upsert: true,
-				},
-			);
-		})
-		.then(async () => {
-			let ServiceUpdated = await Entity.ServicesEntity.updateOne(
-				{
-					room: data.roomId,
-				},
-				{
-					$set: {
-						electric: data.electric,
-						waterindex: data.waterindex,
-						water: data.water,
-						generalservice: data.generalservice,
-						iswaterpayment: data.iswaterpayment,
-					},
-				},
-				{
-					upsert: true,
-				},
-			);
-		})
-		.then(async () => {
-			let PaymentUpdated = await Entity.PaymentsEntity.updateOne(
-				{ room: data.roomId },
-				{
-					$set: {
-						accountnumber: data.accountnumber,
-						accountname: data.accountname,
-						bankname: data.bankname,
-						tranfercontent: data.tranfercontent,
-						note: data.note,
-					},
-				},
-				{
-					upsert: true,
-				},
-			);
-		})
-		.then(() => {
-			let result = {
-				room: {
-					roomprice: data.roomPrice,
-				},
-				service: {
-					generalservice: data.generalservice,
-					motobike: data.motobike,
-					elevator: data.elevator,
-					water: data.water,
-					electric: data.electric,
-				},
-			};
-			cb(null, 'update succesfully');
-		})
-		.catch((err) => {
-			console.log('rooms_Dataprovider_create: ' + err);
-			cb(err, null);
-		});
-};
+// PIECE OF SHIT
+// exports.update = (data, cb) => {
+// 	MongoConnect.Connect(config.database.fullname)
+// 		.then(async (db) => {
+// 			let RoomUpdated = await Entity.RoomsEntity.updateOne(
+// 				{ _id: data.roomId },
+// 				{
+// 					$set: {
+// 						roomprice: data.roomprice,
+// 						roomdeposit: data.roomdeposit,
+// 						roomtypes: data.roomtypes,
+// 						roomacreage: data.roomacreage,
+// 						maylanh: data.maylanh,
+// 						giengtroi: data.giengtroi,
+// 						gac: data.gac,
+// 						kebep: data.kebep,
+// 						bonruachen: data.bonruachen,
+// 						cuaso: data.cuaso,
+// 						bancong: data.bancong,
+// 						tulanh: data.tulanh,
+// 						tivi: data.tivi,
+// 						thangmay: data.tivi,
+// 						nuocnong: data.nuocnong,
+// 						giuong: data.giuong,
+// 						nem: data.nem,
+// 						tuquanao: data.tuquanao,
+// 						chungchu: data.chungchu,
+// 						baove: data.baove,
+// 					},
+// 				},
+// 				{
+// 					upsert: true,
+// 				},
+// 			);
+// 		})
+// 		.then(async () => {
+// 			let ServiceUpdated = await Entity.ServicesEntity.updateOne(
+// 				{
+// 					room: data.roomId,
+// 				},
+// 				{
+// 					$set: {
+// 						electric: data.electric,
+// 						waterindex: data.waterindex,
+// 						water: data.water,
+// 						generalservice: data.generalservice,
+// 						iswaterpayment: data.iswaterpayment,
+// 					},
+// 				},
+// 				{
+// 					upsert: true,
+// 				},
+// 			);
+// 		})
+// 		.then(async () => {
+// 			let PaymentUpdated = await Entity.PaymentsEntity.updateOne(
+// 				{ room: data.roomId },
+// 				{
+// 					$set: {
+// 						accountnumber: data.accountnumber,
+// 						accountname: data.accountname,
+// 						bankname: data.bankname,
+// 						tranfercontent: data.tranfercontent,
+// 						note: data.note,
+// 					},
+// 				},
+// 				{
+// 					upsert: true,
+// 				},
+// 			);
+// 		})
+// 		.then(() => {
+// 			let result = {
+// 				room: {
+// 					roomprice: data.roomPrice,
+// 				},
+// 				service: {
+// 					generalservice: data.generalservice,
+// 					motobike: data.motobike,
+// 					elevator: data.elevator,
+// 					water: data.water,
+// 					electric: data.electric,
+// 				},
+// 			};
+// 			cb(null, 'update succesfully');
+// 		})
+// 		.catch((err) => {
+// 			console.log('rooms_Dataprovider_create: ' + err);
+// 			cb(err, null);
+// 		});
+// };
 
 // finance update
 exports.financeUpdate = (data, cb) => {
@@ -393,7 +394,7 @@ exports.financeUpdate = (data, cb) => {
 	});
 };
 
-// lấy thông tin tài chính của Phòng
+// PIECE OF SHIT
 exports.finance = (data, cb) => {
 	var roomId = mongoose.Types.ObjectId(`${data.roomId}`);
 	let queryRooms;
@@ -529,7 +530,7 @@ exports.editInterior = async (data, cb, next) => {
 			{
 				$set: {
 					'interior.$.interiorName': data.interiorName,
-					'interior.$.quantity': data.quantity, // Cập nhật số lượng
+					'interior.$.quantity': data.interiorQuantity, // Cập nhật số lượng
 					'interior.$.interiorRentalDate': data.interiorRentalDate, // Cập nhật ngày thuê
 				},
 			},
@@ -666,16 +667,32 @@ exports.generateDepositReceiptAndFirstInvoice = async (data, cb, next) => {
 exports.generateDepositRefund = async (data, cb, next) => {
 	let session;
 	try {
-		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
 		const receiptObjectId = mongoose.Types.ObjectId(data.receiptId);
+		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
+		const { buildingId, contractId, receiptId, customerId, roomId } = data;
+
+		const [room, building, contract, depositReceipt, customer] = await Promise.all([
+			Entity.RoomsEntity.exists({ _id: roomId }),
+			Entity.BuildingsEntity.exists({ _id: buildingId }),
+			Entity.ContractsEntity.exists({ _id: contractId }),
+			Entity.ReceiptsEntity.exists({ _id: receiptId }),
+			Entity.CustomersEntity.exists({ _id: customerId }),
+		]);
+
+		if (!building) throw new AppError(errorCodes.notExist, `Tòa nhà với Id: ${buildingId} không tồn tại !`, 404);
+
+		if (!contract) throw new AppError(errorCodes.notExist, `Hóa đơn với Id: ${contractId} không tồn tại !`, 404);
+
+		if (!depositReceipt) throw new AppError(errorCodes.notExist, `Hóa đơn đặt cọc với Id: ${receiptId} không tồn tại !`, 404);
+
+		if (!customer) throw new AppError(errorCodes.notExist, `Khách hàng với Id: ${customerId} không tồn tại !`, 404);
+
+		if (!room) throw new AppError(errorCodes.notExist, `Phòng với Id: ${roomId} không tồn tại !`, 404);
 
 		session = await mongoose.startSession();
 		session.startTransaction();
 
-		const receiptDeposit = await Entity.ReceiptsEntity.findOne({ _id: receiptObjectId }).session(session);
-
-		if (!receiptDeposit) throw new Error(`Hóa đơn đặt cọc không tồn tại`);
-
+		//Cần cập nhật phí chỉ số.
 		const [newDepositRefund] = await Entity.DepositRefundsEntity.create(
 			[
 				{
@@ -683,11 +700,13 @@ exports.generateDepositRefund = async (data, cb, next) => {
 					feesIndex: data.fees,
 					feesOther: data.feesOther,
 					depositRefundAmount: data.depositRefundAmount,
-					currentDeposit: {
-						amount: receiptDeposit.amount,
-						receipt: receiptObjectId,
-					},
 					isRefundedDeposited: false,
+					customerApproved: false,
+					creator: data.userId,
+					building: buildingId,
+					contract: contractId,
+					depositReceipt: receiptId,
+					contractOwner: customerId,
 				},
 			],
 			{ session },
@@ -711,11 +730,144 @@ exports.getDepositRefund = async (data, cb, next) => {
 	try {
 		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
 
-		const depositRefund = await Entity.DepositRefundsEntity.findOne({ room: roomObjectId, isRefundedDeposit: false });
+		const [depositRefund] = await Entity.DepositRefundsEntity.aggregate([
+			{
+				$match: {
+					room: roomObjectId,
+					isRefundedDeposit: false,
+				},
+			},
+			{
+				$lookup: {
+					from: 'rooms',
+					localField: 'room',
+					foreignField: '_id',
+					pipeline: [
+						{
+							$project: {
+								_id: 1,
+								roomIndex: 1,
+								roomState: 1,
+							},
+						},
+					],
+					as: 'room',
+				},
+			},
+			{
+				$lookup: {
+					from: 'buildings',
+					localField: 'building',
+					foreignField: '_id',
+					pipeline: [
+						{
+							$project: {
+								_id: 1,
+								buildingName: 1,
+								buildingAddress: 1,
+							},
+						},
+					],
+					as: 'building',
+				},
+			},
+			{
+				$lookup: {
+					from: 'contracts',
+					localField: 'contract',
+					foreignField: '_id',
+					pipeline: [
+						{
+							$project: {
+								_id: 1,
+								contractSignDate: 1,
+								contractEndDate: 1,
+								contractCode: 1,
+							},
+						},
+					],
+					as: 'contract',
+				},
+			},
+			{
+				$lookup: {
+					from: 'users',
+					localField: 'creator',
+					foreignField: '_id',
+					pipeline: [
+						{
+							$project: {
+								_id: 1,
+								fullName: 1,
+								role: 1,
+							},
+						},
+					],
+					as: 'creator',
+				},
+			},
+			{
+				$lookup: {
+					from: 'receipts',
+					localField: 'depositReceipt',
+					foreignField: '_id',
+					pipeline: [
+						{
+							$project: {
+								_id: 1,
+								paidAmount: 1,
+							},
+						},
+					],
+					as: 'depositReceipt',
+				},
+			},
+			{
+				$lookup: {
+					from: 'customers',
+					localField: 'contractOwner',
+					foreignField: '_id',
+					pipeline: [
+						{
+							$project: {
+								_id: 1,
+								fullName: 1,
+								paymentInfo: 1,
+							},
+						},
+					],
+					as: 'contractOwner',
+				},
+			},
+			{
+				$addFields: {
+					room: { $first: '$room' },
+					building: { $first: '$building' },
+					contract: { $first: '$contract' },
+					creator: { $first: '$creator' },
+					depositReceipt: {
+						$first: '$depositReceipt',
+					},
+					contractOwner: { $first: '$contractOwner' },
+					depositReceipt: { $first: '$depositReceipt' },
+				},
+			},
+		]);
 
-		if (!depositRefund) throw new Error('Phiếu đặt cọc không tồn tại');
+		if (!depositRefund) throw new AppError(errorCodes.notExist, "Deposit refund doesn't exist", 404);
 
 		cb(null, depositRefund);
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.modifyDepositRefund = async (data, cb, next) => {
+	try {
+		const depositRefundObjectId = mongoose.Types.ObjectId(data.depositRefundId);
+
+		const getDepositRefund = await Entity.DepositRefundsEntity.findOne({ _id: depositRefundObjectId });
+		if (!getDepositRefund) throw new AppError(errorCodes.notExist, "Deposit refund doesn't exist", 404);
 	} catch (error) {
 		next(error);
 	}

@@ -50,7 +50,7 @@ var BuildingsSchema = new Schema(
 			{
 				_id: false, // Tắt tự động thêm _id
 				user: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true },
-				role: { type: String, enum: ['owner', 'manager'], required: true },
+				role: { type: String, enum: ['owner', 'manager', 'staff'], required: true },
 			},
 		],
 		invoiceNotes: { type: String, default: '' },

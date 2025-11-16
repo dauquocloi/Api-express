@@ -4,6 +4,6 @@ exports.deleteDebts = (data, cb, next) => {
 	DataProvider.deleteDebts(data, cb, next);
 };
 
-exports.getDebtsByRoomId = (data, cb, next) => {
-	DataProvider.getDebtsByRoomId(data, cb, next);
+exports.getCreateDepositRefundInfo = (data, cb, next) => {
+	DataProvider.getCreateDepositRefundInfo(data, cb, next);
 };

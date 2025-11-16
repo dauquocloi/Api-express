@@ -15,17 +15,7 @@ exports.addFee = (data, cb, next) => {
 };
 
 exports.deleteFee = (data, cb, next) => {
-	DataProvider.deleteFee(
-		data,
-		(errs, result) => {
-			if (errs) {
-				cb(errs, null);
-			} else {
-				cb(null, result);
-			}
-		},
-		next,
-	);
+	DataProvider.deleteFee(data, cb, next);
 };
 
 exports.editFee = (data, cb, next) => {

@@ -8,9 +8,10 @@ exports.collectCashFromEmployee = (req, res, next) => {
 			data,
 			(err, result) => {
 				if (!err) {
-					return res.status(200).json({
+					return res.status(200).send({
 						errorCode: 0,
 						message: 'succesfull',
+						data: result,
 						errors: [],
 					});
 				}

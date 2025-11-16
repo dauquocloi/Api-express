@@ -98,7 +98,7 @@ exports.login = async (data, cb, next, res) => {
 		if (currentUser != null) {
 			let comparePassword = await bcrypt.compare(data.password, currentUser.password);
 			if (comparePassword == true) {
-				const token = jwt.sign({ userId: currentUser._id, role: currentUser.role }, config.JWT.JWT_SECRET);
+				const token = jwt.sign({ userId: currentUser._id, role: currentUser.role, fullName: currentUser.fullName }, config.JWT.JWT_SECRET);
 				const refreshToken = jwt.sign({ userId: currentUser._id, role: currentUser.role }, config.JWT.JWT_REFRESH, { expiresIn: '60d' });
 
 				currentUser.tokens = currentUser.tokens.filter((token) => token !== data.refreshToken);

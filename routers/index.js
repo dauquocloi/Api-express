@@ -10,7 +10,7 @@ const File = require('./files');
 const upload = require('../middleware/multer');
 const Customer = require('./customers');
 const Vehicle = require('./vehicles');
-const Notification = require('../utils/notificationUtils');
+const Notification = require('./notifications');
 const Fee = require('./fees');
 const Auth = require('./auth');
 const verifyToken = require('../middleware/verifyToken');
@@ -55,7 +55,7 @@ exports.routerApi = (app) => {
   `);
 	});
 
-	app.post('/send-notification', Notification.sendNotification);
+	// app.post('/send-notification', Notification.sendNotification);
 
 	// Router of user
 
@@ -143,13 +143,15 @@ exports.routerApi = (app) => {
 
 	app.get('/buildings/:buildingId/invoices', Invoice.getAll);
 
-	app.get('/buildings/:buildingId/Invoices/invoicesPaymentStatus', Invoice.getInvoicesPaymentStatus);
+	app.get('/buildings/:buildingId/invoices/payment-status', Invoice.getInvoicesPaymentStatus);
 
-	app.get('/rooms/:roomId/invoices', Invoice.getFeeForGenerateInvoice);
+	app.get('/rooms/:roomId/fees-debts', Invoice.getFeeForGenerateInvoice);
 
 	app.get('/buildings/:buildingId/invoices/status', Invoice.getInvoiceStatus); // this is peace of shit
 
 	app.get('/invoices/:invoiceId', Invoice.getInvoiceDetail);
+
+	app.delete('/invoices/:invoiceId', Invoice.deleteInvoice);
 
 	app.get('/messages/getAllMessagesByUserId', Message.getAllMessagesByUserId);
 
@@ -187,7 +189,7 @@ exports.routerApi = (app) => {
 
 	app.post('/rooms/:roomId/fees', Fee.addFee);
 
-	app.delete('/fees/:feeId', Fee.deleteFee);
+	app.delete('/rooms/:roomId/fees/:feeId', Fee.deleteFee);
 
 	app.patch('/fees/:feeId', Fee.editFee); //Only owner
 
@@ -210,6 +212,8 @@ exports.routerApi = (app) => {
 	app.delete('/rooms/:roomId/debts', Debt.deleteDebts);
 
 	app.post('/rooms/:roomId/receipts', Receipt.createReceipt);
+
+	app.patch('/receipts/:receiptId', Receipt.modifyReceipt);
 
 	app.post(`/companies`, Company.createCompany);
 
@@ -249,7 +253,7 @@ exports.routerApi = (app) => {
 
 	app.get('/deposits/:depositId', Deposit.getDepositDetail);
 
-	app.get('/deposits', Deposit.getDepositDetailByRoomId);
+	app.get('/rooms/:roomId/deposits', Deposit.getDepositDetailByRoomId);
 
 	app.post('/deposits/:depositId/terminated', Deposit.terminateDeposit);
 
@@ -269,9 +273,9 @@ exports.routerApi = (app) => {
 
 	app.patch('/transactions/:transactionId/collect-money-employee', verifyToken, Transaction.collectCashFromEmployee);
 
-	app.get('/rooms/:roomId/debts-receiptsUnpaid', Debt.getDebtsByRoomId);
+	app.get('/rooms/:roomId/debts-receipts-unpaid', Debt.getCreateDepositRefundInfo);
 
-	app.post('/rooms/:roomId/deposit-refund', Room.generateDepositRefund);
+	app.post('/rooms/:roomId/deposit-refund', verifyToken, Room.generateDepositRefund);
 
 	app.get('/rooms/:roomId/deposit-refund', Room.getDepositRefund);
 
@@ -298,6 +302,8 @@ exports.routerApi = (app) => {
 	app.get('/buildings/:buildingId/statisticGeneral', verifyToken, Statistic.getStatisticGeneral);
 
 	app.get('/buildings/:buildingId/bill-collection-progress', Building.getBillCollectionProgress);
+
+	app.get('/notifications', verifyToken, Notification.getNotifications);
 
 	//  ------------ZALO API---------------- //
 

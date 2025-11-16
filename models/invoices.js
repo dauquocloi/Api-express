@@ -31,6 +31,10 @@ const FeeInvoiceSchema = new Schema({
 			return this.type === 'index';
 		},
 	},
+	feeAmount: {
+		type: Number,
+		required: true,
+	},
 	feeKey: {
 		type: String,
 	},
@@ -87,11 +91,14 @@ const InvoicesSchema = new Schema(
 		paidAmount: {
 			type: Number,
 			min: 0,
+			default: 0,
 		},
-		status: { type: String, enum: ['unpaid', 'paid', 'partial', 'cencelled'], default: 'unpaid' },
+		//terminated: Đã bị chủ nhà xóa => 0 ghi nhận doanh thu
+		//cencelled: Đã đóng, 0 còn nhận thu tiền nữa
+		status: { type: String, enum: ['unpaid', 'paid', 'partial', 'cencelled', 'terminated'], default: 'unpaid' },
 		invoiceType: { type: String, enum: ['firstInvoice', 'rental'], default: 'rental' },
 		fee: [FeeInvoiceSchema],
-		debts: [{ content: { type: String }, amount: { type: Number, default: 0 } }],
+		debts: [{ content: { type: String }, amount: { type: Number, default: 0 }, month: { type: Number }, year: { type: Number } }],
 		payer: {
 			type: String,
 			trim: true,

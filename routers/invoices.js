@@ -32,19 +32,12 @@ exports.getAll = (req, res, next) => {
 };
 
 exports.getFeeForGenerateInvoice = (req, res, next) => {
-	var data = { ...req.params, ...req.query };
+	var data = req.params;
 	console.log('This is log of req.params from getFeeForGenerateInvoice', data);
 	UseCase.getFeeForGenerateInvoice(
 		data,
 		(err, result) => {
-			if (err) {
-				return res.status(500).send({
-					errorCode: 1,
-					data: err.message,
-					message: 'err',
-					errors: [],
-				});
-			} else {
+			if (!err) {
 				return res.status(200).send({
 					errorCode: 0,
 					data: result,
@@ -202,12 +195,16 @@ exports.generateFirstInvoice = (req, res, next) => {
 			data,
 			(err, result) => {
 				if (!err) {
-					return res.status(201).send({
-						errorCode: 0,
-						data: result,
-						message: 'succesfull',
-						errors: [],
-					});
+					setTimeout(
+						() =>
+							res.status(201).send({
+								errorCode: 0,
+								data: result,
+								message: 'succesfull',
+								errors: [],
+							}),
+						2000,
+					);
 				}
 			},
 			next,
@@ -312,4 +309,18 @@ exports.modifyInvoice = (req, res, next) => {
 		},
 		next,
 	);
+};
+
+exports.deleteInvoice = (req, res, next) => {
+	let data = req.params;
+	console.log('log of data from deleteInvoice: ', data);
+	UseCase.deleteInvoice(data, (err, result) => {
+		if (result) {
+			return res.status(200).send({
+				errorCode: 0,
+				message: 'succesfully',
+				errors: [],
+			});
+		}
+	});
 };

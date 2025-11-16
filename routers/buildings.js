@@ -4,8 +4,6 @@ const jwt = require('jsonwebtoken');
 const { result } = require('underscore');
 const verifyToken = require('../utils/verifyToken');
 
-const JWT_SECRET = '82371923sdasdads[]sdsadasd';
-
 // get all building by managername
 exports.getAll = async (req, res, next) => {
 	const authHeader = req.headers['authorization'];
@@ -14,7 +12,6 @@ exports.getAll = async (req, res, next) => {
 		next(new Error());
 	}
 	const token = authHeader.split(' ')[1]; // Bỏ qua chữ 'Bearer'
-	console.log('log of token: ', token);
 	const data = verifyToken(token);
 
 	console.log('This is log of data from building getAll', data);

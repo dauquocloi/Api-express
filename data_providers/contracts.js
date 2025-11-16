@@ -9,6 +9,8 @@ const listFeeInitial = require('../utils/getListFeeInital');
 const { forEachOf } = require('async');
 const withSignedUrls = require('../utils/withSignedUrls');
 const moment = require('moment');
+const AppError = require('../AppError');
+const { errorCodes } = require('../constants/errorCodes');
 
 exports.getAll = (data, cb) => {
 	MongoConnect.Connect(config.database.fullname)
@@ -164,6 +166,8 @@ exports.generateContract = async (data, cb, next) => {
 		session = await mongoose.startSession();
 		session.startTransaction();
 
+		// throw new AppError(errorCodes.invariantViolation, 'Người dùng không tồn tại trong hệ thống!', 200);
+
 		const owner = await Entity.BuildingsEntity.aggregate([
 			{
 				$match: {
@@ -214,7 +218,7 @@ exports.generateContract = async (data, cb, next) => {
 		]).session(session);
 
 		if (owner.length === 0) {
-			throw new Error(`Không tồn tại chủ nhà với id ${data.buildingId}`);
+			throw new AppError(errorCodes.notExist, `Không tồn tại chủ nhà với id ${data.buildingId}`, 200);
 		}
 
 		const currentRoom = await Entity.RoomsEntity.findOne({ _id: roomObjectId }).session(session);
@@ -303,96 +307,96 @@ exports.generateContract = async (data, cb, next) => {
 			await Entity.DepositsEntity.updateOne({ _id: depositObjectId }, { $set: { status: 'close' } }, { session });
 		}
 
-		const { ownerInfo = {} } = owner[0];
-		const feesContractData = feesData.map((fee) => {
-			let getType = () => {
-				switch (fee.unit) {
-					case 'index':
-						return '/Số';
-					case 'person':
-						return '/Người';
-					case 'vehicle':
-						return '/Xe';
-					case 'room':
-						return '/Phòng';
-					default:
-						return '';
-				}
-			};
-			return {
-				NAME: fee.feeName,
-				AMOUNT: fee.feeAmount.toString(),
-				TYPE: getType(),
-			};
-		});
-		const interiorContractData = data.interiors?.map((interior) => ({
-			NAME: interior.interiorName,
-			QUANT: interior.quantity.toString(),
-		}));
-		const contractDocData = {
-			CREATED_DATE: {
-				DAY: moment().utcOffset('+07:00').format('DD'),
-				MONTH: moment().utcOffset('+07:00').format('MM'),
-				YEAR: moment().utcOffset('+07:00').format('YYYY'),
-			},
-			BUILDING_ADDRESS: owner[0].buildingAddress,
-			PARTY_A: {
-				FULLNAME: ownerInfo?.fullName,
-				DOB: moment(ownerInfo?.birthdate).utcOffset('+07:00').format('DD/MM/YYYY'),
-				ADDRESS: ownerInfo?.permanentAddress,
-				CCCD: ownerInfo?.cccd,
-				CCCD_DATE: moment(ownerInfo?.cccdIssueDate).utcOffset('+07:00').format('DD/MM/YYYY'),
-				CCCD_AT: ownerInfo?.cccdIssueAt,
-				PHONE: ownerInfo?.phone,
-			},
-			PARTY_B: {
-				FULLNAME: data.customers[0].fullName,
-				DOB: moment(data.customers[0].dob).utcOffset('+07:00').format('DD/MM/YYYY'),
-				ADDRESS: data.customers[0].address,
-				CCCD: data.customers[0].cccd,
-				CCCD_DATE: moment(data.customers[0].cccdIssueDate).utcOffset('+07:00').format('DD/MM/YYYY'),
-				CCCD_AT: data.customers[0].cccdIssueAt,
-				PHONE: data.customers[0].phone,
-			},
+		// const { ownerInfo = {} } = owner[0];
+		// const feesContractData = feesData.map((fee) => {
+		// 	let getType = () => {
+		// 		switch (fee.unit) {
+		// 			case 'index':
+		// 				return '/Số';
+		// 			case 'person':
+		// 				return '/Người';
+		// 			case 'vehicle':
+		// 				return '/Xe';
+		// 			case 'room':
+		// 				return '/Phòng';
+		// 			default:
+		// 				return '';
+		// 		}
+		// 	};
+		// 	return {
+		// 		NAME: fee.feeName,
+		// 		AMOUNT: fee.feeAmount.toString(),
+		// 		TYPE: getType(),
+		// 	};
+		// });
+		// const interiorContractData = data.interiors?.map((interior) => ({
+		// 	NAME: interior.interiorName,
+		// 	QUANT: interior.quantity.toString(),
+		// }));
+		// const contractDocData = {
+		// 	CREATED_DATE: {
+		// 		DAY: moment().utcOffset('+07:00').format('DD'),
+		// 		MONTH: moment().utcOffset('+07:00').format('MM'),
+		// 		YEAR: moment().utcOffset('+07:00').format('YYYY'),
+		// 	},
+		// 	BUILDING_ADDRESS: owner[0].buildingAddress,
+		// 	PARTY_A: {
+		// 		FULLNAME: ownerInfo?.fullName,
+		// 		DOB: moment(ownerInfo?.birthdate).utcOffset('+07:00').format('DD/MM/YYYY'),
+		// 		ADDRESS: ownerInfo?.permanentAddress,
+		// 		CCCD: ownerInfo?.cccd,
+		// 		CCCD_DATE: moment(ownerInfo?.cccdIssueDate).utcOffset('+07:00').format('DD/MM/YYYY'),
+		// 		CCCD_AT: ownerInfo?.cccdIssueAt,
+		// 		PHONE: ownerInfo?.phone,
+		// 	},
+		// 	PARTY_B: {
+		// 		FULLNAME: data.customers[0].fullName,
+		// 		DOB: moment(data.customers[0].dob).utcOffset('+07:00').format('DD/MM/YYYY'),
+		// 		ADDRESS: data.customers[0].address,
+		// 		CCCD: data.customers[0].cccd,
+		// 		CCCD_DATE: moment(data.customers[0].cccdIssueDate).utcOffset('+07:00').format('DD/MM/YYYY'),
+		// 		CCCD_AT: data.customers[0].cccdIssueAt,
+		// 		PHONE: data.customers[0].phone,
+		// 	},
 
-			FEES: feesContractData,
-			INTERIORS: interiorContractData,
-			DEPOSIT: data.depositAmount?.toString(),
-			SIGN_DATE: {
-				DAY: moment(data.contractSignDate).utcOffset('+07:00').format('DD'),
-				MONTH: moment(data.contractSignDate).utcOffset('+07:00').format('MM'),
-				YEAR: moment(data.contractSignDate).utcOffset('+07:00').format('YYYY'),
-			},
-			END_DATE: {
-				DAY: moment(data.contractEndDate).utcOffset('+07:00').format('DD'),
-				MONTH: moment(data.contractEndDate).utcOffset('+07:00').format('MM'),
-				YEAR: moment(data.contractEndDate).utcOffset('+07:00').format('YYYY'),
-			},
-			CONTRACT_TERM: data.contractTerm,
-			ROOM_PRICE: data.rent?.toString(),
-		};
+		// 	FEES: feesContractData,
+		// 	INTERIORS: interiorContractData,
+		// 	DEPOSIT: data.depositAmount?.toString(),
+		// 	SIGN_DATE: {
+		// 		DAY: moment(data.contractSignDate).utcOffset('+07:00').format('DD'),
+		// 		MONTH: moment(data.contractSignDate).utcOffset('+07:00').format('MM'),
+		// 		YEAR: moment(data.contractSignDate).utcOffset('+07:00').format('YYYY'),
+		// 	},
+		// 	END_DATE: {
+		// 		DAY: moment(data.contractEndDate).utcOffset('+07:00').format('DD'),
+		// 		MONTH: moment(data.contractEndDate).utcOffset('+07:00').format('MM'),
+		// 		YEAR: moment(data.contractEndDate).utcOffset('+07:00').format('YYYY'),
+		// 	},
+		// 	CONTRACT_TERM: data.contractTerm,
+		// 	ROOM_PRICE: data.rent?.toString(),
+		// };
 
-		console.time('generateContract take');
-		const contractPdfUrl = await generateContract(contractDocData, buildingObjectId, session);
-		console.timeEnd('generateContract take');
+		// console.time('generateContract take');
+		// const contractPdfUrl = await generateContract(contractDocData, buildingObjectId, session);
+		// console.timeEnd('generateContract take');
 
-		console.log('log of contractPdfUrl: ', contractPdfUrl);
+		// console.log('log of contractPdfUrl: ', contractPdfUrl);
 
-		const partyA = {
-			fullName: ownerInfo.fullName,
-			phone: ownerInfo.phone, // Số điện thoại
-			cccd: ownerInfo.cccd, // CMND/CCCD
-			cccdIssueDate: ownerInfo.cccdIssueDate,
-			cccdIssueAt: ownerInfo.cccdIssueAt,
-			address: ownerInfo.permanentAddress, // Địa chỉ thường trú
-			dob: ownerInfo.birthdate,
-		};
+		// const partyA = {
+		// 	fullName: ownerInfo.fullName,
+		// 	phone: ownerInfo.phone, // Số điện thoại
+		// 	cccd: ownerInfo.cccd, // CMND/CCCD
+		// 	cccdIssueDate: ownerInfo.cccdIssueDate,
+		// 	cccdIssueAt: ownerInfo.cccdIssueAt,
+		// 	address: ownerInfo.permanentAddress, // Địa chỉ thường trú
+		// 	dob: ownerInfo.birthdate,
+		// };
 		await Entity.ContractsEntity.create(
 			[
 				{
 					createdAt: new Date(),
 					contractAddress: owner[0].buildingAddress,
-					partyA: partyA,
+					// partyA: partyA, //Lấy thông tin chủ nhà
 					fees: feesData,
 					rent: data.rent,
 					deposit: {
@@ -404,7 +408,7 @@ exports.generateContract = async (data, cb, next) => {
 					contractTerm: data.contractTerm,
 					status: 'active',
 					room: roomObjectId,
-					contractPdfUrl: contractPdfUrl.Key,
+					// contractPdfUrl: contractPdfUrl.Key,
 				},
 			],
 			{ session },

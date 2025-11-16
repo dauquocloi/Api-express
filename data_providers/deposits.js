@@ -5,6 +5,8 @@ const listFees = require('../utils/getListFeeInital');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const { createDepositReceipt } = require('./receipts');
 const generatePaymentContent = require('../utils/generatePaymentContent');
+const AppError = require('../AppError');
+const { errorCodes } = require('../constants/errorCodes');
 
 exports.createDeposit = async (data, cb, next) => {
 	let session;
@@ -33,8 +35,6 @@ exports.createDeposit = async (data, cb, next) => {
 				},
 			},
 		]).session(session);
-
-		console.log('log of checkReceipt: ', checkReceipt);
 
 		if (checkReceipt.length === 0) {
 			throw new Error(`Hóa đơn đặt cọc chưa được khởi tạo !`);
@@ -148,7 +148,7 @@ exports.getListDeposits = async (data, cb, next) => {
 			},
 		]);
 
-		cb(null, deposits[0].listDeposits ?? []);
+		cb(null, deposits[0]?.listDeposits ?? []);
 	} catch (error) {
 		next(error);
 	}

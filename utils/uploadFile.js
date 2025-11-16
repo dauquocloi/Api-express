@@ -14,7 +14,6 @@ const uploadFile = async (filePath) => {
 
 		let randomFileName = generateRandomFileName(filePath.originalname);
 		let fileBuffer;
-		console.log('log of randomFileName: ', randomFileName);
 
 		if (filePath.mimetype?.startsWith('image/')) {
 			fileBuffer = await optimizedImage(filePath.buffer); // tối ưu ảnh
@@ -40,6 +39,7 @@ const uploadFile = async (filePath) => {
 			url: `https://${process.env.BUCKET_NAME}.s3.${process.env.BUCKET_REGION}.amazonaws.com/${randomFileName}`,
 		};
 	} catch (error) {
+		console.log('Lỗi trong quá trình upload image: ', error);
 		throw new Error(error.message);
 	}
 };

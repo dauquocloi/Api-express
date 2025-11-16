@@ -8,16 +8,12 @@ exports.getAll = (req, res, next) => {
 			data,
 			(err, result) => {
 				if (!err) {
-					setTimeout(
-						() =>
-							res.status(200).send({
-								errorCode: 0,
-								data: result,
-								message: 'succesfull',
-								errors: [],
-							}),
-						1000,
-					);
+					res.status(200).send({
+						errorCode: 0,
+						data: result,
+						message: 'succesfull',
+						errors: [],
+					});
 				}
 			},
 			next,
@@ -68,7 +64,7 @@ exports.editCustomer = (req, res, next) => {
 	}
 
 	UseCase.editCustomer(
-		data,
+		value,
 		(err, result) => {
 			if (err) {
 				return res.status(204).json({

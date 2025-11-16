@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
-const MongoConnect = require('../utils/MongoConnect');
 var Entity = require('../models');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const generatePaymentContent = require('../utils/generatePaymentContent');
+const AppError = require('../AppError');
+const { errorCodes } = require('../constants/errorCodes');
 const getContractOwnerByRoomId = require('./customers').getContractOwnerByRoomId;
 
 exports.createReceipt = async (data, cb, next) => {
@@ -24,6 +25,7 @@ exports.createReceipt = async (data, cb, next) => {
 			});
 		};
 		const getPayer = await getContractOwnerByRoomIdAsync(data);
+		const paymentContent = await generatePaymentContent(process.env.PAYMENT_CONTENT_LENGTH);
 
 		const newReceipt = {
 			room: roomObjectId,
@@ -31,7 +33,7 @@ exports.createReceipt = async (data, cb, next) => {
 			amount: data.receiptAmount,
 			month: currentPeriod.currentMonth,
 			year: currentPeriod.currentYear,
-			paymentContent: generatePaymentContent(),
+			paymentContent,
 			date: data.date,
 			payer: getPayer?.fullName,
 			status: 'unpaid',
@@ -47,11 +49,16 @@ exports.createReceipt = async (data, cb, next) => {
 exports.createDepositReceipt = async (data, cb, next) => {
 	try {
 		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
+		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		const currentPeriod = await getCurrentPeriod(buildingObjectId);
+
 		const roomInfo = await Entity.RoomsEntity.findOne({ _id: roomObjectId });
 
 		if (!roomInfo) {
 			throw new Error(`Phòng ${data.roomId} không tồn tại trong hệ thống`);
 		}
+
+		const paymentContent = await generatePaymentContent(process.env.PAYMENT_CONTENT_LENGTH);
 
 		const newReceipt = {
 			room: roomObjectId,
@@ -59,16 +66,18 @@ exports.createDepositReceipt = async (data, cb, next) => {
 			amount: data.amount,
 			paidAmount: 0,
 			carriedOverPaidAmount: 0,
-			status: 'pending',
-			paymentContent: generatePaymentContent(),
+			paymentContent,
 			payer: data.payer,
 			receiptType: 'deposit',
+			status: 'pending',
 			isContractCreated: false,
+			month: currentPeriod.currentMonth,
+			year: currentPeriod.currentYear,
 			locked: false,
 		};
 
 		const createReceipt = await Entity.ReceiptsEntity.create(newReceipt);
-		console.log('log of receiptDeposit created successfull: ', createReceipt);
+
 		cb(null, createReceipt);
 	} catch (error) {
 		next(error);
@@ -308,6 +317,7 @@ exports.getReceiptDetail = async (data, cb, next) => {
 					payer: 1,
 					locked: 1,
 					transactions: 1,
+					paidAmount: 1,
 					collectorInfo: {
 						$arrayElemAt: ['$collectorInfo', 0],
 					},
@@ -327,6 +337,7 @@ exports.getReceiptDetail = async (data, cb, next) => {
 						date: '$date',
 						payer: '$payer',
 						locked: '$locked',
+						paidAmount: '$paidAmount',
 					},
 					transactionInfo: {
 						$push: {
@@ -533,6 +544,7 @@ exports.getDepositReceiptDetail = async (data, cb, next) => {
 
 exports.collectCashMoney = async (data, cb, next) => {
 	try {
+		// throw new AppError(errorCodes.notExist, 'Không tồn tại hóa đơn', 200);
 		const receiptObjectId = mongoose.Types.ObjectId(data.receiptId);
 		const collectorObjectId = mongoose.Types.ObjectId(data.userId);
 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
@@ -590,9 +602,16 @@ exports.collectCashMoney = async (data, cb, next) => {
 			status = 'partial';
 		}
 
-		await Entity.ReceiptsEntity.updateOne({ _id: receiptObjectId }, { $set: { status, paidAmount: totalTransactionAmount } });
+		await Entity.ReceiptsEntity.updateOne({ _id: receiptObjectId }, { $set: { status, paidAmount: updatedTotalPaid } });
 
-		cb(null, 'success');
+		// cb(null, 'success');
+		cb(null, {
+			buildingId: data.buildingId,
+			collectorName: data.fullName,
+			amount: data.amount,
+			receiptId: data.receiptId,
+			role: data.role,
+		});
 	} catch (error) {
 		next(error);
 	}
@@ -679,6 +698,35 @@ exports.createDebtsReceipt = async (data, cb, next) => {
 
 		cb(null, { receiptId: debtReceipt._id });
 		// 06/-8/2025
+	} catch (error) {
+		next(error);
+	}
+};
+
+exports.modifyReceipt = async (data, cb, next) => {
+	try {
+		const receiptObjectId = mongoose.Types.ObjectId(data.receiptId);
+
+		const currentReceipt = await Entity.ReceiptsEntity.findOne({ _id: receiptObjectId }).exec();
+		if (!currentReceipt) throw new AppError(errorCodes.notExist, 'Hóa đơn không tồn tại', 200);
+
+		const newAmount = Number(data.amount);
+
+		// Tính lại status dựa trên paidAmount và amount mới
+		const calculateReceiptStatusAfterModified = () => {
+			const { paidAmount } = currentReceipt;
+
+			if (paidAmount === 0) return 'unpaid';
+			if (paidAmount < newAmount) return 'partial';
+			if (paidAmount >= newAmount) return 'paid';
+		};
+
+		currentReceipt.amount = Number(data.amount);
+		currentReceipt.receiptContent = data.receiptContent;
+		currentReceipt.status = calculateReceiptStatusAfterModified();
+
+		await currentReceipt.save();
+		cb(null, 'success');
 	} catch (error) {
 		next(error);
 	}

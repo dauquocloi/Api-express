@@ -13,14 +13,7 @@ exports.getAll = (req, res, next) => {
 	UseCase.getAll(
 		data,
 		(err, result) => {
-			if (err) {
-				return res.status(204).send({
-					errorCode: 0,
-					data: {},
-					message: 'err',
-					errors: [],
-				});
-			} else {
+			if (!err) {
 				return res.status(200).send({
 					errorCode: 0,
 					data: result,
@@ -42,7 +35,7 @@ exports.getRoom = (req, res, next) => {
 			data,
 			(err, result) => {
 				if (result) {
-					return res.status(200).send({
+					res.status(200).send({
 						errorCode: 0,
 						data: result,
 						message: 'succesfull',
@@ -297,7 +290,7 @@ exports.generateDepositReceiptAndFirstInvoice = (req, res, next) => {
 
 exports.generateDepositRefund = (req, res, next) => {
 	try {
-		const data = { ...req.body, ...req.params };
+		const data = { ...req.body, ...req.params, ...req.user };
 		console.log('log of data from generateDepositRefund: ', data);
 
 		UseCase.generateDepositRefund(

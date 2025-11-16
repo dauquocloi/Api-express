@@ -2,19 +2,14 @@ const mongoose = require('mongoose');
 const MongoConnect = require('../utils/MongoConnect');
 var Entity = require('../models');
 const bcrypt = require('bcrypt');
-const { TestUsersEntity } = require('../models/contracts');
 const { last, result } = require('underscore');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const generatePaymentContent = require('../utils/generatePaymentContent');
-const getListFeeInital = require('../utils/getListFeeInital');
-const customerProvider = require('./customers');
 const { CANCELLED, NOT_EXIST } = require('../constants/errorCodes');
 const AppError = require('../AppError');
 const { errorCodes } = require('../constants/errorCodes');
 const zaloService = require('../service/zalo.service');
 const formatPhone = require('../utils/formatPhone');
-
-// const { config } = require('dotenv');
 
 //  query Invoice by Period
 exports.getAll = (data, cb, next) => {
@@ -30,9 +25,9 @@ exports.getAll = (data, cb, next) => {
 exports.getFeeForGenerateInvoice = async (data, cb, next) => {
 	try {
 		let roomObjectId = mongoose.Types.ObjectId(data.roomId);
-		let buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		// let buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 
-		const currentPeriod = await getCurrentPeriod(buildingObjectId);
+		// const currentPeriod = await getCurrentPeriod(buildingObjectId);
 
 		const feeInfo = await Entity.RoomsEntity.aggregate([
 			{
@@ -210,8 +205,7 @@ exports.getFeeForGenerateInvoice = async (data, cb, next) => {
 			},
 		]);
 
-		if (!feeInfo || feeInfo.lenth === 0)
-			throw new AppError(errorCodes.invariantViolation, `Phòng với Id: ${data.roomObjectId} Không tồn tại trong hệ thống!`, 200);
+		if (!feeInfo || feeInfo.lenth === 0) throw new AppError(errorCodes.invariantViolation, `Phòng không tồn tại trong hệ thống!`, 404);
 
 		cb(null, feeInfo[0]);
 	} catch (error) {
@@ -220,7 +214,7 @@ exports.getFeeForGenerateInvoice = async (data, cb, next) => {
 };
 
 exports.create = async (data, cb, next) => {
-	// ALERT: CẦN UPDATE LẠI CHỈ SỐ CUỐI CỦA DOCUMENT FEE
+	// ALERT: CẦN UPDATE LẠI CHỈ SỐ CUỐI CỦA DOCUMENT FEE ( DONE )
 	let session;
 	try {
 		session = await mongoose.startSession();
@@ -230,30 +224,57 @@ exports.create = async (data, cb, next) => {
 		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 
+		const feesObjectIds = fees.map((fee) => mongoose.Types.ObjectId(fee._id));
+		const feesFromDb = await Entity.FeesEntity.find({ _id: { $in: feesObjectIds } });
+		const getRentAmount = await Entity.ContractsEntity.findOne({ room: roomObjectId, status: 'active' });
+		const getDebts = await Entity.DebtsEntity.find(
+			{ room: roomObjectId, status: 'pending' },
+			{ content: 1, amount: 1, status: 1, room: 1, month: 1, year: 1 },
+		);
+
+		if (!getRentAmount) {
+			throw new AppError(errorCodes.notExist, 'Phòng không tồn tại trong hệ thống', 400);
+		}
+
+		if (feesFromDb.length !== feesObjectIds.length) {
+			throw new AppError(errorCodes.invalidInput, 'Dữ liệu đầu vào không hợp lệ', 400);
+		}
+
 		const calculateInvoiceTotalAmount = () => {
-			const totalFeeAmount = fees.reduce((sum, fee) => {
-				if (fee.unit === 'index') {
-					return sum + (fee.secondIndex - fee.firstIndex) * fee.feeAmount;
+			const totalFeeAmount = feesFromDb.reduce((sum, fee) => {
+				const feeInput = fees.find((f) => f._id.toString() === fee._id.toString());
+				if (!feeInput) {
+					throw new AppError(errorCodes.invalidInput, 'Dữ liệu đầu vào không hợp lệ', 400);
 				}
-				if (fee.unit === 'person') {
-					return sum + fee.feeAmount * fee.quantity;
+
+				if (fee.unit === 'index') {
+					const first = Number(feeInput.firstIndex);
+					const second = Number(feeInput.secondIndex);
+
+					if (isNaN(first) || isNaN(second) || second < first) {
+						throw new AppError(errorCodes.invalidInput, 'Giá trị chỉ số không hợp lệ', 400);
+					}
+					return sum + (second - first) * fee.feeAmount;
+				}
+				if (fee.unit === 'person' || fee.unit === 'vehicle') {
+					const qty = Number(feeInput.quantity);
+					return sum + ((fee.feeAmount * qty) / 30) * stayDays;
 				}
 				if (fee.unit === 'room') {
-					return sum + fee.feeAmount;
-				}
-				if (fee.unit === 'vehicle') {
-					return sum + fee.feeAmount * fee.quantity;
+					return sum + (fee.feeAmount / 30) * stayDays;
 				}
 
 				return sum;
 			}, 0);
 
 			let debtsTotalAmount = 0;
-			if (data.debts > 0) {
-				debtsTotalAmount = data.debts.reduce((sum, debt) => sum + Number(debt.amount), 0);
+			if (getDebts?.length > 0) {
+				debtsTotalAmount = getDebts.reduce((sum, debt) => sum + Number(debt.amount), 0);
 			}
 
-			return ((totalFeeAmount + debtsTotalAmount) / 30) * stayDays;
+			let totalRental = (Number(getRentAmount.rent) / 30) * stayDays;
+
+			return totalFeeAmount + debtsTotalAmount + totalRental;
 		};
 
 		const calculateFeeIndexTotalAmount = (firstIndex, secondIndex, feeAmount) => {
@@ -261,44 +282,51 @@ exports.create = async (data, cb, next) => {
 		};
 
 		const newFees = [];
-		for (const data of fees) {
+		for (const data of feesFromDb) {
+			const feeInput = fees.find((f) => f._id.toString() === data._id.toString());
+			if (!feeInput) {
+				throw new AppError(errorCodes.invalidInput, 'Dữ liệu đầu vào không hợp lệ', 400);
+			}
 			if (data.unit === 'index') {
-				const updateCurrentFeeIndex = await Entity.FeesEntity.findOneAndUpdate(
-					{ room: roomObjectId, feeKey: data.feeKey },
-					{ lastIndex: data.lastIndex },
-				);
-				if (!updateCurrentFeeIndex) throw new AppError(errorCodes.invariantViolation, 'Phí không tồn tại trong hệ thống', 200);
+				await Entity.FeesEntity.findOneAndUpdate({ _id: data._id }, { lastIndex: Number(feeInput.secondIndex) }).session(session);
 				newFees.push({
 					feeName: data.feeName,
 					unit: data.unit,
-					firstIndex: data.firstIndex,
-					lastIndex: data.secondIndex,
-					amount: calculateFeeIndexTotalAmount(data.firstIndex, data.secondIndex, data.feeAmount),
+					firstIndex: feeInput.firstIndex,
+					lastIndex: feeInput.secondIndex,
+					amount: calculateFeeIndexTotalAmount(feeInput.firstIndex, feeInput.secondIndex, data.feeAmount),
 					feeKey: data.feeKey,
+					feeAmount: data.feeAmount,
 				});
 			} else if (data.unit === 'vehicle' || data.unit === 'person') {
 				newFees.push({
 					feeName: data.feeName,
 					unit: data.unit,
-					quantity: data.quantity,
-					amount: data.feeAmount * data.quantity,
+					amount: ((data.feeAmount * feeInput.quantity) / 30) * stayDays,
 					feeKey: data.feeKey,
+					feeAmount: data.feeAmount,
+					quantity: feeInput.quantity,
 				});
 			} else if (data.unit === 'room') {
 				newFees.push({
 					feeName: data.feeName,
 					unit: data.unit,
-					amount: data.feeAmount,
+					amount: (data.feeAmount / 30) * stayDays,
 					feeKey: data.feeKey,
+					feeAmount: data.feeAmount,
 				});
 			} else {
 				throw new AppError(errorCodes.invariantViolation, 'Thuộc tính của phí không được đĩnh nghĩa!', 200);
 			}
 		}
 
-		console.log('log off newFees: ', newFees);
-
-		console.log('start sending invoice to customer');
+		newFees.push({
+			feeName: 'Tiền phòng',
+			unit: 'room',
+			amount: (getRentAmount.rent / 30) * stayDays,
+			feeAmount: getRentAmount.rent,
+			feeKey: 'SPEC100PH',
+		});
 
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
 
@@ -319,7 +347,10 @@ exports.create = async (data, cb, next) => {
 			},
 		]).session(session);
 
-		if (!customerInfo) throw new AppError(50001, `Phòng không tồn tại chủ hợp đồng!`, 200);
+		if (!customerInfo) throw new AppError(errorCodes.notExist, `Phòng không tồn tại chủ hợp đồng!`, 404);
+
+		const paymentContent = await generatePaymentContent(process.env.PAYMENT_CONTENT_LENGTH);
+		const invoiceCode = await generatePaymentContent(process.env.INVOICE_CODE_LENGTH);
 
 		const [newInvoice] = await Entity.InvoicesEntity.create(
 			[
@@ -331,9 +362,11 @@ exports.create = async (data, cb, next) => {
 					status: 'unpaid',
 					fee: newFees,
 					total: calculateInvoiceTotalAmount(),
-					debts: data?.debts ?? null,
-					paymentContent: generatePaymentContent(),
-					invoiceCode: generatePaymentContent(7),
+					paidAmount: 0,
+					debts: getDebts,
+					paymentContent,
+					invoiceCode,
+					invoiceContent: `Hóa đơn tiền nhà kỳ ${currentPeriod.currentMonth}, ${currentPeriod.currentYear}`,
 					payer: customerInfo.fullName,
 					locked: false,
 					invoiceType: 'rental',
@@ -342,7 +375,13 @@ exports.create = async (data, cb, next) => {
 			{ session },
 		);
 
-		if (!newInvoice) throw new AppError(50001, 'Có lỗi trong quá tình tạo hóa đơn', 200);
+		if (!newInvoice) throw new AppError(50001, 'Có lỗi trong quá tình tạo hóa đơn', 500);
+
+		await Entity.DebtsEntity.updateMany(
+			{ room: roomObjectId },
+			{ $set: { sourceId: newInvoice._id, sourceType: 'invoice', status: 'closed' } },
+			{ session },
+		);
 
 		// const getAccessToken = await Entity.OATokensEntity.findOne({ oaId: data.oaId });
 
@@ -373,6 +412,7 @@ exports.create = async (data, cb, next) => {
 	}
 };
 
+//TEST
 exports.updateTest = (data, cb) => {
 	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
@@ -443,6 +483,11 @@ exports.getInvoiceStatus = async (data, cb, next) => {
 										},
 										{
 											$eq: ['$year', '$$year'],
+										},
+										{
+											$not: {
+												$in: ['$status', ['cencelled', 'terminated']],
+											},
 										},
 									],
 								},
@@ -702,6 +747,11 @@ exports.getInvoicesPaymentStatus = async (data, cb, next) => {
 										{
 											$eq: ['$year', '$$currentYear'],
 										},
+										{
+											$not: {
+												$in: ['$status', ['cencelled', 'terminated']],
+											},
+										},
 									],
 								},
 							},
@@ -849,6 +899,7 @@ exports.getInvoiceDetail = async (data, cb, next) => {
 					locked: 1,
 					fee: 1,
 					transactionInfo: 1,
+					invoiceContent: 1,
 					room: {
 						$let: {
 							vars: {
@@ -882,6 +933,8 @@ exports.getInvoiceDetail = async (data, cb, next) => {
 						locked: '$locked',
 						debts: '$debts',
 						fee: '$fee',
+						stayDays: '$stayDays',
+						invoiceContent: '$invoiceContent',
 					},
 					transactionInfo: {
 						$push: {
@@ -924,7 +977,7 @@ exports.getInvoiceDetail = async (data, cb, next) => {
 				cb(null, { invoiceDetail: { ...invoiceInfo, transactionInfo }, paymentInfo: null });
 			}
 		} else {
-			throw new Error(`invoice với _id: ${data.invoiceId} không tồn tại`);
+			throw new AppError(errorCodes.notExist, `Hóa đơn không tồn tại`, 404);
 		}
 	} catch (error) {
 		next(error);
@@ -933,6 +986,7 @@ exports.getInvoiceDetail = async (data, cb, next) => {
 
 exports.generateFirstInvoice = async (data, cb, next) => {
 	try {
+		// throw new AppError(errorCodes.notExist, 'Phòng không tồn tại', 200);
 		console.log('log of fees from generateFirstInvoice: ', data.fees);
 		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
@@ -1013,7 +1067,7 @@ exports.generateFirstInvoice = async (data, cb, next) => {
 			return (totalFeeAmount / 30) * Number(data.stayDays);
 		};
 
-		console.log('log of calculateInvoiceTotalAmount: ', calculateInvoiceTotalAmount());
+		const paymentContent = await generatePaymentContent(process.env.PAYMENT_CONTENT_LENGTH);
 
 		const newInvoice = {
 			stayDays: Number(data.stayDays),
@@ -1024,7 +1078,7 @@ exports.generateFirstInvoice = async (data, cb, next) => {
 			fee: newFees,
 			total: calculateInvoiceTotalAmount(),
 			debts: [],
-			paymentContent: generatePaymentContent(),
+			paymentContent,
 			payer: data.payer,
 			locked: false,
 			invoiceType: 'firstInvoice',
@@ -1092,7 +1146,7 @@ exports.collectCashMoney = async (data, cb, next) => {
 			status = 'partial';
 		}
 
-		await Entity.InvoicesEntity.updateOne({ _id: invoiceObjectId }, { $set: { status } });
+		await Entity.InvoicesEntity.updateOne({ _id: invoiceObjectId }, { $set: { status, paidAmount: updatedTotalPaid } });
 
 		cb(null, 'success');
 	} catch (error) {
@@ -1101,42 +1155,41 @@ exports.collectCashMoney = async (data, cb, next) => {
 };
 
 exports.modifyInvoice = async (data, cb, next) => {
+	let session;
 	try {
+		session = await mongoose.startSession();
+		session.startTransaction();
+
 		const { fees, stayDays } = data;
 		const invoiceObjectId = mongoose.Types.ObjectId(data.invoiceId);
 		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
 
 		const currentInvoice = await Entity.InvoicesEntity.findOne({ _id: invoiceObjectId }).exec();
-		if (!currentInvoice) throw new AppError(errorCodes.notExist, 'Hóa đơn không tồn tại', 200);
-		if (currentInvoice.locked === true) throw new AppError(errorCodes.cancelled, 'Hóa đơn đã đóng', 200);
+		if (!currentInvoice) throw new AppError(errorCodes.notExist, 'Hóa đơn không tồn tại', 404);
+		if (currentInvoice.locked === true) throw new AppError(errorCodes.cancelled, 'Hóa đơn đã đóng', 400);
 
 		const calculateInvoiceTotalAmount = () => {
 			const totalFeeAmount = fees.reduce((sum, fee) => {
 				if (fee.unit === 'index') {
 					return sum + (fee.secondIndex - fee.firstIndex) * fee.feeAmount;
 				}
-				if (fee.unit === 'person') {
-					return sum + fee.feeAmount * fee.quantity;
+				if (fee.unit === 'person' || fee.unit === 'vehicle') {
+					return sum + ((fee.feeAmount * fee.quantity) / 30) * stayDays;
 				}
 				if (fee.unit === 'room') {
-					return sum + fee.feeAmount;
-				}
-				if (fee.unit === 'vehicle') {
-					return sum + fee.feeAmount * fee.quantity;
+					return sum + (fee.feeAmount / 30) * stayDays;
 				}
 
 				return sum;
 			}, 0);
 
 			let debtsTotalAmount = 0;
-			if (data.debts > 0) {
-				debtsTotalAmount = data.debts.reduce((sum, debt) => sum + Number(debt.amount), 0);
+			if (currentInvoice.debts?.length > 0) {
+				debtsTotalAmount = currentInvoice.debts.reduce((sum, debt) => sum + Number(debt.amount), 0);
 			}
 
-			return ((totalFeeAmount + debtsTotalAmount) / 30) * Number(stayDays);
+			return totalFeeAmount + debtsTotalAmount;
 		};
-
-		// if()
 
 		const calculateFeeIndexTotalAmount = (firstIndex, secondIndex, feeAmount) => {
 			return (Number(secondIndex) - Number(firstIndex)) * Number(feeAmount);
@@ -1147,15 +1200,17 @@ exports.modifyInvoice = async (data, cb, next) => {
 			if (data.unit === 'index') {
 				const updateCurrentFeeIndex = await Entity.FeesEntity.findOneAndUpdate(
 					{ room: roomObjectId, feeKey: data.feeKey },
-					{ lastIndex: data.secondIndex },
+					{ $set: { lastIndex: Number(data.secondIndex) } },
+					{ session },
 				);
-				if (!updateCurrentFeeIndex) throw new AppError(errorCodes.invariantViolation, 'Phí không tồn tại trong hệ thống', 200);
+				if (!updateCurrentFeeIndex) throw new AppError(errorCodes.invariantViolation, 'Phí không tồn tại trong hệ thống', 404);
 				newFees.push({
 					feeName: data.feeName,
 					unit: data.unit,
 					firstIndex: data.firstIndex,
 					lastIndex: data.secondIndex,
 					amount: calculateFeeIndexTotalAmount(data.firstIndex, data.secondIndex, data.feeAmount),
+					feeAmount: data.feeAmount,
 					feeKey: data.feeKey,
 				});
 			} else if (data.unit === 'vehicle' || data.unit === 'person') {
@@ -1163,37 +1218,43 @@ exports.modifyInvoice = async (data, cb, next) => {
 					feeName: data.feeName,
 					unit: data.unit,
 					quantity: data.quantity,
-					amount: data.feeAmount * data.quantity,
+					amount: ((data.feeAmount * data.quantity) / 30) * stayDays,
+					feeAmount: data.feeAmount,
 					feeKey: data.feeKey,
 				});
 			} else if (data.unit === 'room') {
 				newFees.push({
 					feeName: data.feeName,
 					unit: data.unit,
-					amount: data.feeAmount,
+					amount: (data.feeAmount / 30) * stayDays,
+					feeAmount: data.feeAmount,
 					feeKey: data.feeKey,
 				});
 			} else {
-				throw new AppError(errorCodes.invariantViolation, 'Thuộc tính của phí không được đĩnh nghĩa!', 200);
+				throw new AppError(errorCodes.invariantViolation, 'Thuộc tính của phí không được đĩnh nghĩa!', 410);
 			}
 		}
 
+		const totalInvoice = calculateInvoiceTotalAmount();
 		const getInvoiceStatus = () => {
-			const total = calculateInvoiceTotalAmount();
 			const paid = currentInvoice.paidAmount;
 
 			if (paid === 0) return 'unpaid';
-			if (paid >= total) return 'paid';
+			if (paid >= totalInvoice) return 'paid';
 			return 'partial';
 		};
 
-		Object.assign(currentInvoice, { stayDays, fee: newFees, total: calculateInvoiceTotalAmount(), status: getInvoiceStatus() });
-		const modifiedInvoice = await currentInvoice.save();
-		if (!modifiedInvoice) throw new AppError(errorCodes.invariantViolation, 'Lỗi trong quá trình lưu hóa đơn', 200);
+		Object.assign(currentInvoice, { stayDays, fee: newFees, total: totalInvoice, status: getInvoiceStatus() });
+		const modifiedInvoice = await currentInvoice.save({ session });
+		if (!modifiedInvoice) throw new AppError(errorCodes.invariantViolation, 'Lỗi trong quá trình lưu hóa đơn', 500);
 
+		await session.commitTransaction();
 		cb(null, 'success');
 	} catch (error) {
+		if (session) await session.abortTransaction();
 		next(error);
+	} finally {
+		session.endSession();
 	}
 };
 
@@ -1295,7 +1356,7 @@ exports.getInvoiceInfoByInvoiceCode = async (data, cb, next) => {
 			},
 		]);
 		if (invoiceInfo) {
-			if (invoiceInfo.status === 'cancelled') throw new AppError(CANCELLED, 'Hóa đơn đã bị hủy', 200);
+			if (invoiceInfo.status === 'cancelled') throw new AppError(errorCodes.cancelled, 'Hóa đơn đã bị hủy', 400);
 			else return cb(null, { ...invoiceInfo, type: 'invoice' });
 		}
 
@@ -1401,11 +1462,73 @@ exports.getInvoiceInfoByInvoiceCode = async (data, cb, next) => {
 		if (receiptInfo) {
 			if (receiptInfo.status != 'cancelled' && receiptInfo.status != 'terminated') {
 				return cb(null, { ...receiptInfo, type: 'receipt' });
-			} else throw new AppError(CANCELLED, 'Hóa đơn đã bị hủy', 200);
+			} else throw new AppError(errorCodes.cancelled, 'Hóa đơn đã bị hủy', 400);
 		}
 
-		throw new AppError(NOT_EXIST, 'Hóa đơn không tồn tại', 200);
+		throw new AppError(errorCodes.notExist, 'Hóa đơn không tồn tại', 404);
 	} catch (error) {
 		next(error);
+	}
+};
+
+//owner only
+exports.deleteInvoice = async (data, cb, next) => {
+	let session;
+	try {
+		const invoiceObjectId = mongoose.Types.ObjectId(data.invoiceId);
+
+		session = await mongoose.startSession();
+		session.startTransaction();
+
+		const invoice = await Entity.InvoicesEntity.findOne({ _id: invoiceObjectId });
+		if (!invoice) throw new AppError(errorCodes.notExist, 'Hóa đơn không tồn tại', 404);
+		const { fee } = invoice;
+		const indexFees = fee.filter((f) => f.unit === 'index');
+
+		const terminateInvoice = async () => {
+			await Entity.InvoicesEntity.findOneAndUpdate({ _id: invoiceObjectId }, { $set: { status: 'terminated' } }, { session });
+		};
+
+		if (invoice.status === 'paid') {
+			await terminateInvoice();
+		}
+		if (invoice.status === 'unpaid') {
+			await terminateInvoice();
+			if (indexFees.length > 0) {
+				const operations = indexFees.map((f) => ({
+					updateOne: {
+						filter: {
+							feeKey: f.feeKey,
+							room: invoice.room,
+						},
+						update: {
+							$set: { lastIndex: Number(f.firstIndex) },
+						},
+					},
+				}));
+
+				await Entity.FeesEntity.bulkWrite(operations, { session });
+			}
+
+			if (invoice.debts?.length > 0) {
+				await Entity.DebtsEntity.updateMany(
+					{ sourceId: invoiceObjectId },
+					{ $set: { sourceId: null, status: 'pending', sourceType: 'pending' } },
+					{ session },
+				);
+			}
+		}
+		if (invoice.status === 'partial') {
+			await terminateInvoice();
+		}
+
+		await session.commitTransaction();
+
+		cb(null, 'success');
+	} catch (error) {
+		if (session) await session.abortTransaction();
+		next(error);
+	} finally {
+		if (session) session.endSession();
 	}
 };

@@ -42,10 +42,10 @@ const ContractsSchema = new Schema({
 		type: String,
 		required: true, // Địa chỉ lập hợp đồng
 	},
-	partyA: {
-		type: PersonSchema,
-		required: true, // Thông tin bên A (chủ hợp đồng)
-	},
+	// partyA: {
+	// 	type: PersonSchema,
+	// 	required: true, // Thông tin bên A (chủ hợp đồng)
+	// },
 	fees: [FeeSchema],
 	rent: {
 		type: Number,
@@ -90,6 +90,7 @@ const ContractsSchema = new Schema({
 	contractPdfUrl: {
 		type: String,
 	},
+	contractCode: { type: String, required: true, unique: true },
 });
 
 // Register the room schema

@@ -7,7 +7,7 @@ const customerContractSchema = Joi.object({
 	phone: Joi.string().required(),
 	cccd: Joi.string().required(),
 	cccdIssueDate: Joi.date().iso().required(), // Định dạng ISO như '2021-03-17'
-	cccdIssueAt: Joi.string().required(),
+	cccdIssueAt: Joi.string().optional(),
 	address: Joi.string().required(),
 	dob: Joi.date().iso().required(), // Ngày sinh
 	gender: Joi.string().valid('nam', 'nữ', 'khác').required(), // chỉ cho phép các giá trị cụ thể
@@ -63,24 +63,25 @@ const editFeeSchema = Joi.object({
 	feeAmount: Joi.number().positive(),
 	unit: Joi.string().optional(),
 	description: Joi.string().max(255).optional(),
+	lastIndex: Joi.number().optional(),
 });
 
 const modifyCustomerSchema = Joi.object({
-	customerId: Joi.string(),
-	status: Joi.number(),
+	customerId: Joi.string().optional(),
 	fullName: Joi.string(),
 	gender: Joi.string(),
-	isContractOwner: Joi.boolean(),
+	isContractOwner: Joi.boolean().optional(),
 	birthday: Joi.date(),
 	permanentAddress: Joi.string(),
 	phone: Joi.string(),
 	cccd: Joi.string(),
 	cccdIssueDate: Joi.date(),
-	status: Joi.number(),
-	room: Joi.string(),
+	cccdIssueAt: Joi.string(),
+	status: Joi.number().optional(),
+	room: Joi.string().optional(),
 	temporaryResidence: Joi.boolean(),
-	checkinDate: Joi.date(),
-	checkoutDate: Joi.date(),
+	checkinDate: Joi.date().optional(),
+	checkoutDate: Joi.date().optional(),
 	// note: Joi.string(),
 });
 
@@ -162,19 +163,20 @@ const generateContractSchema = Joi.object({
 });
 
 const generateInvoiceSchema = Joi.object({
-	roomId: Joi.string().required(),
+	roomId: Joi.string().hex().length(24),
 	buildingId: Joi.string().required(),
 	fees: Joi.array().items(feeInvoiceSchema),
 	debts: Joi.array()
 		.items(
 			Joi.object({
+				_id: Joi.string().hex().length(24),
 				debtId: Joi.string().optional(),
 				content: Joi.string(),
 				amount: Joi.number(),
 			}),
 		)
 		.optional(),
-	stayDays: Joi.number().min(1).max(31).note('Ngày ko được vượt quá 31 ngày'),
+	stayDays: Joi.number().min(0).max(31).note('Ngày ko được vượt quá 31 ngày'),
 	roomIndex: Joi.string(),
 	buildingName: Joi.string(),
 	// oaId: Joi.string(),

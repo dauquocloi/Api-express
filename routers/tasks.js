@@ -32,16 +32,12 @@ exports.getTasks = async (req, res, next) => {
 		data,
 		(err, result) => {
 			if (!err) {
-				setTimeout(
-					() =>
-						res.status(200).send({
-							errorCode: 0,
-							data: result,
-							message: 'getTasks successfully',
-							errors: [],
-						}),
-					1000,
-				);
+				return res.status(200).send({
+					errorCode: 0,
+					data: result,
+					message: 'getTasks successfully',
+					errors: [],
+				});
 			}
 		},
 		next,

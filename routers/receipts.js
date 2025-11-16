@@ -1,4 +1,5 @@
 const UseCase = require('../cores/receipts');
+const { sendNotification } = require('../utils/notificationUtils');
 
 exports.createReceipt = (req, res, next) => {
 	try {
@@ -25,6 +26,7 @@ exports.createReceipt = (req, res, next) => {
 exports.createDepositReceipt = (req, res, next) => {
 	try {
 		const data = { ...req.params, ...req.body };
+		console.log('log of createDepositReceipt req.body: ', data);
 		UseCase.createDepositReceipt(
 			data,
 			(err, result) => {
@@ -83,7 +85,7 @@ exports.getReceiptDetail = (req, res, next) => {
 								message: 'succesfull',
 								errors: [],
 							}),
-						2000,
+						1000,
 					);
 				}
 			},
@@ -125,7 +127,7 @@ exports.collectCashMoney = (req, res, next) => {
 			data,
 			(err, result) => {
 				if (!err) {
-					return res.status(200).send({
+					res.status(200).send({
 						errorCode: 0,
 						data: result,
 						message: 'succesfull',
@@ -183,4 +185,22 @@ exports.createDebtsReceipt = (req, res, next) => {
 	} catch (error) {
 		next(error);
 	}
+};
+
+exports.modifyReceipt = (req, res, next) => {
+	const data = { ...req.params, ...req.body };
+	console.log('log of data from modifyReceipt: ', data);
+	UseCase.modifyReceipt(
+		data,
+		(err, result) => {
+			if (!err) {
+				return res.status(200).send({
+					errorCode: 0,
+					message: 'succesfull',
+					errors: [],
+				});
+			}
+		},
+		next,
+	);
 };

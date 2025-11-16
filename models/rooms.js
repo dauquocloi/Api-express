@@ -69,7 +69,6 @@ const RoomsSchema = new Schema({
 
 RoomsSchema.post('aggregate', async function (docs, next) {
 	try {
-		console.log(docs);
 		if (docs[0]?.roomImage != undefined && docs.length > 0) {
 			const { roomImage } = docs[0];
 			const roomImageUrl = [];
@@ -83,7 +82,6 @@ RoomsSchema.post('aggregate', async function (docs, next) {
 				docs[0].roomImage.ref = roomImageUrl; // Gán an toàn
 			}
 
-			console.log('log of new roomImage: ', docs[0].roomImage.ref);
 			next();
 		} else {
 			next();
