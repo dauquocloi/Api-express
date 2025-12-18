@@ -32,66 +32,73 @@ const PersonSchema = new Schema({
 	dob: { type: Date },
 });
 
-const ContractsSchema = new Schema({
-	createdAt: {
-		type: Date,
-		default: Date.now, // Ngày khởi tạo tự động
-		required: true,
+const ContractsPdfFileSchema = new Schema({
+	CREATED_DATE: {
+		DAY: String,
+		MONTH: String,
+		YEAR: String,
 	},
-	contractAddress: {
-		type: String,
-		required: true, // Địa chỉ lập hợp đồng
+	PARTY_B: {
+		FULLNAME: { type: String },
+		DOB: { type: String },
+		ADDRESS: { type: String },
+		CCCD: { type: String },
+		CCCD_DATE: { type: String },
+		CCCD_AT: { type: String },
+		PHONE: { type: String },
 	},
-	// partyA: {
-	// 	type: PersonSchema,
-	// 	required: true, // Thông tin bên A (chủ hợp đồng)
-	// },
-	fees: [FeeSchema],
-	rent: {
-		type: Number,
-		required: true,
+
+	FEES: [
+		{
+			NAME: { type: String },
+			AMOUNT: { type: String },
+			TYPE: { type: String },
+		},
+	],
+	INTERIORS: [
+		{
+			NAME: { type: String },
+			QUANT: { type: String },
+		},
+	],
+	DEPOSIT: { type: String },
+	SIGN_DATE: {
+		DAY: String,
+		MONTH: String,
+		YEAR: String,
 	},
-	deposit: {
-		amount: { type: Number },
-		receipt: { type: Schema.Types.ObjectId, ref: 'receipts' },
-		// status: { type: String, enum: ['paid', 'partial', 'unpaid'] },
-	}, // deposit nên là một mảng chứa các receipt vì tiền cọc có thể tăng  = > thu thêm cọc
-	user: {
-		type: Schema.Types.ObjectId,
-		ref: 'UsersEntity',
-	},
-	contractSignDate: {
-		type: Date,
-		required: true,
-	},
-	contractEndDate: {
-		type: Date,
-	},
-	additionalTerms: { type: String }, // Điều khoản bổ sung (nếu có)
-	room: {
-		type: Schema.Types.ObjectId,
-		ref: 'RoomsEntity',
-		required: true,
-	},
-	contractTerm: {
-		type: String,
-		required: true,
-	},
-	note: {
-		type: String,
-		default: '',
-	},
-	status: {
-		type: String,
-		enum: ['active', 'expired', 'terminated'],
-		default: 'active',
-		required: true,
-	},
-	contractPdfUrl: {
-		type: String,
-	},
-	contractCode: { type: String, required: true, unique: true },
+	END_DATE: { DAY: String, MONTH: String, YEAR: String },
+	CONTRACT_TERM: { type: String },
+	ROOM_PRICE: { type: String },
 });
+
+const ContractsSchema = new Schema(
+	{
+		room: { type: Schema.Types.ObjectId, ref: 'rooms', required: true },
+		depositReceiptId: { type: Schema.Types.ObjectId, ref: 'receipts', required: false },
+		depositId: { type: Schema.Types.ObjectId, ref: 'deposits' },
+		user: { type: Schema.Types.ObjectId, ref: 'users' },
+		fees: [FeeSchema],
+		rent: { type: Number, required: true },
+		contractSignDate: { type: Date, required: true },
+		contractEndDate: { type: Date },
+		expectedMoveOutDate: { type: Date },
+		isEarlyTermination: { type: Boolean, default: false },
+		additionalTerms: { type: String }, // Điều khoản bổ sung (nếu có)
+		status: {
+			type: String,
+			enum: ['active', 'expired', 'terminated'],
+			default: 'active',
+			required: true,
+		},
+		contractTerm: { type: String, required: true },
+		note: { type: String, default: '' },
+		contractPdfUrl: { type: String },
+		contractPdfFile: { type: ContractsPdfFileSchema },
+		contractCode: { type: String, required: true, unique: true },
+	},
+	{ timestamps: true },
+);
 
 // Register the room schema
 exports.ContractsEntity = mongoose.model('ContractsEntity', ContractsSchema, 'contracts');

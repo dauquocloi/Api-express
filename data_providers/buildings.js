@@ -1,532 +1,113 @@
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
 const MongoConnect = require('../utils/MongoConnect');
-var Entity = require('../models');
+let Entity = require('../models');
 const bcrypt = require('bcrypt');
 const { result } = require('underscore');
 var XLSX = require('xlsx');
 const uploadFile = require('../utils/uploadFile');
 const withSignedUrls = require('../utils/withSignedUrls');
-// const { config } = require('dotenv');
-// const { config } = require('dotenv');
+const Services = require('../service');
+const Pipelines = require('../service/aggregates');
+const { BadRequestError, NotFoundError, InternalError, NoDataError, InvalidInputError } = require('../AppError');
 
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
-const AppError = require('../AppError');
+const { Service } = require('aws-sdk');
 
 //  get all buildings by managername
-exports.getAll = async (data, cb, next) => {
-	try {
-		const userId = mongoose.Types.ObjectId(`${data.userId}`);
-		await Entity.BuildingsEntity.find({ 'management.user': userId }).lean().exec(cb);
-	} catch (error) {
-		next(error);
+exports.getAll = async (userId) => {
+	const userObjectId = mongoose.Types.ObjectId(userId);
+	const buildings = await Services.buildings.getAllByManagementId(userObjectId);
+	if (!buildings || buildings.length === 0) throw new NotFoundError('Không tìm thấy tòa nhà');
+	return buildings;
+};
+
+exports.getBillCollectionProgress = async (data) => {
+	const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+
+	const currentPeriod = await getCurrentPeriod(buildingObjectId);
+	const { currentMonth, currentYear } = currentPeriod;
+
+	const bills = await Services.buildings.getAllBills(buildingObjectId, currentMonth, currentYear);
+	if (!bills) throw new NoDataError('Không có dữ liệu');
+	return bills;
+};
+
+exports.getRooms = async (data) => {
+	const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+	const rooms = await Services.rooms.getAllRooms(buildingObjectId);
+
+	return rooms;
+};
+
+exports.getListSelectingRoom = async (buildingId) => {
+	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const rooms = await Services.buildings.getListSelectingRooms(buildingObjectId);
+	return rooms;
+};
+
+exports.getCheckoutCosts = async (buildingId, month, year) => {
+	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	if (!month || !year) {
+		const currentPeriod = await getCurrentPeriod(buildingId);
+		month = currentPeriod.currentMonth;
+		year = currentPeriod.currentYear;
 	}
+
+	const result = await Services.checkoutCosts.getCheckoutCosts(buildingObjectId, month, year);
+
+	return result;
 };
 
-// not used
-exports.create = async (data, cb, next) => {
-	try {
-		// handle validator
-		const errors = validateData(data);
-		if (errors.length > 0) {
-			return cb({ message: 'Validation error', errors });
-		}
-		// Tạo building
-		const building = await Entity.BuildingsEntity.create({
-			buildingname: data.buildingname,
-			buildingadress: data.buildingadress,
-			roomquantity: data.roomquantity,
-			ownername: data.ownername,
-			ownerphonenumber: data.ownerphonenumber,
-			managername: data.managername,
-			managerphonenumber: data.managerphonenumber,
-		});
+exports.getStatistics = async (buildingId, month, year) => {
+	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
 
-		const buildingId = building._id;
-
-		// Dùng Promise.all để xử lý đồng thời việc tạo phòng, service, và payment
-		const roomPromises = Array.from({ length: data.roomquantity }, async (_, i) => {
-			const room = await Entity.RoomsEntity.create({
-				roomindex: i + 1,
-				roomprice: data.roomprice,
-				roomdeposit: data.roomdeposit,
-				roomtypes: data.roomtypes,
-				roomacreage: data.roomacreage,
-				maylanh: data.maylanh,
-				giengtroi: data.giengtroi,
-				gac: data.gac,
-				kebep: data.kebep,
-				bonruachen: data.bonruachen,
-				cuaso: data.cuaso,
-				bancong: data.bancong,
-				tulanh: data.tulanh,
-				tivi: data.tivi,
-				thangmay: data.thangmay, // sửa lại cho đúng
-				nuocnong: data.nuocnong,
-				giuong: data.giuong,
-				nem: data.nem,
-				tuquanao: data.tuquanao,
-				chungchu: data.chungchu,
-				baove: data.baove,
-				building: buildingId,
-			});
-
-			const service = await Entity.ServicesEntity.create({
-				room: room._id,
-				electric: data.electric,
-				waterindex: data.waterindex,
-				motobike: data.motobike,
-				elevator: data.elevator,
-				water: data.water,
-				generalservice: data.generalservice,
-				iswaterpayment: data.iswaterpayment,
-			});
-
-			const payment = await Entity.PaymentsEntity.create({
-				service: service._id,
-				room: room._id,
-				accountnumber: data.accountnumber,
-				accountname: data.accountname,
-				bankname: data.bankname,
-				tranfercontent: data.tranfercontent,
-				note: data.note,
-			});
-
-			await Entity.RoomsEntity.updateOne({ _id: room._id }, { $set: { service: service._id, payment: payment._id } });
-		});
-
-		await Promise.all(roomPromises);
-
-		// Trả về kết quả
-		cb(null, 'created successfully');
-	} catch (error) {
-		next(error);
-		cb(error);
+	if (!month || !year) {
+		const currentPeriod = await getCurrentPeriod(buildingObjectId);
+		month = currentPeriod.currentMonth;
+		year = currentPeriod.currentYear;
 	}
-};
 
-// exports.createBuilding = (data, cb) => {
-// 	for (let index = 2; index < 4; index++) {
-// 		const buildingName = workSheet[`A${index}`].v;
-// 		const buildingAdress = workSheet[`B${index}`].v;
-// 		const ownerName = workSheet[`C${index}`].v;
-// 		const roomQuantity = workSheet[`D${index}`].v;
+	const statistics = await Entity.BuildingsEntity.aggregate(Pipelines.statistics.getStatisticsPipeline(buildingObjectId, month, year));
 
-// 		console.log({
-// 			buildingName,
-// 			buildingAdress,
-// 			ownerName,
-// 			roomQuantity,
-// 		});
-// 	}
-// 	cb('TempData');
-// };
-
-// lấy user by emai
-exports.getEmail = (data, cb) => {
-	MongoConnect.Connect(config.database.fullname)
-		.then((db) => {
-			Entity.UsersEntity.findOne({ email: data.email }, cb);
-		})
-		.catch((err) => {
-			console.log('user_Dataprovider_create: ' + err);
-			cb(err, null);
-			console.log('null');
-		});
-};
-
-// lấy user by email token
-exports.getEmailbyToken = (data, cb) => {
-	MongoConnect.Connect(config.database.fullname)
-		.then((db) => {
-			Entity.UsersEntity.findOne({ email: data }, cb);
-		})
-		.catch((err) => {
-			console.log('user_Dataprovider_create: ' + err);
-			cb(err, null);
-			console.log('null');
-		});
-};
-
-exports.getBankStatus = async (data, cb, next) => {
-	try {
-		const userId = mongoose.Types.ObjectId(data.userId);
-		const bankStatus = await Entity.BuildingsEntity.find({ 'management.user': userId });
-
-		if (bankStatus != null) {
-			cb(null, bankStatus);
-		}
-	} catch (error) {
-		next(error);
+	if (statistics.length == 0) {
+		throw new NoDataError(`Không có dữ liệu thống kê cho kỳ ${data.month}, ${data.year}`);
 	}
+
+	return { statistics: statistics[0].recentStatistics };
 };
 
-exports.importContractFile = async (data, cb, next) => {
-	try {
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
-		const currentBuilding = await Entity.BuildingsEntity.findOne({ _id: buildingObjectId });
+// owner only
+exports.getBuildingPermissions = async (userId) => {
+	const buildingSettings = await Entity.BuildingsEntity.find(
+		{ 'management.user': userId },
+		{ settings: 1, buildingName: 1, buildingAddress: 1, _id: 1 },
+	);
+	if (!buildingSettings || buildingSettings.length === 0) throw new NotFoundError('Tòa nhà không tồn tại!');
+	// const response = buildingSettings.map((b) => b.settings);
 
-		if (!currentBuilding) throw new Error(`Tòa nhà ${data.buildingId} không tồn tại`);
-
-		const handleUploadContractFile = await uploadFile(data.file);
-		const contractFileKey = handleUploadContractFile.Key;
-
-		const mimetype = data.file?.mimetype;
-		if (mimetype === 'application/pdf') {
-			currentBuilding.contractPdfUrl = contractFileKey;
-		} else if (
-			mimetype === 'application/msword' || // .doc
-			mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // .docx
-		) {
-			currentBuilding.contractDocxUrl = contractFileKey;
-		} else {
-			throw new Error('Unsupported file type');
-		}
-		await currentBuilding.save();
-
-		cb(null, 'success');
-	} catch (error) {
-		next(error);
-	}
+	return buildingSettings;
 };
 
-exports.importDepositTermFile = async (data, cb, next) => {
-	try {
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
-		const currentBuilding = await Entity.BuildingsEntity.findOne({ _id: buildingObjectId });
-		if (!currentBuilding) throw new Error(`Tòa nhà ${data.buildingId} không tồn tại`);
-
-		const handleUploadDepositTermFile = await uploadFile(data.file);
-		const depositTermFileKey = handleUploadDepositTermFile.Key;
-		currentBuilding.depositTermUrl = depositTermFileKey;
-		await currentBuilding.save();
-		cb(null, 'success');
-	} catch (error) {
-		next(error);
-	}
+// owner only
+exports.setBuildingPermission = async (buildingId, type, enabled) => {
+	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const result = await Entity.BuildingsEntity.findOneAndUpdate({ _id: buildingObjectId }, { $set: { [`settings.${type}`]: enabled } });
+	if (!result) throw new NotFoundError('Tòa nhà không tồn tại!');
+	return 'Success';
 };
 
-exports.getDepositTermFile = async (data, cb, next) => {
-	try {
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
-		const depositTermString = await Entity.BuildingsEntity.findOne({ _id: buildingObjectId }, { depositTermUrl: 1 });
-		if (!depositTermString) throw new Error(`Tòa nhà ${data.buildingId} Không tồn tại`);
-
-		const depositTermFileUrl = await withSignedUrls(depositTermString, 'depositTermUrl');
-		console.log('log of depositTermFileUrl: ', depositTermFileUrl);
-		cb(null, depositTermFileUrl);
-	} catch (error) {
-		next(error);
-	}
-};
-
-exports.getBuildingContract = async (data, cb, next) => {
-	try {
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
-		const buildingContract = await Entity.BuildingsEntity.findOne({ _id: buildingObjectId }, { contractPdfUrl: 1 });
-
-		if (!buildingContract) {
-			throw new Error(`Tòa nhà ${data.buildingId}, không tồn tại !`);
-		}
-		const buildingObj = await withSignedUrls(buildingContract, 'contractPdfUrl');
-
-		cb(null, buildingObj);
-	} catch (error) {
-		next(error);
-	}
-};
-
-exports.getHomeData = async (data, cb, next) => {
-	try {
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
-		const userObjectId = mongoose.Types.ObjectId(data.userId);
-
-		const getUserInfo = await Entity.UsersEntity.findOne({ _id: userObjectId });
-		if (!getUserInfo) throw new Error('Authorization fail');
-		const getBuildingInfo = await Entity.BuildingsEntity.aggregate([
-			{
-				$match:
-					/**
-					 * query: The query in MQL.
-					 */
-					{
-						'management.user': {
-							$in: [userObjectId],
-						},
-					},
-			},
-
-			{
-				$limit: 1,
-			},
-			{
-				$lookup: {
-					from: 'rooms',
-					localField: '_id',
-					foreignField: 'building',
-					as: 'rooms',
-				},
-			},
-			{
-				$lookup: {
-					from: 'customers',
-					let: {
-						roomIds: {
-							$map: {
-								input: '$rooms',
-								as: 'room',
-								in: '$$room._id',
-							},
-						},
-					},
-					pipeline: [
-						{
-							$match: {
-								$expr: {
-									$and: [
-										{
-											$in: ['$room', '$$roomIds'],
-										},
-										{
-											$ne: ['$status', 0],
-										},
-									],
-								},
-							},
-						},
-					],
-					as: 'customers',
-				},
-			},
-			{
-				$lookup: {
-					from: 'vehicles',
-					let: {
-						roomIds: {
-							$map: {
-								input: '$rooms',
-								as: 'room',
-								in: '$$room._id',
-							},
-						},
-					},
-					pipeline: [
-						{
-							$match: {
-								$expr: {
-									$and: [
-										{
-											$in: ['$room', '$$roomIds'],
-										},
-										{
-											$ne: ['$status', 'terminated'],
-										},
-									],
-								},
-							},
-						},
-					],
-					as: 'vehicles',
-				},
-			},
-			{
-				$project: {
-					_id: 1,
-					buildingAddress: 1,
-					buildingName: 1,
-					rooms: {
-						$size: '$rooms',
-					},
-					customer: {
-						$size: '$customers',
-					},
-					vehicels: {
-						$size: '$vehicles',
-					},
-				},
-			},
-		]);
-
-		// Check notice
-		const receiptInfo = await Entity.ReceiptsEntity.aggregate([]);
-	} catch (error) {
-		next(error);
-	}
-};
-
-// exports.getCurrentPeriodByBuildingId = async (data, cb, next) => {
-// 	try {
-// 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
-// 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
-
-// 		cb(null, currentPeriod);
-// 	} catch (error) {
-// 		next(error);
-// 	}
-// };
-
-exports.getBillCollectionProgress = async (data, cb, next) => {
-	try {
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
-
+exports.getStatisticGeneral = async (buildingId, year) => {
+	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	if (!year) {
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
 		const { currentMonth, currentYear } = currentPeriod;
+		year = currentYear;
+	} else year = Number(year);
 
-		const [getAllBill] = await Entity.BuildingsEntity.aggregate([
-			{
-				$match: {
-					_id: buildingObjectId,
-				},
-			},
-			{
-				$lookup: {
-					from: 'rooms',
-					localField: '_id',
-					foreignField: 'building',
-					as: 'rooms',
-				},
-			},
-			{
-				$lookup: {
-					from: 'invoices',
-					let: {
-						roomIds: {
-							$map: {
-								input: '$rooms',
-								as: 'r',
-								in: '$$r._id',
-							},
-						},
-						month: currentMonth,
-						year: currentYear,
-					},
-					pipeline: [
-						{
-							$match: {
-								$expr: {
-									$and: [
-										{
-											$in: ['$room', '$$roomIds'],
-										},
-										{
-											$ne: ['$status', 'cencelled'],
-										},
-										{
-											$eq: ['$month', '$$month'],
-										},
-										{
-											$eq: ['$year', '$$year'],
-										},
-									],
-								},
-							},
-						},
-						{
-							$project: {
-								_id: 1,
-								month: 1,
-								year: 1,
-								total: 1,
-								status: 1,
-								paidAmount: 1,
-							},
-						},
-					],
-					as: 'invoices',
-				},
-			},
-			{
-				$lookup: {
-					from: 'receipts',
-					let: {
-						roomIds: {
-							$map: {
-								input: '$rooms',
-								as: 'r',
-								in: '$$r._id',
-							},
-						},
-						month: currentMonth,
-						year: currentYear,
-					},
-					pipeline: [
-						{
-							$match: {
-								$expr: {
-									$and: [
-										{
-											$in: ['$room', '$$roomIds'],
-										},
-										{
-											$ne: ['$status', 'cencelled'],
-										},
-										{
-											$eq: ['$month', '$$month'],
-										},
-										{
-											$eq: ['$year', '$$year'],
-										},
-									],
-								},
-							},
-						},
-						{
-							$project: {
-								_id: 1,
-								month: 1,
-								year: 1,
-								status: 1,
-								amount: 1,
-								paidAmount: 1,
-								receiptType: 1,
-							},
-						},
-					],
-					as: 'receipts',
-				},
-			},
-			{
-				$project: {
-					_id: 1,
-					buildingName: 1,
-					buildingAddress: 1,
-					invoices: 1,
-					receipts: 1,
-				},
-			},
-		]);
+	const statistics = await Services.buildings.getStatisticGeneral(buildingObjectId, year);
 
-		if (!getAllBill || getAllBill?.length === 0) throw new AppError(50001, 'Tòa nhà không tồn tại', 200);
+	if (!statistics || statistics.length === 0) throw new NotFoundError('Dữ liệu khởi tạo không tồn tại');
 
-		const calculateTotalAmount = () => {
-			let totalAmount = 0;
-			totalAmount += getAllBill.invoices.reduce((sum, item) => sum + item.total, 0);
-			totalAmount += getAllBill.receipts.reduce((sum, item) => sum + item.amount, 0);
-			return totalAmount;
-		};
-
-		const calculateTotalPaidAmount = () => {
-			let totalPaidAmount = 0;
-			totalPaidAmount += getAllBill.invoices.reduce((sum, item) => sum + (item.paidAmount ?? 0), 0);
-			totalPaidAmount += getAllBill.receipts.reduce((sum, item) => sum + (item.paidAmount ?? 0), 0);
-			return totalPaidAmount;
-		};
-
-		const billCollectedProgress = Math.round((calculateTotalPaidAmount() / calculateTotalAmount()) * 100);
-
-		const totalBill = getAllBill.invoices.length + getAllBill.receipts.length;
-		const totalBillUnpaid =
-			getAllBill.invoices.filter((i) => i.status != 'unpaid').length + getAllBill.receipts.filter((r) => r.status != 'unpaid').length;
-
-		console.log('log of calculateTotalAmount: ', calculateTotalAmount());
-		console.log('log of calculateTotalPaidAmount: ', calculateTotalPaidAmount());
-
-		cb(null, {
-			totalBill: totalBill,
-			totalBillUnpaid: totalBillUnpaid,
-			billCollectedProgress,
-		});
-	} catch (error) {
-		next(error);
-	}
+	return statistics;
 };

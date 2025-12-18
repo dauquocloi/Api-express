@@ -25,8 +25,6 @@ exports.collectCashMoney = (data, cb, next) => {
 				return cb(err, null);
 			}
 
-			console.log('log of result: ', result);
-
 			if (result.role != 'owner') {
 				notificationQueue.add(
 					{
@@ -43,7 +41,7 @@ exports.collectCashMoney = (data, cb, next) => {
 						attempts: 1,
 						backoff: 1000,
 						removeOnComplete: true,
-						removeOnFail: false, // bỏ nếu tác dụ thất bại
+						removeOnFail: false,
 					},
 				);
 				console.log('✅ Job added to notification queue');

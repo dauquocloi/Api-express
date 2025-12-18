@@ -20,7 +20,6 @@ const io = new Server(server, {
 		methods: ['GET', 'POST'],
 	},
 });
-const mongoose = require('mongoose');
 const { Connect } = require('./utils/MongoConnect');
 
 // const { getIO } = require('./utils/SocketConnect');
@@ -87,8 +86,9 @@ Connect('Qltro-test')
 	});
 
 //khai báo router
-routers.routerApi(app);
-adminRouters.adminRouters(app);
+app.use('/', routers);
+// routers.routerApi(app);
+// adminRouters.adminRouters(app);
 
 // The error handler must be registered before any other error middleware and after all controllers
 Sentry.setupExpressErrorHandler(app);

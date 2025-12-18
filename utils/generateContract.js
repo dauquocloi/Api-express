@@ -9,8 +9,8 @@ const uploadFile = require('./uploadFile');
 const expressionParser = require('docxtemplater/expressions.js');
 const getOriginalFile = require('./getOriginalFile');
 
-async function generatePdfContract(data, buildingObjectId, session) {
-	const templatePath = await Entity.BuildingsEntity.findOne({ _id: buildingObjectId }, { contractDocxUrl: 1 }).session(session);
+async function generatePdfContract(data, buildingObjectId) {
+	const templatePath = await Entity.BuildingsEntity.findOne({ _id: buildingObjectId }, { contractDocxUrl: 1 });
 	if (!templatePath || !templatePath.contractDocxUrl) throw new Error(`Tòa nhà với id ${buildingObjectId} không tồn tại`);
 	const contractDocxBuffer = await getOriginalFile(templatePath?.contractDocxUrl);
 	const zip = new PizZip(contractDocxBuffer);

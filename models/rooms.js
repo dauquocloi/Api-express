@@ -37,10 +37,13 @@ const RoomsSchema = new Schema({
 		// 1 - đang ở
 		// 2 - sắp trả phòng
 	},
-	isDeposited: {
-		type: Boolean,
-		default: false,
-	},
+	// Nên tham chiếu đến ref deposits
+	// isDeposited: {
+	// 	type: Boolean,
+	// 	default: false,
+	// },
+
+	//Nên tham triếu đến depositRefunds
 	isRefundDeposit: {
 		//Trạng thái đang chờ trả cọc.
 		type: Boolean,
@@ -51,16 +54,17 @@ const RoomsSchema = new Schema({
 		ref: 'BuildingsEntity',
 	},
 
-	payment: {
-		type: Schema.Types.ObjectId,
-		ref: 'PaymentsEntity',
-	},
+	// payment: {
+	// 	type: Schema.Types.ObjectId,
+	// 	ref: 'PaymentsEntity',
+	// },
 	interior: [InteriorsSchema],
 
 	roomImage: {
 		ref: [{ type: String }],
 		lastUpload: { type: Date, default: Date.now },
 	},
+	// Should be in the Contracts
 	note: {
 		type: String,
 		default: '',

@@ -1,17 +1,17 @@
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { feeUnit } = require('../constants/fees');
 
 const FeeSchema = new Schema({
 	feeName: { type: String, required: true },
 	feeAmount: { type: Number, required: true },
-	unit: { type: String, enum: ['person', 'index', 'vehicle', 'room'], required: true },
+	unit: { type: String, enum: Object.values(feeUnit), required: true },
 	lastIndex: {
 		type: Number,
 		required: function () {
 			return this.unit === 'index';
 		},
 	},
-	iconPath: { type: String },
 	feeKey: { type: String },
 });
 
@@ -33,21 +33,28 @@ const PersonSchema = new Schema({
 	sex: { type: String, enum: ['nam', 'nữ'] },
 });
 
-const DepositsSchema = new Schema({
-	room: { type: Schema.Types.ObjectId, ref: 'rooms' },
-	building: { type: Schema.Types.ObjectId, ref: 'buildings' },
-	receipt: { type: Schema.Types.ObjectId, ref: 'receipts' }, // Nếu tăng tiền cọc => tạo thêm receipt => trường này phải chứa một mảng các receipt
-	rent: { type: Number, required: true },
-	depositAmount: { type: Number, required: true },
-	actualDepositAmount: { type: Number, required: true },
-	depositCompletionDate: { type: Date },
-	checkinDate: { type: Date },
-	rentalTerm: { type: String },
-	numberOfOccupants: { type: Number, required: true },
-	fees: [FeeSchema],
-	interiors: [InteriorSchema],
-	customer: { type: PersonSchema, required: true },
-	status: { type: String, enum: ['cancelled', 'pending', 'close', 'paid', 'partial'] },
-});
+const DepositsSchema = new Schema(
+	{
+		room: { type: Schema.Types.ObjectId, ref: 'rooms' },
+		building: { type: Schema.Types.ObjectId, ref: 'buildings' },
+		receipt: { type: Schema.Types.ObjectId, ref: 'receipts' },
+		contract: { type: Schema.Types.ObjectId, ref: 'contracts' },
+		rent: { type: Number, required: true },
+		depositAmount: { type: Number, required: true },
+		actualDepositAmount: { type: Number, required: true },
+		depositCompletionDate: { type: Date },
+		checkinDate: { type: Date },
+		rentalTerm: { type: String },
+		numberOfOccupants: { type: Number, required: true },
+		fees: [FeeSchema],
+		interiors: [InteriorSchema],
+		customer: { type: PersonSchema, required: true },
+		//cancelled: Đã cọc sau đó hủy,
+		//close: Đã làm hợp đồng => đã vào ở.
+		status: { type: String, enum: ['cancelled', 'pending', 'close', 'paid', 'partial'] },
+		version: { type: Number, default: 1 },
+	},
+	{ timestamps: true },
+);
 
 exports.DepositsEntity = mongoose.model('DepositsEntity', DepositsSchema, 'deposits');

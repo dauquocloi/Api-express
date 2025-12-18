@@ -69,6 +69,7 @@ const CustomersSchema = new Schema(
 			accountNumber: { type: String },
 			accountOwnerName: { type: String },
 		},
+		contract: { type: Schema.Types.ObjectId, ref: 'contracts' },
 	},
 	{
 		versionKey: false,

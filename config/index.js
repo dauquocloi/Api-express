@@ -2,10 +2,9 @@
  * configType = 0 is Development environment
  * configType = 1 is Production environment
  */
-var home = require('os').homedir();
 var configType = 0;
-var path = require('path');
 var cloudinary = require('./cloudinary');
+var redis = require('./redisClient');
 require('dotenv').config;
 
 switch (configType) {
@@ -27,8 +26,6 @@ switch (configType) {
 			maxDuration: 10000, // ms
 		};
 		exports.database = {
-			// host: 'localhost',
-			// port: 27017,
 			username: process.env.ATLAS_USERNAME,
 			password: process.env.ATLAS_PASSWORD,
 			clusterUrl: process.env.ATLAS_URL,
@@ -36,9 +33,14 @@ switch (configType) {
 			// optional: 'retryWrites=false',
 		};
 		exports.JWT = {
-			JWT_SECRET: process.env.JWT_SECRET,
-			JWT_REFRESH: process.env.JWT_REFRESH,
+			// JWT_SECRET: process.env.JWT_SECRET,
+			// JWT_REFRESH: process.env.JWT_REFRESH,
+			issuer: process.env.JWT_ISS,
+			audience: process.env.JWT_AUD,
+			accessTokenValidity: process.env.ACCESS_TOKEN_VALIDITY_SEC,
+			refreshTokenValidity: process.env.REFRESH_TOKEN_VALIDITY_SEC,
 		};
+		exports.redis = redis;
 		exports.cloudinary = cloudinary;
 		break;
 }

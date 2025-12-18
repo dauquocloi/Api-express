@@ -1,6 +1,7 @@
 const { required } = require('joi');
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { vehicleStatus } = require('../constants/vehicle');
 
 // Create a Mongoose Schema
 
@@ -29,7 +30,7 @@ const VehiclesSchema = new Schema({
 	},
 	status: {
 		type: String,
-		enum: ['active', 'terminated', 'suspended'], //suspended: tạm ngưng gửi.
+		enum: Object.values(vehicleStatus),
 		required: true,
 		default: 'active', // 0: Đã dọn đi, 1: đang gửi, 2: tạm ngưng gửi
 	},

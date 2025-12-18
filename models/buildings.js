@@ -1,9 +1,20 @@
 var mongoose = require('mongoose');
-// (Schema = mongoose.Schema), (ObjectId = Schema.ObjectId);
 require('mongoose-double')(mongoose);
-const getFileUrl = require('../utils/getFileUrl');
-
 const Schema = mongoose.Schema;
+
+const PermissionsSchema = new Schema(
+	{
+		managerCollectCash: { type: Boolean, default: true },
+		managerEditRoomFee: { type: Boolean, default: true },
+		managerEditInvoice: { type: Boolean, default: true },
+		managerDeleteInvoice: { type: Boolean, default: true },
+		managerAddExpenditure: { type: Boolean, default: true },
+		managerAddIncidentalIncome: { type: Boolean, default: true },
+		managerEditContract: { type: Boolean, default: true },
+	},
+	{ _id: false },
+);
+
 // Create a Mongoose Schema
 var BuildingsSchema = new Schema(
 	{
@@ -26,17 +37,16 @@ var BuildingsSchema = new Schema(
 			type: String,
 			trim: true,
 		},
-		images: [
-			{
-				type: String,
-				validate: {
-					validator: function (v) {
-						return /^https?:\/\/.*\.(jpg|jpeg|png|gif|webp|svg)$/.test(v);
-					},
-					message: 'Invalid image URL',
+		images: {
+			type: [String],
+			validate: {
+				validator: function (v) {
+					return /^https?:\/\/.*\.(jpg|jpeg|png|gif|webp|svg)$/.test(v);
 				},
+				message: 'Invalid image URL',
 			},
-		],
+		},
+
 		bank: {
 			type: Schema.Types.ObjectId,
 			ref: 'banks',
@@ -54,6 +64,7 @@ var BuildingsSchema = new Schema(
 			},
 		],
 		invoiceNotes: { type: String, default: '' },
+		settings: { type: PermissionsSchema },
 	},
 	{
 		versionKey: false,

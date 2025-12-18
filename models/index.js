@@ -55,3 +55,9 @@ exports.OATokensEntity = require('./OA').OATokensEntity;
 exports.ZaloZnsEntity = require('./zaloZns').ZaloZnsEntity;
 
 exports.NotisEntity = require('./notifications').NotificationsEntity;
+
+exports.NotiSettingsEntity = require('./notificationSettings').NotificationSettingsSchema;
+
+exports.CheckoutCostsEntity = require('./checkoutCosts').CheckoutCostsEntity;
+
+exports.KeyStoresEntity = require('./keyStores').KeyStoresEntity;

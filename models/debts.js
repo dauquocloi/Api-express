@@ -1,6 +1,6 @@
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-
+const { debtStatus, sourceType } = require('../constants/debts');
 const DebtsSchema = new Schema(
 	{
 		content: String,
@@ -20,14 +20,12 @@ const DebtsSchema = new Schema(
 
 		status: {
 			type: String,
-			// pending: "Sau khi chốt sổ", terminated: "Đã xóa",
-			// closed: "Đã được gắn vào hóa đơn tiền nhà"
-			enum: ['pending', 'closed', 'terminated'],
+			enum: Object.values(debtStatus),
 			default: 'pending',
 		},
 		sourceType: {
 			type: String,
-			enum: ['invoice', 'receipt', 'pending'],
+			enum: Object.values(sourceType),
 			default: 'pending',
 		},
 		sourceId: {

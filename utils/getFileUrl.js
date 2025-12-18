@@ -19,7 +19,7 @@ const getFileUrl = async (Key) => {
 
 		return url;
 	} catch (error) {
-		throw new Error(error.message);
+		throw error;
 	}
 };
 

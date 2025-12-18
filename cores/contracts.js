@@ -1,4 +1,5 @@
 var DataProvider = require('../data_providers/contracts');
+const { generateContractQueue } = require('../queues');
 
 exports.getAll = (data, cb) => {
 	DataProvider.getAll(data, (errs, result) => {
@@ -19,34 +20,43 @@ exports.updateOne = (data, cb) => {
 };
 
 exports.generateContract = (data, cb, next) => {
-	DataProvider.generateContract(data, cb, next);
+	DataProvider.generateContract(
+		data,
+		(error, result) => {
+			if (error) {
+				return cb(error, null);
+			}
+
+			generateContractQueue.add({
+				buildingId: result.buildingId,
+				roomId: result.roomId,
+				contractId: result.contractId,
+				contractSignDate: result.contractSignDate,
+				contractEndDate: result.contractEndDate,
+				contractTerm: result.contractTerm,
+				depositAmount: result.depositAmount,
+				rent: result.rent,
+				feesData: result.feesData,
+				interiors: result.interiors ?? [],
+			});
+			cb(null, result);
+		},
+		next,
+	);
 };
 
 exports.getContractPdfSignedUrl = (data, cb, next) => {
 	DataProvider.getContractPdfSignedUrl(data, cb, next);
 };
-// exports.getEmail = (data, cb) => {
-// 	DataProvider.getEmail(data, (errs, result) => {
-// 		if (errs) {
-// 			console.log(errs);
-// 			cb(errs, null);
-// 		} else {
-// 			console.log('đã chọc đến đây');
 
-// 			cb(null, { data: result });
-// 		}
-// 	});
-// };
+exports.setExpectedMoveOutDate = (data, cb, next) => {
+	DataProvider.setExpectedMoveOutDate(data, cb, next);
+};
 
-// exports.getEmailbyToken = (data, cb) => {
-// 	DataProvider.getEmailbyToken(data, (errs, result) => {
-// 		if (errs) {
-// 			console.log(errs);
-// 			cb(errs, null);
-// 		} else {
-// 			console.log('đã chọc đến EmailbyToken');
-// 			console.log({ data: result });
-// 			cb(null, { data: result });
-// 		}
-// 	});
-// };
+exports.cancelIsEarlyTermination = (data, cb, next) => {
+	DataProvider.cancelIsEarlyTermination(data, cb, next);
+};
+
+exports.terminateContractUnRefund = (data, cb, next) => {
+	DataProvider.terminateContractUnRefund(data, cb, next);
+};

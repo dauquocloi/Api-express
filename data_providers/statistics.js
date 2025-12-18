@@ -4,6 +4,7 @@ var Entity = require('../models');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const AppError = require('../AppError');
 
+//remove to buildings
 exports.getRevenues = async (data, cb, next) => {
 	try {
 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
@@ -1706,54 +1707,6 @@ exports.getStatistics = async (data, cb, next) => {
 		}
 
 		cb(null, { statistics: statistics[0].recentStatistics });
-	} catch (error) {
-		next(error);
-	}
-};
-
-exports.getStatisticGeneral = async (data, cb, next) => {
-	try {
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
-
-		let year;
-		if (!data.year) {
-			const currentPeriod = await getCurrentPeriod(buildingObjectId);
-			const { currentMonth, currentYear } = currentPeriod;
-			year = currentYear;
-		} else year = Number(data.year);
-
-		const statistics = await Entity.StatisticsEntity.aggregate([
-			{
-				$match: {
-					building: buildingObjectId,
-					year: year,
-				},
-			},
-			{
-				$project: {
-					_id: 1,
-					building: 1,
-					year: 1,
-					month: 1,
-					revenue: 1,
-					revenueComparitionRate: 1,
-					statisticsStatus: 1,
-					expenditure: 1,
-					expenditureComparitionRate: 1,
-					profit: 1,
-					profitComparisonRate: 1,
-				},
-			},
-			{
-				$sort: {
-					month: 1,
-				},
-			},
-		]);
-
-		if (!statistics || statistics.length === 0) throw new AppError(50001, 'Dữ liệu khởi tạo không tồn tại', 200);
-
-		cb(null, statistics);
 	} catch (error) {
 		next(error);
 	}

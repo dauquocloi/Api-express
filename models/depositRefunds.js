@@ -4,6 +4,7 @@ const Schema = mongoose.Schema;
 const feesIndexSchema = new Schema({
 	feeName: { type: String, trim: true },
 	feeAmount: { type: Number },
+	amount: { type: Number },
 	feeKey: { type: String },
 	firstIndex: { type: Number },
 	lastIndex: { type: Number },
@@ -14,7 +15,8 @@ const DepositRefundsSchema = new Schema(
 		room: { type: Schema.Types.ObjectId, ref: 'rooms' },
 		building: { type: Schema.Types.ObjectId, ref: 'buildings' },
 		contract: { type: Schema.Types.ObjectId, ref: 'contracts' },
-		isRefundedDeposit: { type: Boolean, default: false },
+		// isRefundedDeposit: { type: Boolean, default: false },
+		status: { type: String, enum: ['pending', 'paid', 'terminated'], default: 'pending' },
 		feesIndex: [feesIndexSchema],
 		feesOther: [
 			{
@@ -23,13 +25,31 @@ const DepositRefundsSchema = new Schema(
 				amount: { type: Number },
 			},
 		],
-		depositRefundAmount: { type: Number },
-
+		depositReceipt: { type: Schema.Types.ObjectId, ref: 'receipts' },
+		receiptsUnpaid: { type: [Schema.Types.ObjectId], ref: 'receipts' },
+		invoiceUnpaid: { type: Schema.Types.ObjectId, ref: 'invoices' },
+		debts: { type: [Schema.Types.ObjectId], ref: 'debts' },
+		depositRefundAmount: { type: Number, required: true },
 		customerApproved: { type: Boolean, default: false },
 		creator: { type: Schema.Types.ObjectId, ref: 'users' },
 		image: { type: String, default: '' },
-		depositReceipt: { type: Schema.Types.ObjectId, ref: 'receipts' },
 		contractOwner: { type: Schema.Types.ObjectId, ref: 'customers' },
+		month: {
+			type: Number,
+			min: [1, 'month must be at least 1'],
+			max: [12, 'month cannot exceed 12'],
+			validate: {
+				validator: Number.isInteger,
+				message: 'month must be an integer',
+			},
+		},
+		year: {
+			type: Number,
+			validate: {
+				validator: Number.isInteger,
+				message: 'years must be an integer',
+			},
+		},
 	},
 	{
 		timestamps: true,

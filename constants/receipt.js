@@ -1,0 +1,18 @@
+const receiptTypes = {
+	DEPOSIT: 'deposit',
+	INCIDENTAL: 'incidental',
+	DEBTS: 'debts',
+	CHECKOUT: 'checkout',
+};
+
+const receiptStatus = {
+	PAID: 'paid', // Số tiền thanh toán >= số tiền phải thanh toán.
+	UNPAID: 'unpaid', // Số tiền thanh toán === 0
+	PARTIAL: 'partial', // 0 < Số tiền thanh toán  < Số tiền phải thanh toán
+	PENDING: 'pending', // Chờ thanh toán (đặt cọc, hợp đồng). Ko ghi nhận hóa đơn.
+	CANCELLED: 'cancelled', // "Hủy => ko ghi nhận thu, ghi nhận giao dịch"
+	DELETED: 'deleted', // Xóa ko ghi nhận giao dịch
+	TERMINATED: 'terminated', // Bỏ cọc => Ghi nhận giao dịch
+};
+
+module.exports = { receiptTypes, receiptStatus };

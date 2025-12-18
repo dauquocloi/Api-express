@@ -105,3 +105,19 @@ exports.checkManagerCollectedCash = (data, cb, next) => {
 exports.changeUserBuildingManagement = (data, cb, next) => {
 	DataProvider.changeUserBuildingManagement(data, cb, next);
 };
+
+exports.getNotiSettings = (data, cb, next) => {
+	DataProvider.getNotiSettings(data, cb, next);
+};
+
+exports.setSettingNotification = (data, cb, next) => {
+	DataProvider.setSettingNotification(data, cb, next);
+};
+
+exports.getBuildingPermissions = (data, cb, next) => {
+	DataProvider.getBuildingPermissions(data, cb, next);
+};
+
+exports.setBuildingPermission = (data, cb, next) => {
+	DataProvider.setBuildingPermission(data, cb, next);
+};

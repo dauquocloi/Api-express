@@ -2,6 +2,7 @@ var mongoose = require('mongoose');
 const Entity = require('./index');
 const { unique } = require('underscore');
 const Schema = mongoose.Schema;
+const Roles = require('../constants/userRoles');
 // Create a Mongoose Schema
 
 // Create a Mongoose Schema
@@ -50,7 +51,7 @@ const UsersSchema = new Schema(
 		},
 		role: {
 			type: String,
-			enum: ['owner', 'customer', 'sale', 'admin', 'manager', 'guest', 'staff'],
+			enum: Object.values(Roles),
 			required: true,
 		},
 		expoPushToken: {
@@ -58,13 +59,11 @@ const UsersSchema = new Schema(
 			unique: true,
 			default: '',
 		},
-		tokens: [
-			{
-				type: String,
-				unique: true,
-				default: '',
-			},
-		],
+		tokens: {
+			type: [String],
+			unique: true,
+			default: '',
+		},
 	},
 
 	{

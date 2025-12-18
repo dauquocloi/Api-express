@@ -1,10 +1,11 @@
 var mongoose = require('mongoose');
 const Entity = require('./index');
 const Schema = mongoose.Schema;
+const { notificationTypes } = require('../constants/notifications');
 
 const NotificationsSchema = new Schema(
 	{
-		type: { type: String, required: true, enum: ['transaction', 'task', 'contractExpire', 'collectCash'] },
+		type: { type: String, required: true, enum: Object.values(notificationTypes) },
 		content: { type: String, required: true, trim: true },
 		title: { type: String, required: true },
 		metaData: {

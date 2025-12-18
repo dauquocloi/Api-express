@@ -13,7 +13,6 @@
 
 // module.exports = upload;
 
-// Chỉ cần memoryStorage (buffer trong RAM)
 const multer = require('multer');
 
 const storage = multer.memoryStorage();

@@ -1,4 +1,5 @@
 var DataProvider = require('../data_providers/rooms');
+const { modifyContractQueue } = require('./../queues');
 
 exports.getAll = (data, cb, next) => {
 	DataProvider.getAll(
@@ -69,16 +70,44 @@ exports.generateDepositReceiptAndFirstInvoice = (data, cb, next) => {
 	DataProvider.generateDepositReceiptAndFirstInvoice(data, cb, next);
 };
 
-exports.generateDepositRefund = (data, cb, next) => {
-	DataProvider.generateDepositRefund(data, cb, next);
-};
-
-exports.getDepositRefund = (data, cb, next) => {
-	DataProvider.getDepositRefund(data, cb, next);
-};
-
 exports.updateNoteRoom = (data, cb, next) => {
 	DataProvider.updateNoteRoom(data, cb, next);
+};
+
+exports.modifyRent = (data, cb, next) => {
+	DataProvider.modifyRent(
+		data,
+		(err, result) => {
+			if (err) cb(err, null);
+			if (result.contractId) {
+				modifyContractQueue.add(
+					{
+						contractId: result.contractId,
+					},
+					{
+						attempts: 1,
+						backoff: 1000,
+						removeOnComplete: true,
+						removeOnFail: false,
+					},
+				);
+			}
+			cb(null, 'success');
+		},
+		next,
+	);
+};
+
+exports.generateCheckoutCost = (data, cb, next) => {
+	DataProvider.generateCheckoutCosts(data, cb, next);
+};
+
+exports.getCheckoutCostDetail = (data, cb, next) => {
+	DataProvider.getCheckoutCostDetail(data, cb, next);
+};
+
+exports.getCheckoutCosts = (data, cb, next) => {
+	DataProvider.getCheckoutCosts(data, cb, next);
 };
 
 // exports.getEmail = (data, cb) => {

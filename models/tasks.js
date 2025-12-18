@@ -12,9 +12,9 @@ const TasksSchema = new Schema(
 		taskContent: { type: String, required: true },
 		detail: { type: String },
 		executionDate: { type: Date, default: Date.now },
-		performers: [{ type: Schema.Types.ObjectId, ref: 'users', required: true }],
-		managements: [{ type: Schema.Types.ObjectId, ref: 'users', required: true }],
-		images: [{ type: String }],
+		performers: { type: [Schema.Types.ObjectId], ref: 'users', required: true },
+		managements: { type: [Schema.Types.ObjectId], ref: 'users', required: true },
+		images: { type: [String] },
 	},
 
 	{

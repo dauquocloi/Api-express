@@ -17,6 +17,7 @@ const TransactionsSchema = new mongoose.Schema(
 		referenceCode: { type: String, required: false }, // Mã tham chiếu giao dịch
 		// accumulated: { type: Number, required: true }, // Số dư tích lũy (chưa hỗ trợ)
 		transactionId: { type: String, required: false }, // ID giao dịch
+		idempotencyKey: { type: String, required: true }, // ID request
 		paymentMethod: { type: String, enum: ['transfer', 'cash'], required: true }, // Loại thanh toán
 		invoice: {
 			type: Schema.Types.ObjectId,

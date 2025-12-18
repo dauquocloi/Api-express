@@ -23,3 +23,7 @@ exports.terminateDeposit = (data, cb, next) => {
 exports.getDepositDetailByRoomId = (data, cb, next) => {
 	DataProvider.getDepositDetailByRoomId(data, cb, next);
 };
+
+exports.uploardDepositTerm = (data, cb, next) => {
+	DataProvider.uploardDepositTerm(data, cb, next);
+};

@@ -1,30 +1,55 @@
-const User = require('./users');
-const Room = require('./rooms');
+// const User = require('./users/users');
+// const Room = require('./rooms');
+// const Contract = require('./contracts');
+// const Building = require('./buildings');
+// const Service = require('./services');
+// const Invoice = require('./invoices');
+// const Message = require('./messages');
+// const Conversation = require('./conversations');
+// const File = require('./files');
+// const upload = require('../middleware/multer');
+// const Customer = require('./customers');
+// const Vehicle = require('./vehicles');
+// const Notification = require('./notifications');
+// const Fee = require('./fees');
+// const Auth = require('./auth');
+// const Receipt = require('./receipts');
+// const Company = require('./companies');
+// const SepayTest = require('./sepayApiTest');
+// const Statistic = require('./statistics');
+// const Expenditure = require('./expenditures/expenditures');
+// const Revenue = require('./revenues/revenues');
+// const Transaction = require('./transactions');
+// const Deposit = require('./deposits');
+// const Debt = require('./debts');
+// const Task = require('./tasks');
+// const DepositRefund = require('./depositRefunds');
+// const Zalo = require('./admin/zalo');
+
+// Refactory 10/12/2025
+const Login = require('./access/login');
+const Buildings = require('./buildings');
+const Customers = require('./customers');
 const Contracts = require('./contracts');
-const Building = require('./buildings');
-const Service = require('./services');
-const Invoice = require('./invoices');
-const Message = require('./messages');
-const Conversation = require('./conversations');
-const File = require('./files');
-const upload = require('../middleware/multer');
-const Customer = require('./customers');
-const Vehicle = require('./vehicles');
-const Notification = require('./notifications');
-const Fee = require('./fees');
-const Auth = require('./auth');
+const Expenditures = require('./expenditures');
+const Fees = require('./fees');
+const Rooms = require('./rooms');
+const Revenues = require('./revenues');
+const Receipts = require('./receipts');
+const Invoices = require('./invoices');
+const Deposits = require('./deposits');
+const DepositRefunds = require('./depositRefunds');
+const Notifications = require('./notifications');
+const Users = require('./users');
+const Vehicles = require('./vehicles');
+const Tasks = require('./tasks');
+
+const express = require('express');
+const router = express.Router();
+
+//middleware
 const verifyToken = require('../middleware/verifyToken');
-const Receipt = require('./receipts');
-const Company = require('./companies');
-const SepayTest = require('./sepayApiTest');
-const Statistic = require('./statistics');
-const Expenditure = require('./expenditures');
-const Revenue = require('./revenues');
-const Transaction = require('./transactions');
-const Deposit = require('./deposits');
-const Debt = require('./debts');
-const Task = require('./tasks');
-const Zalo = require('./admin/zalo');
+const idempotency = require('..//middleware/idempotency');
 
 // Route với nhiều middleware
 const firstMiddleware = (req, res, next) => {
@@ -37,6 +62,8 @@ const firstMiddleware = (req, res, next) => {
 	next();
 };
 
+{
+	/* Router of API 
 exports.routerApi = (app) => {
 	// default
 	app.get('/', (req, res) => {
@@ -57,9 +84,9 @@ exports.routerApi = (app) => {
 
 	// app.post('/send-notification', Notification.sendNotification);
 
-	// Router of user
+	app.post('/auths/refreshToken/:userId', Auth.refreshToken);
 
-	// get all user
+	// Router of user
 	app.get('/users/getAll', [firstMiddleware], User.getAll);
 
 	app.get('/users/managers', verifyToken, User.getAllManagers);
@@ -69,30 +96,24 @@ exports.routerApi = (app) => {
 		return res.send('welcome to API Thu');
 	});
 
-	app.post('/auths/refreshToken/:userId', Auth.refreshToken);
-
-	// user create
 	app.post('/users/create', User.create);
-
 	app.delete('/users/:managerId', User.removeManager);
-
-	// Register
 	app.post('/register', User.register);
-
-	// Login
-	app.post('/login', User.login);
-
+	// app.post('/login', User.login);
 	app.patch('/users/:userId/password', User.modifyPassword);
-
 	app.patch('/users/:userId', User.modifyUserInfo);
-
-	// get cus by Email
 	app.post('/getEmail', User.getEmail);
-
-	// lấy dữ liệu người dùng token
 	app.post('/usersData', User.getusersdata);
-
 	app.get('/users/getUserByFullName', User.getUserByFullName);
+	app.get('/settings/notifications', verifyToken, User.getNotiSettings);
+	app.patch('/settings/notifications', verifyToken, User.setSettingNotification);
+	app.get(`/buildings/permissions`, verifyToken, User.getBuildingPermissions);
+	app.patch(`/buildings/:buildingId/permissions`, verifyToken, User.setBuildingPermission);
+	app.patch('/users/managements/:userId', User.modifyUserPermission);
+	app.get('/users/managements/collectedCash/:userId', User.checkManagerCollectedCash); //owner only
+	app.patch('/users/managements/buildingManagement/:userId', User.changeUserBuildingManagement); //owner only
+	app.post('/buildings/:buildingId/manager', User.createManager);
+
 	// -----------------ROOMS------------------//
 
 	app.post('/rooms/create', Room.create);
@@ -109,13 +130,13 @@ exports.routerApi = (app) => {
 
 	app.post('/rooms/update', Room.update);
 
-	app.post('/contracts/create', Contracts.create); // this is piece of shit;
+	app.post('/contracts/create', Contract.create); // this is piece of shit;
 
-	app.post('/contracts/generate', Contracts.generateContract);
+	app.post('/contracts/generate', Contract.generateContract);
 
-	app.get('/rooms/:roomId/contracts', Contracts.getContractPdfSignedUrl);
+	app.get('/contracts/:contractCode/pdf', Contract.getContractPdfSignedUrl);
 
-	app.post('/contracts/update', Contracts.updateOne);
+	app.post('/contracts/update', Contract.updateOne);
 
 	app.post('/buildings/create', Building.create);
 
@@ -125,7 +146,7 @@ exports.routerApi = (app) => {
 
 	app.post('/buildings/:buildingId/contract', upload.single('file'), Building.importContractFile);
 
-	app.post('/buildings/:buildingId/depositTermFile', upload.single('file'), Building.importDepositTermFile);
+	app.post('/buildings/:buildingId/deposit-term-file', upload.single('file'), Building.importDepositTermFile);
 
 	app.get('/buildings/:buildingId/depositTermFile', Building.getDepositTermFile);
 
@@ -241,7 +262,7 @@ exports.routerApi = (app) => {
 
 	app.post('/rooms/:roomId/deposits', Deposit.createDeposit);
 
-	app.post('/rooms/depositReceipt-invoice', Room.generateDepositReceiptAndFirstInvoice);
+	app.post('/rooms/:roomId/depositReceipt-invoice', Room.generateDepositReceiptAndFirstInvoice);
 
 	app.patch('/deposits/:depositId', Deposit.modifyDeposit);
 
@@ -263,11 +284,9 @@ exports.routerApi = (app) => {
 
 	app.get('/receipts/:receiptId', Receipt.getReceiptDetail);
 
-	app.post('/buildings/:buildingId/manager', User.createManager);
+	app.post('/receipts/:receiptId/collect-cash', [verifyToken, idempotency], Receipt.collectCashMoney);
 
-	app.post('/receipts/:receiptId/collect-cash', verifyToken, Receipt.collectCashMoney);
-
-	app.post('/invoices/:invoiceId/collect-cash', verifyToken, Invoice.collectCashMoney);
+	app.post('/invoices/:invoiceId/collect-cash', [verifyToken, idempotency], Invoice.collectCashMoney);
 
 	app.delete('/receipts/:receiptId', Receipt.deleteReceipt);
 
@@ -275,9 +294,15 @@ exports.routerApi = (app) => {
 
 	app.get('/rooms/:roomId/debts-receipts-unpaid', Debt.getCreateDepositRefundInfo);
 
-	app.post('/rooms/:roomId/deposit-refund', verifyToken, Room.generateDepositRefund);
+	app.post('/rooms/:roomId/deposit-refund', verifyToken, DepositRefund.generateDepositRefund);
 
-	app.get('/rooms/:roomId/deposit-refund', Room.getDepositRefund);
+	// app.get('/rooms/:roomId/deposit-refund', Room.getDepositRefund);
+
+	app.get('/depositRefunds/:depositRefundId', DepositRefund.getDepositRefund);
+
+	app.patch('/depositRefunds/:depositRefundId', DepositRefund.modifyDepositRefund);
+
+	app.post('/depositRefunds/:depositRefundId/submit', verifyToken, DepositRefund.submitDepositRefund);
 
 	app.put('/rooms/:roomId/note', Room.updateNoteRoom);
 
@@ -291,12 +316,6 @@ exports.routerApi = (app) => {
 
 	app.get('/tasks/:taskId', Task.getTaskDetail);
 
-	app.patch('/users/managements/:userId', User.modifyUserPermission);
-
-	app.get('/users/managements/collectedCash/:userId', User.checkManagerCollectedCash); //owner only
-
-	app.patch('/users/managements/buildingManagement/:userId', User.changeUserBuildingManagement); //owner only
-
 	app.get('/api/v1/bills/:billCode', Invoice.getInvoiceInfoByInvoiceCode);
 
 	app.get('/buildings/:buildingId/statisticGeneral', verifyToken, Statistic.getStatisticGeneral);
@@ -304,6 +323,24 @@ exports.routerApi = (app) => {
 	app.get('/buildings/:buildingId/bill-collection-progress', Building.getBillCollectionProgress);
 
 	app.get('/notifications', verifyToken, Notification.getNotifications);
+
+	app.get('/buildings/:buildingId/deposit-refunds', DepositRefund.getAllDepositRefunds);
+
+	app.patch('/contracts/:contractId/expected-move-out-date', Contract.setExpectedMoveOutDate);
+
+	app.patch('/rooms/:roomId/cancel-early-move-out', Contract.cancelIsEarlyTermination);
+
+	app.patch('/rooms/:roomId/rental-fee', Room.modifyRent);
+
+	app.delete('/contracts/:contractId', Contract.terminateContractUnRefund);
+
+	app.post('/rooms/:roomId/checkout-costs', verifyToken, Room.generateCheckoutCost);
+
+	app.get('/checkoutCosts/:checkoutCostId', Room.getCheckoutCostDetail);
+
+	app.get('/buildings/:buildingId/checkout-costs', Room.getCheckoutCosts);
+
+	// app.post('/buildings/:buildingId/deposit-term-file', upload.single('file'), Deposit.uploadDepositTerm);
 
 	//  ------------ZALO API---------------- //
 
@@ -347,3 +384,24 @@ exports.routerApi = (app) => {
 
 	app.post(`/mb/individual/bankAccount/confirmApiConnection`, SepayTest.mbBankconfirmApiConnection);
 };
+*/
+}
+
+router.use('/login', Login);
+router.use('/buildings', Buildings);
+router.use('/contracts', Contracts);
+router.use('/deposits', Deposits);
+router.use('/depositRefunds', DepositRefunds);
+router.use('/customers', Customers);
+router.use('/expenditures', Expenditures);
+router.use('/fees', Fees);
+router.use('/rooms', Rooms);
+router.use('/revenues', Revenues);
+router.use('/receipts', Receipts);
+router.use('/notifications', Notifications);
+router.use('/invoices', Invoices);
+router.use('/users', Users);
+router.use('/vehicles', Vehicles);
+router.use('/tasks', Tasks);
+
+module.exports = router;

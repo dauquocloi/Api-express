@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
-var Entity = require('../models');
+const Entity = require('../models');
 const { getNotiForm } = require('../utils/getNotiForm');
+const Services = require('../service');
+const { NotFoundError } = require('../AppError');
 
 const getLastName = (fullName) => {
 	if (!fullName || typeof fullName !== 'string') return '';
@@ -163,37 +165,34 @@ exports.createNotification = async (notiType, data) => {
 	}
 };
 
-exports.getNotifications = async (data, cb, next) => {
-	try {
-		const receiverObjectId = mongoose.Types.ObjectId(data.userId);
-		const pages = parseInt(data.page) || 1;
-		const limit = 10; // Ngày
+exports.getNotifications = async (receiverId, page) => {
+	const receiverObjectId = mongoose.Types.ObjectId(receiverId);
+	const pages = parseInt(page) || 1;
+	const limit = 10; // Ngày
 
-		const listNoti = await Entity.NotisEntity.aggregate([
-			{ $match: { receivers: receiverObjectId } },
-			{ $sort: { createdAt: -1 } },
-			{
-				$addFields: {
-					date: {
-						$dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
-					},
-				},
-			},
-			{
-				$group: {
-					_id: '$date',
-					notifications: { $push: '$$ROOT' },
-				},
-			},
-			{ $sort: { _id: -1 } },
-			{ $skip: (pages - 1) * limit },
-			{ $limit: limit + 1 },
-		]);
+	const listNoti = await Services.notifications.getNotifications(receiverObjectId, pages, limit);
+	const isListEnd = listNoti.length <= limit;
 
-		const isListEnd = listNoti.length <= limit;
+	return { notis: listNoti, isListEnd };
+};
 
-		cb(null, { notis: listNoti, isListEnd });
-	} catch (error) {
-		next(error);
+exports.getNotiSettings = async (userId) => {
+	let responseData = {};
+	const notiSettings = await Entity.NotiSettingsEntity.findOne({ user: userId }, { _id: 0, user: 0 });
+	if (!notiSettings) throw new NotFoundError('Không tìm thấy tài khoản!');
+	responseData.notiSettings = notiSettings;
+
+	if (data.role === 'owner') {
+		const buildingSettings = await Entity.BuildingsEntity.find({ 'management.user': userId }, { settings: 1 });
+		if (!buildingSettings || buildingSettings.length === 0) throw new NotFoundError('Tòa nhà không tồn tại trong hệ thống');
+		responseData.buildingSettings = buildingSettings.map((b) => b.settings);
 	}
+
+	return responseData;
+};
+
+exports.setSettingNotification = async (userId, type, enabled) => {
+	const notiSettings = await Entity.NotiSettingsEntity.findOneAndUpdate({ user: userId }, { $set: { [type]: enabled } });
+	if (!notiSettings) throw new NotFoundError('Không tìm thấy tài khoản!');
+	return 'Success';
 };

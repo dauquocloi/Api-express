@@ -2,8 +2,7 @@ var mongoose = require('mongoose');
 // const { any } = require('underscore');
 const Schema = mongoose.Schema;
 const Entity = require('./index');
-const FeesSchema = require('./fees');
-const { number } = require('joi');
+const { invoiceStatus } = require('../constants/invoices');
 
 const FeeInvoiceSchema = new Schema({
 	feeName: String,
@@ -70,7 +69,7 @@ const InvoicesSchema = new Schema(
 				validator: Number.isInteger,
 				message: 'month must be an integer',
 			},
-		}, // Tháng (1 - 12)
+		},
 		year: {
 			type: Number,
 			required: true,
@@ -93,10 +92,16 @@ const InvoicesSchema = new Schema(
 			min: 0,
 			default: 0,
 		},
-		//terminated: Đã bị chủ nhà xóa => 0 ghi nhận doanh thu
-		//cencelled: Đã đóng, 0 còn nhận thu tiền nữa
-		status: { type: String, enum: ['unpaid', 'paid', 'partial', 'cencelled', 'terminated'], default: 'unpaid' },
+		status: { type: String, enum: Object.values(invoiceStatus), default: 'unpaid' },
 		invoiceType: { type: String, enum: ['firstInvoice', 'rental'], default: 'rental' },
+		// Dành cho hoàn cọc => Khách không thể lấy tt thanh toán trên hệ thống web-view
+		isDepositing: { type: Boolean, default: false },
+		// Nd: Số tiền chưa thanh toán, còn thiếu, đã được trừ vào tiền hoàn cọc.
+		isDepositDeducted: { type: Boolean, default: false },
+		detuctedInfo: {
+			detuctedType: { type: String, enum: ['depositRefund', 'terminateContractEarly'] },
+			detuctedId: { type: Schema.Types.ObjectId },
+		},
 		fee: [FeeInvoiceSchema],
 		debts: [{ content: { type: String }, amount: { type: Number, default: 0 }, month: { type: Number }, year: { type: Number } }],
 		payer: {
@@ -123,6 +128,7 @@ const InvoicesSchema = new Schema(
 			type: String,
 			trim: true,
 		},
+		// creator stupid
 		creater: {
 			type: Schema.Types.ObjectId,
 			ref: 'users',
@@ -130,6 +136,10 @@ const InvoicesSchema = new Schema(
 		invoiceContent: {
 			type: String,
 			trim: true,
+		},
+		version: {
+			type: Number,
+			default: 1,
 		},
 	},
 	{
