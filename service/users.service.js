@@ -46,7 +46,8 @@ exports.getAllUsers = async () => {
 };
 
 exports.getAllManagements = async (userObjectId) => {
-	return await Entity.UsersEntity.aggregate(Pipelines.users.getAllManagements(userObjectId));
+	const [result] = await Entity.UsersEntity.aggregate(Pipelines.users.getAllManagements(userObjectId));
+	return result;
 };
 
 exports.getListSelectionManagements = async (userObjectId) => {

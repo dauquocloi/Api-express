@@ -6,7 +6,7 @@ const authentication = require('../../auth/authentication');
 
 const router = express.Router();
 
-// router.use(authentication);
+router.use(authentication);
 router.get('/', validator(schema.getAllExpenditures, ValidateSource.QUERY), Expenditures.getExpenditures);
 router.post('/', validator(schema.createExpenditure, ValidateSource.BODY), Expenditures.createExpenditure);
 router.patch(

@@ -4,9 +4,9 @@ const { NotFoundError } = require('../AppError');
 const { debtStatus } = require('../constants/debts');
 
 exports.getDebtsAndReceiptUnpaid = async (roomObjectId, currentMonth, currentYear, session) => {
-	const [debtsAndReceiptUnpaid] = await Entity.RoomsEntity.aggregate(
-		pipelines.debts.getDebtsAndReceiptUnpaid(roomObjectId, currentMonth, currentYear),
-	).session(session);
+	const query = Entity.RoomsEntity.aggregate(pipelines.debts.getDebtsAndReceiptUnpaid(roomObjectId, currentMonth, currentYear));
+	if (session) query.session(session);
+	const [debtsAndReceiptUnpaid] = await query;
 	if (!debtsAndReceiptUnpaid) throw new NotFoundError('Phòng không tồn tại trong hệ thống');
 	if (!debtsAndReceiptUnpaid.receiptDeposit) throw new NotFoundError(`Hóa đơn đặt cọc không tồn tại !`);
 

@@ -18,6 +18,9 @@ exports.getListReceiptPaymentStatus = async (buildingId, month, year) => {
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
 		month = currentPeriod.currentMonth;
 		year = currentPeriod.currentYear;
+	} else {
+		Number(month);
+		Number(year);
 	}
 
 	const receipt = await Services.receipts.getListReceiptsPaymentStatus(buildingObjectId, month, year);
@@ -25,7 +28,7 @@ exports.getListReceiptPaymentStatus = async (buildingId, month, year) => {
 	return { period: { month, year }, listReceiptPaymentStatus: receipt.receipts };
 };
 
-exports.createDepositReceipt = async (roomId, buildingId, data, session) => {
+exports.createDepositReceipt = async (roomId, buildingId, receipAmount, payerName) => {
 	const roomObjectId = mongoose.Types.ObjectId(roomId);
 	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
 	const currentPeriod = await getCurrentPeriod(buildingObjectId);
@@ -36,8 +39,8 @@ exports.createDepositReceipt = async (roomId, buildingId, data, session) => {
 
 	const newReceipt = {
 		roomObjectId: roomObjectId,
-		receiptAmount: data.amount,
-		payer: data.payer,
+		receiptAmount: receipAmount,
+		payer: payerName,
 		currentPeriod,
 
 		receiptContent: `Tiền cọc phòng ${roomInfo.roomIndex}`,
@@ -48,9 +51,11 @@ exports.createDepositReceipt = async (roomId, buildingId, data, session) => {
 	return createReceipt;
 };
 
-exports.createReceipt = async (roomId, buildingId, receiptAmount, receiptContent) => {
+exports.createReceipt = async (roomId, buildingId, receiptAmount, receiptContent, date, userId) => {
 	const roomObjectId = mongoose.Types.ObjectId(roomId);
 	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+
+	await Services.rooms.assertRoomWritable({ roomId, userId, session: null });
 
 	const [currentPeriod, contractOwner] = await Promise.all([getCurrentPeriod(buildingObjectId), Services.customers.getContractOwner(roomObjectId)]);
 
@@ -62,6 +67,7 @@ exports.createReceipt = async (roomId, buildingId, receiptAmount, receiptContent
 		receiptContent,
 		receiptType: receiptTypes['INCIDENTAL'],
 		initialStatus: receiptStatus['UNPAID'],
+		date: date,
 	});
 
 	return receiptCreated;
@@ -71,8 +77,10 @@ exports.getReceiptDetail = async (receiptId, buildingId) => {
 	// const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
 	const receiptObjectId = mongoose.Types.ObjectId(receiptId);
 
-	const receiptInfo = await Services.receipts.getReceiptAndTransDetail(receiptObjectId);
-	return receiptInfo;
+	const getReceipt = await Services.receipts.getReceiptAndTransDetail(receiptObjectId);
+
+	return { receiptInfo: getReceipt._id, transactionInfo: getReceipt.transactionInfo, paymentInfo: null };
+
 	// let receipt = receiptInfo[0]._id;
 	// if ((receipt.status === 'unpaid' || receipt.status == 'partial') && receipt.locked === false) {
 	// 	const bankInfo = await Entity.BanksEntity.findOne({ building: { $in: [buildingObjectId] } });
@@ -198,25 +206,53 @@ exports.collectCashMoney = async (data) => {
 	}
 };
 
-exports.deleteReceipt = async (receiptId) => {
-	const currentReceipt = await Entity.ReceiptsEntity.findOne({ _id: receiptId });
-	currentReceipt.status = receiptStatus['CANCELLED'];
-	currentReceipt.locked = true;
+exports.deleteReceipt = async (receiptId, userId) => {
+	let session;
+	try {
+		session = await mongoose.startSession();
+		await session.withTransaction(async () => {
+			const currentReceipt = await Entity.ReceiptsEntity.findOne({ _id: receiptId }).session(session);
+			if (!currentReceipt) throw new NotFoundError('Hóa đơn không tồn tại');
 
-	await currentReceipt.save();
-	return 'Success';
+			await Services.rooms.assertRoomWritable({ roomId: currentReceipt.room, userId, session });
+
+			currentReceipt.status = receiptStatus['CANCELLED'];
+			currentReceipt.locked = true;
+
+			await currentReceipt.save({ session });
+			return;
+		});
+		return 'Success';
+	} catch (error) {
+		throw error;
+	} finally {
+		if (session) session.endSession();
+	}
 };
 
-exports.modifyReceipt = async (receiptId, newReceiptAmount, receiptContent) => {
-	const currentReceipt = await Entity.ReceiptsEntity.findOne({ _id: receiptId });
-	if (!currentReceipt) throw new NotFoundError('Hóa đơn không tồn tại');
+exports.modifyReceipt = async (receiptId, newReceiptAmount, receiptContent, userId) => {
+	let session;
+	try {
+		session = await mongoose.startSession();
+		await session.withTransaction(async () => {
+			const currentReceipt = await Entity.ReceiptsEntity.findOne({ _id: receiptId }).session(session);
+			if (!currentReceipt) throw new NotFoundError('Hóa đơn không tồn tại');
 
-	currentReceipt.amount = newReceiptAmount;
-	currentReceipt.receiptContent = receiptContent;
-	currentReceipt.status = calculateReceiptStatusAfterModified();
-	currentReceipt.version = currentReceipt.version + 1;
-	await currentReceipt.save();
-	return 'Success';
+			await Services.rooms.assertRoomWritable({ roomId: currentReceipt.room, userId, session });
+
+			currentReceipt.amount = newReceiptAmount;
+			currentReceipt.receiptContent = receiptContent;
+			currentReceipt.status = calculateReceiptStatusAfterModified();
+			currentReceipt.version = currentReceipt.version + 1;
+			await currentReceipt.save({ session });
+			return;
+		});
+		return 'Success';
+	} catch (error) {
+		throw error;
+	} finally {
+		if (session) session.endSession();
+	}
 };
 
 //=======================UN REFACTED==========================//

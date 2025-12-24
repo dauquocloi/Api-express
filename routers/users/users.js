@@ -129,7 +129,7 @@ exports.createManager = asyncHandler(async (req, res) => {
 exports.modifyUserPermission = asyncHandler(async (req, res) => {
 	let data = { ...req.body, ...req.params };
 	console.log('log of data from modifyUserPermission: ', data);
-	await UseCase.modifyUserPermission(data);
+	await UseCase.modifyUserPermission(data.userId, data.newPermission);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

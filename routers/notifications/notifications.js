@@ -5,20 +5,20 @@ const UseCase = require('../../data_providers/notifications');
 exports.getNotifications = asyncHandler(async (req, res) => {
 	const data = { ...req.user, ...req.query };
 	console.log('log of getNotifications: ', data);
-	const result = await UseCase.getNotifications(data);
+	const result = await UseCase.getNotifications(data._id, Number(data.page));
 	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.getNotiSettings = asyncHandler(async (req, res) => {
 	const data = req.user;
 	console.log('log of getNotiSetting: ', data);
-	const result = await UseCase.getNotiSettings(data.userId);
+	const result = await UseCase.getNotiSettings(data._id);
 	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.setSettingNotification = asyncHandler(async (req, res) => {
 	const data = { ...req.user, ...req.body };
 	console.log('log of setNotiSetting: ', data);
-	const result = await UseCase.setSettingNotification(data.userId, data.type, data.enabled);
+	const result = await UseCase.setSettingNotification(data._id, data.type, data.enabled);
 	return new SuccessMsgResponse('Success').send(res);
 });

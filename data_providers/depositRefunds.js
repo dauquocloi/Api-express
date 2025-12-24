@@ -13,13 +13,13 @@ const { calculateTotalFeeAmount, calculateTotalFeesOther } = require('../utils/c
 const { calculateDepositRefundAmount } = require('../service/depositRefunds.helper');
 const { receiptTypes } = require('../constants/receipt');
 
-exports.getDepositRefunds = async (buildingId) => {
+exports.getDepositRefunds = async (buildingId, mode) => {
 	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
 	let checkBuilding = await Entity.BuildingsEntity.exists({ _id: buildingObjectId });
 	if (!checkBuilding) throw new InvalidInputError('Dữ liệu đầu vào không hợp lệ');
 
 	let depositRefundData = [];
-	if (data.mode === 'pending') {
+	if (mode === 'pending') {
 		depositRefundData = await Entity.DepositRefundsEntity.aggregate(
 			Pipelines.depositRefunds.getDepositRefundsModePendingPipeline(buildingObjectId),
 		);
@@ -140,7 +140,7 @@ exports.generateDepositRefund = async (data) => {
 		if (checkExistedDepositRefund !== null) throw new BadRequestError('Phiếu hoàn cọc đã tồn tại');
 
 		const onGetCurrentPeriod = getCurrentPeriod(buildingId);
-		const onGetDepositReceipt_ContractOwner = Promise.all([
+		const [depositReceiptInfo, contractOwnerInfo] = await Promise.all([
 			Services.receipts.getReceiptDetail(receiptId, session),
 			Services.customers.getContractOwner(roomId, session),
 		]);
@@ -185,7 +185,7 @@ exports.generateDepositRefund = async (data) => {
 			totalInvoiceUnpaid = calculateInvoiceUnapaidAmount(invoiceUnpaid.paidAmount, invoiceUnpaid.total);
 		}
 
-		let roomFees = await Services.fees.getRoomFees(roomObjectId, session);
+		let roomFees = await Services.fees.getRoomFeesAndDebts(roomObjectId, session);
 		roomFees = roomFees.feeInfo.filter((f) => f.unit === 'index');
 
 		if (roomFees.length === 0) return 0;
@@ -202,11 +202,11 @@ exports.generateDepositRefund = async (data) => {
 		const formatRoomFeeIndex = generateInvoiceFees(roomFees, 0, 0, data.feeIndexValues, false);
 		const feeIndexTotalAmount = calculateTotalFeeAmount(formatRoomFeeIndex);
 
-		await Services.fees.updateFeeIndexValues(inputIds, data.feeIndexValues, session);
+		await Services.fees.updateFeeIndexValues(roomFeeIds, data.feeIndexValues, session);
 
 		// const feeIndexValuesAmount = await onUpdateFeeIndexValues();
 		const currentPeriod = await onGetCurrentPeriod;
-		const [depositReceiptInfo, contractOwnerInfo] = await onGetDepositReceipt_ContractOwner;
+
 		const totalFeesOther = calculateTotalFeesOther(data.feesOther);
 
 		console.log(depositReceiptInfo.paidAmount, totalDebts, totalReceiptsUnpaid, totalInvoiceUnpaid, totalFeesOther, feeIndexTotalAmount);
@@ -303,6 +303,7 @@ exports.generateDepositRefund = async (data) => {
 };
 
 // Note: Khi chủ nhà sửa phiếu hoàn cọc => unLock: hóa đơn unpaid để thu tiền.
+//======= UN REFACTED =======//
 exports.modifyDepositRefund = async (data) => {
 	let session;
 	try {

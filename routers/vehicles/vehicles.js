@@ -5,7 +5,7 @@ const UseCase = require('../../data_providers/vehicles');
 exports.getAll = asyncHandler(async (req, res) => {
 	const data = req.query;
 	console.log('log of data from getAll vehicle: ', req.params);
-	const result = await UseCase.getAll(data.buildingId, data.status);
+	const result = await UseCase.getAll(data.buildingId, Number(data.status));
 	return new SuccessResponse('Success', result).send(res);
 });
 
@@ -26,6 +26,6 @@ exports.addVehicle = asyncHandler(async (req, res) => {
 exports.getVehicle = asyncHandler(async (req, res) => {
 	const data = req.params;
 	console.log('log of data from getVehicle: ', data);
-	const result = await UseCase.getVehicle(data);
+	const result = await UseCase.getVehicle(data.vehicleId);
 	return new SuccessResponse('Success', result).send(res);
 });

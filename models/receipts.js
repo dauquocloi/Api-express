@@ -2,6 +2,7 @@ var mongoose = require('mongoose');
 // const { any } = require('underscore');
 const Schema = mongoose.Schema;
 const Entity = require('./index');
+const { receiptTypes, receiptStatus } = require('../constants/receipt');
 
 const ReceiptsSchema = new Schema(
 	{
@@ -29,7 +30,7 @@ const ReceiptsSchema = new Schema(
 		},
 		receiptType: {
 			type: String,
-			enum: ['deposit', 'incidental', 'debts', 'checkout'],
+			enum: Object.values(receiptTypes),
 			default: 'incidental',
 		},
 		// if receiptType === deposit => isContractCreated required.
@@ -39,7 +40,7 @@ const ReceiptsSchema = new Schema(
 		},
 		// terminated: "Bỏ cọc => ghi nhận thu",
 		// cancelled: "Hủy => ko ghi nhận thu, ghi nhận giao dịch"
-		status: { type: String, enum: ['unpaid', 'paid', 'partial', 'pending', 'cancelled', 'terminated'], default: 'unpaid' },
+		status: { type: String, enum: Object.values(receiptStatus), default: 'unpaid' },
 		amount: {
 			type: Number,
 			min: 0,
@@ -106,6 +107,20 @@ const ReceiptsSchema = new Schema(
 		timestamps: true,
 	},
 );
+
+// ReceiptsSchema.index(
+// 	{
+// 		roomObjectId: 1,
+// 		year: 1,
+// 		month: 1,
+// 	},
+// 	{
+// 		unique: true,
+// 		partialFilterExpression: {
+// 			receiptType: receiptTypes['DEPOSIT'],
+// 		},
+// 	},
+// );
 
 ReceiptsSchema.pre('save', async function (next) {
 	if (!this.payer) {

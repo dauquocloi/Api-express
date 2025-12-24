@@ -9,23 +9,21 @@ module.exports = {
 		buildingId: JoiObjectId().required(),
 		status: Joi.string().required(),
 	}),
-	getListSelections: {
+	getListSelections: Joi.object().keys({
 		roomId: JoiObjectId().required(),
-	},
-	createCustomer: {
+	}),
+	createCustomer: Joi.object().keys({
 		roomId: JoiObjectId().required(),
-		buildingId: JoiObjectId().required(),
 		fullName: Joi.string().required(),
 		phone: Joi.string().required(),
 		cccd: Joi.string().required(),
 		cccdIssueDate: Joi.date().required(),
 		cccdIssueAt: Joi.string().required(),
-		address: Joi.string().required(),
+		permanentAddress: Joi.string().required(),
 		birthday: Joi.date().required(),
 		gender: Joi.string().required(),
-	},
-	modifyCustomer: {
-		roomId: JoiObjectId().required(),
+	}),
+	modifyCustomer: Joi.object().keys({
 		fullName: Joi.string().required(),
 		phone: Joi.string().required(),
 		cccd: Joi.string().required(),
@@ -35,5 +33,5 @@ module.exports = {
 		birthday: Joi.date().required(),
 		gender: Joi.string().required(),
 		isContractOwner: Joi.boolean().optional(),
-	},
+	}),
 };

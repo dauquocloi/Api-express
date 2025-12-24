@@ -6,13 +6,13 @@ const generatePaymentContent = require('../utils/generatePaymentContent');
 const { AppError, NoEntryError, NotFoundError, BadRequestError, ConflictError, InternalError } = require('../AppError');
 const { errorCodes } = require('../constants/errorCodes');
 const zaloService = require('../service/zalo.service');
-const { getRoomFees } = require('../service/fees.service');
 const Pipelines = require('../service/aggregates');
 const Services = require('../service');
 const { formatDebts } = require('../service/debts.helper');
 const { calculateTotalFeeAmount } = require('../utils/calculateFeeTotal');
 const { generateInvoiceFees } = require('../service/invoices.helper');
 const { getInvoiceStatus } = require('../service/invoices.helper');
+const { feeUnit } = require('../constants/fees');
 
 exports.getInvoicesPaymentStatus = async (buildingId, month, year) => {
 	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
@@ -21,6 +21,9 @@ exports.getInvoicesPaymentStatus = async (buildingId, month, year) => {
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
 		month = currentPeriod.currentMonth;
 		year = currentPeriod.currentYear;
+	} else {
+		Number(month);
+		Number(year);
 	}
 
 	const listInvoicePaymentStatus = await Entity.BuildingsEntity.aggregate(
@@ -51,28 +54,43 @@ exports.getInvoiceSendingStatus = async (buildingId) => {
 };
 
 // this un refact bussiness logic
-exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version) => {
-	const currentInvoice = await Services.invoices.getInvoiceInfo(invoiceId);
-	if (!currentInvoice) throw new NotFoundError('Hóa đơn không tồn tại');
-	if (currentInvoice.locked === true) throw new BadRequestError('Hóa đơn đã đóng');
-	if (version !== currentInvoice.version) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
+exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, userId) => {
+	let session;
+	try {
+		session = await mongoose.startSession();
+		return await session.withTransaction(async () => {
+			const currentInvoice = await Services.invoices.getInvoiceInfo(invoiceId, session);
+			if (!currentInvoice) throw new NotFoundError('Hóa đơn không tồn tại');
+			if (currentInvoice.locked === true) throw new BadRequestError('Hóa đơn đã đóng');
+			if (version !== currentInvoice.version) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 
-	const formatFees = generateInvoiceFees(currentInvoice.fee, 0, stayDays, feeIndexValues, false, 'modify');
-	const totalRoomfees = calculateTotalFeeAmount(formatFees);
-	const totalDebts = currentInvoice.debts?.reduce((sum, debt) => sum + debt.amount, 0) ?? 0;
-	const newTotalInvoice = totalRoomfees + totalDebts;
-	const invoiceStatus = getInvoiceStatus(currentInvoice.paidAmount, newTotalInvoice);
+			await Services.rooms.assertRoomWritable({ roomId: currentInvoice.roomId, userId, session });
 
-	const modifedInvoice = await Services.invoices.modifyInvoice({
-		total: newTotalInvoice,
-		fee: formatFees,
-		status: invoiceStatus,
-		stayDays: stayDays,
-		invoiceId: invoiceId,
-		version: version,
-	});
+			const formatFees = generateInvoiceFees(currentInvoice.fee, 0, stayDays, feeIndexValues, false, 'modify');
+			const totalRoomfees = calculateTotalFeeAmount(formatFees);
+			const totalDebts = currentInvoice.debts?.reduce((sum, debt) => sum + debt.amount, 0) ?? 0;
+			const newTotalInvoice = totalRoomfees + totalDebts;
+			const invoiceStatus = getInvoiceStatus(currentInvoice.paidAmount, newTotalInvoice);
 
-	return 'success';
+			const modifedInvoice = await Services.invoices.modifyInvoice(
+				{
+					total: newTotalInvoice,
+					fee: formatFees,
+					status: invoiceStatus,
+					stayDays: stayDays,
+					invoiceId: invoiceId,
+					version: version,
+				},
+				session,
+			);
+
+			return 'success';
+		});
+	} finally {
+		if (session) {
+			session.endSession();
+		}
+	}
 };
 
 exports.getInvoiceDetail = async (invoiceId, buildingId) => {
@@ -93,62 +111,62 @@ exports.getInvoiceDetail = async (invoiceId, buildingId) => {
 };
 
 //owner only
-exports.deleteInvoice = async (invoiceId) => {
+exports.deleteInvoice = async (invoiceId, roomVersion, userId) => {
 	let session;
 	try {
-		const invoiceObjectId = mongoose.Types.ObjectId(invoiceId);
+		const invoiceObjectId = new mongoose.Types.ObjectId(invoiceId);
 
 		session = await mongoose.startSession();
-		session.startTransaction();
+		return await session.withTransaction(async () => {
+			const invoice = await Entity.InvoicesEntity.findOne({ _id: invoiceObjectId }).session(session);
+			if (!invoice) throw new NotFoundError('Hóa đơn không tồn tại');
 
-		const invoice = await Entity.InvoicesEntity.findOne({ _id: invoiceObjectId });
-		if (!invoice) throw new NotFoundError('Hóa đơn không tồn tại');
-		const { fee } = invoice;
-		const indexFees = fee.filter((f) => f.unit === 'index');
+			await Services.rooms.assertRoomWritable({ roomId: invoice.roomId, userId, session });
 
-		const terminateInvoice = async () => {
-			await Entity.InvoicesEntity.findOneAndUpdate({ _id: invoiceObjectId }, { $set: { status: 'terminated' } }, { session });
-		};
+			const { fee } = invoice;
+			const indexFees = fee.filter((f) => f.unit === 'index');
 
-		if (invoice.status === 'paid') {
-			await terminateInvoice();
-		}
-		if (invoice.status === 'unpaid') {
-			await terminateInvoice();
-			if (indexFees.length > 0) {
-				const operations = indexFees.map((f) => ({
-					updateOne: {
-						filter: {
-							feeKey: f.feeKey,
-							room: invoice.room,
+			const terminateInvoice = async () => {
+				await Entity.InvoicesEntity.findOneAndUpdate({ _id: invoiceObjectId }, { $set: { status: 'terminated' } }, { session });
+			};
+
+			if (invoice.status === 'paid') {
+				await terminateInvoice();
+			}
+			if (invoice.status === 'unpaid') {
+				await terminateInvoice();
+				if (indexFees.length > 0) {
+					const operations = indexFees.map((f) => ({
+						updateOne: {
+							filter: {
+								feeKey: f.feeKey,
+								room: invoice.room,
+							},
+							update: {
+								$set: { lastIndex: Number(f.firstIndex) },
+							},
 						},
-						update: {
-							$set: { lastIndex: Number(f.firstIndex) },
-						},
-					},
-				}));
+					}));
 
-				await Entity.FeesEntity.bulkWrite(operations, { session });
+					await Entity.FeesEntity.bulkWrite(operations, { session });
+				}
+
+				if (invoice.debts?.length > 0) {
+					await Entity.DebtsEntity.updateMany(
+						{ sourceId: invoiceObjectId },
+						{ $set: { sourceId: null, status: 'pending', sourceType: 'pending' } },
+						{ session },
+					);
+				}
+			}
+			if (invoice.status === 'partial') {
+				await terminateInvoice();
 			}
 
-			if (invoice.debts?.length > 0) {
-				await Entity.DebtsEntity.updateMany(
-					{ sourceId: invoiceObjectId },
-					{ $set: { sourceId: null, status: 'pending', sourceType: 'pending' } },
-					{ session },
-				);
-			}
-		}
-		if (invoice.status === 'partial') {
-			await terminateInvoice();
-		}
+			await Services.rooms.bumpRoomVersion(invoice.room, roomVersion, session);
 
-		await session.commitTransaction();
-
-		return 'Success';
-	} catch (error) {
-		if (session) await session.abortTransaction();
-		throw error;
+			return 'Success';
+		});
 	} finally {
 		if (session) session.endSession();
 	}
@@ -162,24 +180,21 @@ exports.collectCashMoney = async (data) => {
 		const invoiceObjectId = mongoose.Types.ObjectId(data.invoiceId);
 		const collectorObjectId = mongoose.Types.ObjectId(data.userId);
 
-		const [currentInvoice] = await Entity.InvoicesEntity.aggregate(
-			[
-				{
-					$match: {
-						_id: invoiceObjectId,
-					},
+		const [currentInvoice] = await Entity.InvoicesEntity.aggregate([
+			{
+				$match: {
+					_id: invoiceObjectId,
 				},
-				{
-					$lookup: {
-						from: 'transactions',
-						localField: '_id',
-						foreignField: 'invoice',
-						as: 'transactionInfo',
-					},
+			},
+			{
+				$lookup: {
+					from: 'transactions',
+					localField: '_id',
+					foreignField: 'invoice',
+					as: 'transactionInfo',
 				},
-			],
-			{ session },
-		).exec();
+			},
+		]).session(session);
 
 		if (!currentInvoice) {
 			throw new NotFoundError('Hóa đơn không tồn tại');
@@ -201,7 +216,7 @@ exports.collectCashMoney = async (data) => {
 			{ session },
 		);
 
-		var totalTransactionAmount;
+		let totalTransactionAmount;
 		const { transactionInfo, total: currentInvoiceAmount } = currentInvoice;
 		if (transactionInfo?.length > 0) {
 			totalTransactionAmount = transactionInfo.reduce((sum, item) => {
@@ -221,7 +236,14 @@ exports.collectCashMoney = async (data) => {
 			status = 'partial';
 		}
 
-		await Entity.InvoicesEntity.updateOne({ _id: invoiceObjectId }, { $set: { status, paidAmount: updatedTotalPaid } }, { session });
+		await Entity.InvoicesEntity.updateOne(
+			{ _id: invoiceObjectId, version: data.version },
+			{
+				$set: { status, paidAmount: updatedTotalPaid },
+				$inc: { version: 1 },
+			},
+			{ session },
+		);
 		//Please change this logc
 		if (currentInvoice.isDepositing === true) {
 			const depositRefundInfo = await Entity.DepositRefundsEntity.findOne({ invoiceUnpaid: invoiceObjectId }).exec();
@@ -247,58 +269,88 @@ exports.collectCashMoney = async (data) => {
 	}
 };
 
-exports.createInvoice = async (data) => {
-	const { roomId, buildingId, stayDays, feeIndexValues, userId } = data;
+exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, createrId) => {
 	let session;
 
 	try {
 		const roomObjectId = mongoose.Types.ObjectId(roomId);
 		const buildingObjectId = mongoose.Types.ObjectId(buildingId);
-		const createrObjectId = mongoose.Types.ObjectId(userId);
+		const createrObjectId = mongoose.Types.ObjectId(createrId);
 		session = await mongoose.startSession();
-		session.startTransaction();
 
-		const currentPeriod = await getCurrentPeriod(buildingObjectId);
-		const roomContractOwner = await Services.customers.getContractOwner(roomObjectId, session);
+		return session.withTransaction(async () => {
+			await Services.rooms.assertRoomWritable({ roomId, userId: createrObjectId, session });
+			const currentPeriod = await getCurrentPeriod(buildingObjectId);
+			const roomContractOwner = await Services.customers.getContractOwner(roomObjectId, session);
 
-		const roomFees = await Services.fees.getRoomFees(roomObjectId, session);
-		const formatRoomFees = generateInvoiceFees(roomFees.feeInfo, roomFees._id.rent, stayDays, feeIndexValues, true, 'create');
-		const totalRoomfees = calculateTotalFeeAmount(formatRoomFees);
+			const roomFees = await Services.fees.getRoomFeesAndDebts(roomObjectId, session);
+			const formatRoomFees = generateInvoiceFees(roomFees.feeInfo, roomFees._id.rent, stayDays, feeIndexValues, true, 'create');
+			const totalRoomfees = calculateTotalFeeAmount(formatRoomFees);
 
-		let getDebts = await Services.debts.getDebts(roomObjectId, session);
-		if (getDebts.length > 0) getDebts = formatDebts(getDebts);
-		else getDebts = null;
+			let getDebts = await Services.debts.getDebts(roomObjectId, session);
+			if (getDebts.length > 0) getDebts = formatDebts(getDebts);
+			else getDebts = null;
 
-		const totalInvoiceAmount = totalRoomfees + (getDebts.amount ?? 0);
-		const createdInvoice = await Services.invoices.createInvoice(
-			{
-				roomId: roomObjectId,
-				listFees: formatRoomFees,
-				totalInvoiceAmount,
-				stayDays,
-				debtInfo: getDebts,
-				currentPeriod,
-				payerName: roomContractOwner.fullName,
-				creater: createrObjectId,
-			},
-			session,
-		);
+			const totalInvoiceAmount = totalRoomfees + (getDebts.amount ?? 0);
+			const createdInvoice = await Services.invoices.createInvoice(
+				{
+					roomId: roomObjectId,
+					listFees: formatRoomFees,
+					totalInvoiceAmount,
+					stayDays,
+					debtInfo: getDebts,
+					currentPeriod,
+					payerName: roomContractOwner.fullName,
+					creater: createrObjectId,
+				},
+				session,
+			);
 
-		await Entity.DebtsEntity.updateMany(
-			{ room: roomObjectId },
-			{ $set: { sourceId: createdInvoice._id, sourceType: 'invoice', status: 'closed' } },
-			{ session },
-		);
+			await Entity.DebtsEntity.updateMany(
+				{ room: roomObjectId },
+				{ $set: { sourceId: createdInvoice._id, sourceType: 'invoice', status: 'closed' } },
+				{ session },
+			);
 
-		await session.commitTransaction();
-		return createdInvoice;
-	} catch (error) {
-		if (session) await session.abortTransaction();
-		throw error;
+			const roomFeeIndexIds = roomFees.feeInfo.map((fee) => {
+				if (fee.unit === feeUnit['INDEX']) return fee._id;
+			});
+
+			await Services.fees.updateFeeIndexValues(roomFeeIndexIds, feeIndexValues, session);
+			await Services.rooms.unLockedRoom(roomId, session);
+
+			return createdInvoice;
+		});
 	} finally {
 		session.endSession();
 	}
 };
+
+// exports.createFirstInvoice = async (roomId, buildingId, fees, rent, stayDays) => {
+// 	const roomObjectId = mongoose.Types.ObjectId(roomId);
+// 	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+// 	const createrObjectId = mongoose.Types.ObjectId(userId);
+// 	const currentPeriod = await getCurrentPeriod(buildingObjectId);
+// 	const roomContractOwner = await Services.customers.getContractOwner(roomObjectId, session);
+
+// 	const roomFees = await Services.fees.getRoomFees(roomObjectId, session);
+// 	const formatRoomFees = generateInvoiceFees(roomFees.feeInfo, roomFees._id.rent, stayDays, feeIndexValues, true, 'create');
+// 	const totalRoomfees = calculateTotalFeeAmount(formatRoomFees);
+
+// 	const createdInvoice = await Services.invoices.createInvoice(
+// 		{
+// 			roomId: roomObjectId,
+// 			listFees: formatRoomFees,
+// 			totalInvoiceAmount: totalRoomfees,
+// 			stayDays,
+// 			debtInfo: null,
+// 			currentPeriod,
+// 			payerName: roomContractOwner.fullName,
+// 			creater: createrObjectId,
+// 		},
+// 		session,
+// 	);
+// }
 
 exports.deleteDebts = async (invoiceId, version) => {
 	const invoiceInfo = await Services.invoices.getInvoiceInfo(invoiceId);
@@ -330,18 +382,6 @@ exports.deleteDebts = async (invoiceId, version) => {
 };
 
 // ========================== UN REFACTED ==========================//
-// get fees create invoice
-exports.getFeeForGenerateInvoice = async (data, cb, next) => {
-	try {
-		let roomObjectId = mongoose.Types.ObjectId(data.roomId);
-
-		const feeInfo = await getRoomFees(roomObjectId);
-
-		cb(null, feeInfo);
-	} catch (error) {
-		next(error);
-	}
-};
 
 // piece of shit
 exports.create = async (data, cb, next) => {
@@ -543,18 +583,6 @@ exports.create = async (data, cb, next) => {
 	}
 };
 
-//TEST
-exports.updateTest = (data, cb) => {
-	MongoConnect.Connect(config.database.fullname)
-		.then((db) => {
-			Entity.InvoicesEntity.updateOne({ id: 118 }, { roomid: data.room.roomid }, { new: true }, cb);
-		})
-		.catch((err) => {
-			console.log('rooms_Dataprovider_create: ' + err);
-			cb(err, null);
-		});
-};
-
 //piece of shit
 exports.generateFirstInvoice = async (data, cb, next) => {
 	try {
@@ -663,219 +691,6 @@ exports.generateFirstInvoice = async (data, cb, next) => {
 
 		let generateInvoice = await Entity.InvoicesEntity.create(newInvoice);
 		cb(null, generateInvoice);
-	} catch (error) {
-		next(error);
-	}
-};
-
-// ROLE CUSTOMERS
-exports.getInvoiceInfoByInvoiceCode = async (data, cb, next) => {
-	try {
-		const [invoiceInfo] = await Entity.InvoicesEntity.aggregate([
-			{
-				$match: {
-					invoiceCode: { $regex: new RegExp(`^${data.billCode}$`, 'i') },
-				},
-			},
-			{
-				$lookup: {
-					from: 'rooms',
-					localField: 'room',
-					foreignField: '_id',
-					pipeline: [
-						{
-							$project: {
-								_id: 1,
-								roomIndex: 1,
-								building: 1,
-							},
-						},
-					],
-					as: 'roomInfo',
-				},
-			},
-			{
-				$addFields:
-					/**
-					 * newField: The new field name.
-					 * expression: The new field expression.
-					 */
-					{
-						buildingId: {
-							$getField: {
-								field: 'building',
-								input: {
-									$arrayElemAt: ['$roomInfo', 0],
-								},
-							},
-						},
-					},
-			},
-			{
-				$lookup: {
-					from: 'banks',
-					let: {
-						buildingObjectId: '$buildingId',
-					},
-					pipeline: [
-						{
-							$match: {
-								$expr: {
-									$in: ['$$buildingObjectId', '$building'],
-								},
-							},
-						},
-					],
-					as: 'transferInfo',
-				},
-			},
-			{
-				$project:
-					/**
-					 * specifications: The fields to
-					 *   include or exclude.
-					 */
-					{
-						_id: 1,
-						stayDays: 1,
-						total: 1,
-						status: 1,
-						locked: 1,
-						month: 1,
-						year: 1,
-						room: 1,
-						fee: 1,
-						debts: 1,
-						paymentContent: 1,
-						payer: 1,
-						invoiceCode: 1,
-						note: 1,
-						createdAt: 1,
-						roomIndex: {
-							$getField: {
-								field: 'roomIndex',
-								input: {
-									$arrayElemAt: ['$roomInfo', 0],
-								},
-							},
-						},
-						transferInfo: {
-							$arrayElemAt: ['$transferInfo', 0],
-						},
-					},
-			},
-		]);
-		if (invoiceInfo) {
-			if (invoiceInfo.status === 'cancelled') throw new AppError(errorCodes.cancelled, 'Hóa đơn đã bị hủy', 400);
-			else return cb(null, { ...invoiceInfo, type: 'invoice' });
-		}
-
-		const [receiptInfo] = await Entity.ReceiptsEntity.aggregate([
-			{
-				$match:
-					/**
-					 * query: The query in MQL.
-					 */
-					{
-						receiptCode: { $regex: new RegExp(`^${data.billCode}$`, 'i') },
-					},
-			},
-			{
-				$lookup: {
-					from: 'rooms',
-					localField: 'room',
-					foreignField: '_id',
-					pipeline: [
-						{
-							$project: {
-								_id: 1,
-								roomIndex: 1,
-								building: 1,
-							},
-						},
-					],
-					as: 'roomInfo',
-				},
-			},
-			{
-				$addFields:
-					/**
-					 * newField: The new field name.
-					 * expression: The new field expression.
-					 */
-					{
-						buildingId: {
-							$getField: {
-								field: 'building',
-								input: {
-									$arrayElemAt: ['$roomInfo', 0],
-								},
-							},
-						},
-					},
-			},
-			{
-				$lookup: {
-					from: 'banks',
-					let: {
-						buildingObjectId: '$buildingId',
-					},
-					pipeline: [
-						{
-							$match: {
-								$expr: {
-									$in: ['$$buildingObjectId', '$building'],
-								},
-							},
-						},
-					],
-					as: 'transferInfo',
-				},
-			},
-			{
-				$project:
-					/**
-					 * specifications: The fields to
-					 *   include or exclude.
-					 */
-					{
-						_id: 1,
-
-						amount: 1,
-						status: 1,
-						locked: 1,
-						month: 1,
-						year: 1,
-						room: 1,
-						receiptContent: 1,
-						paidAmount: 1,
-
-						paymentContent: 1,
-						payer: 1,
-						invoiceCode: 1,
-
-						roomIndex: {
-							$getField: {
-								field: 'roomIndex',
-								input: {
-									$arrayElemAt: ['$roomInfo', 0],
-								},
-							},
-						},
-						transferInfo: {
-							$arrayElemAt: ['$transferInfo', 0],
-						},
-					},
-			},
-		]);
-
-		if (receiptInfo) {
-			if (receiptInfo.status != 'cancelled' && receiptInfo.status != 'terminated') {
-				return cb(null, { ...receiptInfo, type: 'receipt' });
-			} else throw new AppError(errorCodes.cancelled, 'Hóa đơn đã bị hủy', 400);
-		}
-
-		throw new AppError(errorCodes.notExist, 'Hóa đơn không tồn tại', 404);
 	} catch (error) {
 		next(error);
 	}

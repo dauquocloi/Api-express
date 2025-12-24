@@ -437,6 +437,7 @@ const getInvoiceDetail = (invoiceId) => {
 						in: {
 							_id: '$$room._id',
 							roomIndex: '$$room.roomIndex',
+							version: '$$room.version',
 						},
 					},
 				},
@@ -498,8 +499,96 @@ const getInvoiceDetail = (invoiceId) => {
 	];
 };
 
+const getInvoiceInfoByInvoiceCode = (invoiceCode) => {
+	return [
+		{
+			$match: {
+				invoiceCode: { $regex: new RegExp(`^${invoiceCode}$`, 'i') },
+			},
+		},
+		{
+			$lookup: {
+				from: 'rooms',
+				localField: 'room',
+				foreignField: '_id',
+				pipeline: [
+					{
+						$project: {
+							_id: 1,
+							roomIndex: 1,
+							building: 1,
+						},
+					},
+				],
+				as: 'roomInfo',
+			},
+		},
+		{
+			$addFields: {
+				buildingId: {
+					$getField: {
+						field: 'building',
+						input: {
+							$arrayElemAt: ['$roomInfo', 0],
+						},
+					},
+				},
+			},
+		},
+		{
+			$lookup: {
+				from: 'banks',
+				let: {
+					buildingObjectId: '$buildingId',
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$in: ['$$buildingObjectId', '$building'],
+							},
+						},
+					},
+				],
+				as: 'transferInfo',
+			},
+		},
+		{
+			$project: {
+				_id: 1,
+				stayDays: 1,
+				total: 1,
+				status: 1,
+				locked: 1,
+				month: 1,
+				year: 1,
+				room: 1,
+				fee: 1,
+				debts: 1,
+				paymentContent: 1,
+				payer: 1,
+				invoiceCode: 1,
+				note: 1,
+				createdAt: 1,
+				roomIndex: {
+					$getField: {
+						field: 'roomIndex',
+						input: {
+							$arrayElemAt: ['$roomInfo', 0],
+						},
+					},
+				},
+				transferInfo: {
+					$arrayElemAt: ['$transferInfo', 0],
+				},
+			},
+		},
+	];
+};
+
 module.exports = {
 	getInvoicePaymentStatus,
 	getInvoicesSendingStatus,
 	getInvoiceDetail,
+	getInvoiceInfoByInvoiceCode,
 };

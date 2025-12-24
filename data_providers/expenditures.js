@@ -103,7 +103,7 @@ exports.modifyExpenditure = async (data) => {
 	throw new BadRequestError('Expenditure type invalid');
 };
 
-exports.deleteExpenditure = async (data, cb, next) => {
+exports.deleteExpenditure = async (data) => {
 	const expenditureObjectId = mongoose.Types.ObjectId(data.expenditureId);
 	if (data.type === 'incidental') {
 		const deletedExpenditure = await Entity.ExpendituresEntity.findOneAndDelete({ _id: expenditureObjectId });

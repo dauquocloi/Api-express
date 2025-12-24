@@ -6,7 +6,7 @@ const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse
 exports.getInvoicesPaymentStatus = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.query };
 	console.log('log of data from getInvoicesPaymentStatus: ', data);
-	const result = await UseCase.getInvoicesPaymentStatus(data.buildingId, data.month, data.year);
+	const result = await UseCase.getInvoicesPaymentStatus(data.buildingId, Number(data.month), Number(data.year));
 	return new SuccessResponse('Success', result).send(res);
 });
 
@@ -31,16 +31,15 @@ exports.modifyInvoice = asyncHandler(async (req, res) => {
 	return new SuccessMsgResponse('Success').send(res);
 });
 
-exports.deleteInvoice = asyncHandler(async (req, res, next) => {
-	let data = req.params;
+exports.deleteInvoice = asyncHandler(async (req, res) => {
+	let data = { ...req.params, ...req.body };
 	console.log('log of data from deleteInvoice: ', data);
-	await UseCase.deleteInvoice(data.invoiceId);
+	await UseCase.deleteInvoice(data.invoiceId, data.roomVersion, req.user._id);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
-exports.collectCashMoney = asyncHandler(async (req, res, next) => {
+exports.collectCashMoney = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.body, ...req.user };
-	console.log('log of data from collectCashMoney: ', data);
 	await UseCase.collectCashMoney(data);
 	return new SuccessMsgResponse('Success').send(res);
 });
@@ -58,7 +57,7 @@ exports.deleteDebts = asyncHandler(async (req, res) => {
 });
 
 //========================UN REFACTED========================//
-exports.getAll = (req, res, next) => {
+exports.getAll = (req, res) => {
 	var data = req.params;
 	console.log('This is log of req.query', req.params);
 	UseCase.getAll(data, (err, result) => {
@@ -80,7 +79,7 @@ exports.getAll = (req, res, next) => {
 	});
 };
 
-exports.getFeeForGenerateInvoice = (req, res, next) => {
+exports.getFeeForGenerateInvoice = (req, res) => {
 	var data = req.params;
 	console.log('This is log of req.params from getFeeForGenerateInvoice', data);
 	UseCase.getFeeForGenerateInvoice(
@@ -100,7 +99,7 @@ exports.getFeeForGenerateInvoice = (req, res, next) => {
 };
 
 //not used
-// exports.update = (req, res, next) => {
+// exports.update = (req, res) => {
 // 	var data = req.body;
 // 	console.log('This is log of invoice update req.body', req.body);
 // 	UseCase.update(data, (err, result) => {
@@ -123,7 +122,7 @@ exports.getFeeForGenerateInvoice = (req, res, next) => {
 // };
 
 // not used
-// exports.getInvoiceStatus = (req, res, next) => {
+// exports.getInvoiceStatus = (req, res) => {
 // 	try {
 // 		const data = { ...req.params, ...req.query };
 
@@ -148,7 +147,7 @@ exports.getFeeForGenerateInvoice = (req, res, next) => {
 // 	}
 // };
 
-exports.generateFirstInvoice = (req, res, next) => {
+exports.generateFirstInvoice = (req, res) => {
 	try {
 		const data = req.body;
 		console.log('log of data from generateFirstInvoice: ', data);
@@ -171,7 +170,7 @@ exports.generateFirstInvoice = (req, res, next) => {
 	}
 };
 
-exports.getInvoiceInfoByInvoiceCode = (req, res, next) => {
+exports.getInvoiceInfoByInvoiceCode = (req, res) => {
 	try {
 		const data = req.params;
 		console.log('log of data from getInvoiceInfoByInvoiceCode: ', data);

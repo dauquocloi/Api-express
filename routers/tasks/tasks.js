@@ -1,4 +1,3 @@
-const { date } = require('joi');
 const UseCase = require('../../data_providers/tasks');
 const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
@@ -10,9 +9,14 @@ exports.createTask = asyncHandler(async (req, res) => {
 });
 
 exports.getTasks = asyncHandler(async (req, res) => {
-	let data = { ...req.query, ...req.user };
-	console.log('log of data from getTasks: ', data);
-	const result = await UseCase.getTasks(data._id, data.page, data.search, data.startDate, date.endDate);
+	console.log('log of data from getTasks: ', req.query);
+	const result = await UseCase.getTasks(
+		req.user._id,
+		Number(req.query.page) ?? 1,
+		req.query?.data?.search ?? null,
+		req.query?.data?.startDate ?? null,
+		req.query?.data?.endDate ?? null,
+	);
 	return new SuccessResponse('Success', result).send(res);
 });
 

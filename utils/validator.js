@@ -236,9 +236,9 @@ const ValidateSource = {
 };
 
 const validator = (schema, source) => (req, res, next) => {
-	console.log('log of req from validator: ', req[source]);
 	try {
 		const { error } = schema.validate(req[source]);
+		console.log('log of error from validator: ', error);
 
 		if (!error) return next();
 

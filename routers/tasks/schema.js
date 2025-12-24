@@ -6,10 +6,14 @@ module.exports = {
 		taskId: JoiObjectId().required(),
 	}),
 	getTasks: Joi.object().keys({
-		page: Joi.number().optional(),
-		search: Joi.string().optional(),
-		startDate: Joi.date().optional(),
-		endDate: Joi.date().optional(),
+		page: Joi.string().optional(),
+		data: Joi.object()
+			.keys({
+				search: Joi.string().valid('').optional(),
+				startDate: Joi.date().optional(),
+				endDate: Joi.date().optional(),
+			})
+			.optional(),
 	}),
 	createTask: Joi.object().keys({
 		taskContent: Joi.string().required(),

@@ -44,6 +44,10 @@ const IncidentalRevenuesSchema = new Schema({
 		type: Schema.Types.ObjectId,
 		ref: 'users',
 	},
+	locked: {
+		type: Boolean,
+		default: false,
+	},
 });
 
 exports.IncidentalRevenuesEntity = mongoose.model('IncidentalRevenuesEntity', IncidentalRevenuesSchema, 'incidentalRevenues');

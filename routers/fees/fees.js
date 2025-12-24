@@ -12,16 +12,24 @@ exports.addFee = asyncHandler(async (req, res, next) => {
 });
 
 exports.deleteFee = asyncHandler(async (req, res) => {
-	let data = req.params;
+	let data = { ...req.params, ...req.body };
 	console.log('log of data from deleteFee: ', data);
-	await UseCase.deleteFee(data);
+	await UseCase.deleteFee(data.feeId, req.user._id, data.roomId);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
 exports.editFee = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('log of data from editFee: ', data);
-	await UseCase.editFee(data);
+	await UseCase.editFee(
+		data.feeId,
+		data.roomId,
+		req.user._id,
+
+		Number(data.feeAmount),
+		data.lastIndex,
+		data.version,
+	);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

@@ -14,7 +14,7 @@ const calculateTotalCheckoutCostAmount = (roomFees, debts, receiptsUnpaid, invoi
 
 	totalCost += feesOther.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
 
-	return totalCost;
+	return Math.max(totalCost, 0);
 };
 
 module.exports = {

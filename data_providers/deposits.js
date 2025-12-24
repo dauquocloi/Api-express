@@ -292,34 +292,27 @@ exports.modifyDeposit = async (data) => {
 	}
 };
 
-exports.terminateDeposit = async (data) => {
+exports.terminateDeposit = async (depositId) => {
 	let session;
 	try {
-		const depositObjectId = mongoose.Types.ObjectId(data.depositId);
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
-
-		const currentPeriod = await getCurrentPeriod(buildingObjectId);
-		const { currentMonth: month, currentYear: year } = currentPeriod;
-
 		// Khởi tạo transaction
 		session = await mongoose.startSession();
-		session.startTransaction();
+		return session.withTransaction(async () => {
+			const depositObjectId = mongoose.Types.ObjectId(data.depositId);
+			const deposit = await Entity.DepositsEntity.findOne({ _id: depositObjectId }).session(session);
+			if (!deposit) NotFoundError('Dữ liệu đặt cọc không tồn tại');
 
-		const deposit = await Entity.DepositsEntity.findOne({ _id: depositObjectId }).session(session);
-		if (!deposit) NotFoundError('Dữ liệu đặt cọc không tồn tại');
+			const currentPeriod = await getCurrentPeriod(buildingObjectId);
+			const { currentMonth: month, currentYear: year } = currentPeriod;
 
-		await Entity.DepositsEntity.updateOne({ _id: depositObjectId }, { $set: { status: 'terminated' } }, { session });
+			await Entity.DepositsEntity.updateOne({ _id: depositObjectId }, { $set: { status: 'terminated' } }, { session });
 
-		await Entity.ReceiptsEntity.updateOne({ _id: deposit.receipt }, { $set: { month, year, locked: true } }, { session });
+			await Entity.ReceiptsEntity.updateOne({ _id: deposit.receipt }, { $set: { month, year, locked: true } }, { session });
 
-		await Entity.RoomsEntity.updateOne({ _id: deposit.room }, { $set: { isDeposited: false } }, { session });
+			await Entity.RoomsEntity.updateOne({ _id: deposit.room }, { $set: { isDeposited: false } }, { session });
 
-		await session.commitTransaction();
-
-		return;
-	} catch (error) {
-		if (session) await session.abortTransaction();
-		throw error;
+			return 'Success';
+		});
 	} finally {
 		if (session) session.endSession();
 	}

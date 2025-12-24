@@ -4,7 +4,8 @@ var Entity = require('../models');
 const AppError = require('../AppError');
 const { errorCodes } = require('../constants/errorCodes');
 
-exports.handleSepayIPN = (data, cb, next) => {
+exports.handleSepayIPN = (data) => {
+	let session;
 	try {
 		if (data.transfer_type === 'credit') {
 			const tracsactionContent = data.content;

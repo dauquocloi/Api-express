@@ -167,7 +167,7 @@ exports.createNotification = async (notiType, data) => {
 
 exports.getNotifications = async (receiverId, page) => {
 	const receiverObjectId = mongoose.Types.ObjectId(receiverId);
-	const pages = parseInt(page) || 1;
+	const pages = page || 1;
 	const limit = 10; // Ngày
 
 	const listNoti = await Services.notifications.getNotifications(receiverObjectId, pages, limit);

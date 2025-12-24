@@ -128,20 +128,19 @@ exports.removeManager = async (managerId) => {
 // 	}
 // };
 
-exports.modifyUserPermission = async (data) => {
-	const userObjectId = mongoose.Types.ObjectId(data.userId);
+exports.modifyUserPermission = async (userId, newPermission) => {
 	const modifyUserRoleInBuildings = await Entity.BuildingsEntity.findOneAndUpdate(
-		{ 'management.user': userObjectId },
+		{ 'management.user': userId },
 		{
 			$set: {
-				'management.$.role': data.newPermission,
+				'management.$.role': newPermission,
 			},
 		},
 		{ new: true },
 	);
 
 	if (!modifyUserRoleInBuildings) throw new NotFoundError('Người dùng không tồn tại!');
-	const modifyUserPermission = await Entity.UsersEntity.findOneAndUpdate({ _id: userObjectId }, { role: data.newPermission }, { new: true });
+	const modifyUserPermission = await Entity.UsersEntity.findOneAndUpdate({ _id: userId }, { role: newPermission }, { new: true });
 	if (!modifyUserPermission) throw new NotFoundError('Người dùng không tồn tại trong hệ thống!');
 
 	return 'Success';

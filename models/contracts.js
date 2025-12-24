@@ -100,5 +100,13 @@ const ContractsSchema = new Schema(
 	{ timestamps: true },
 );
 
+ContractsSchema.index(
+	{ room: 1, status: 1 },
+	{
+		unique: true,
+		partialFilterExpression: { status: 'active' },
+	},
+);
+
 // Register the room schema
 exports.ContractsEntity = mongoose.model('ContractsEntity', ContractsSchema, 'contracts');

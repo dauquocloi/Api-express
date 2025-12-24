@@ -36,6 +36,7 @@ const FeesSchema = new Schema({
 		ref: 'RoomsEntity',
 		required: true,
 	},
+	version: { type: Number, default: 1 },
 });
 
 exports.FeesEntity = mongoose.model('FeesEntity', FeesSchema, 'fees');

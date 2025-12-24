@@ -32,10 +32,16 @@ module.exports = {
 	generateCheckoutCost: Joi.object().keys({
 		buildingId: JoiObjectId().required(),
 		contractId: JoiObjectId().required(),
+		roomId: JoiObjectId().required(),
 		feesOther: Joi.array()
 			.items(Joi.object().keys({ amount: Joi.number().required(), feeContent: Joi.string().required() }))
 			.optional(),
 		stayDays: Joi.number().required(),
 		feeIndexValues: Joi.object().pattern(JoiObjectId(), indexValueSchema).optional(),
+
+		roomVersion: Joi.number().integer().min(1).required(),
+	}),
+	getDebtsAndReceiptUnpaid: Joi.object().keys({
+		buildingId: JoiObjectId().required(),
 	}),
 };

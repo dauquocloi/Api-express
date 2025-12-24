@@ -6,11 +6,11 @@ const authentication = require('../../auth/authentication');
 
 const router = express.Router();
 
-// router.use(authentication);
+router.use(authentication);
 router.get('/', validator(schema.getAllReceipts, ValidateSource.QUERY), Receipts.getListReceiptPaymentStatus);
-router.post('/', validator(schema.createReceipt, ValidateSource.BODY), Receipts.createReceipt);
-router.post('/deposit-receipt', validator(schema.createReceipt, ValidateSource.BODY), Receipts.createDepositReceipt);
 router.get('/:receiptId', validator(schema.id, ValidateSource.PARAM), Receipts.getReceiptDetail);
+router.post('/', validator(schema.createReceipt, ValidateSource.BODY), Receipts.createReceipt);
+router.post('/deposit-receipt', validator(schema.createDepositReceipt, ValidateSource.BODY), Receipts.createDepositReceipt);
 router.get('/:receiptId/deposit', validator(schema.id, ValidateSource.PARAM), Receipts.getDepositReceiptDetail);
 router.patch('/:receiptId', validator(schema.id, ValidateSource.PARAM), validator(schema.modifyReceipt, ValidateSource.BODY), Receipts.modifyReceipt);
 router.post(

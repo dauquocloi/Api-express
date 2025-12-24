@@ -6,6 +6,7 @@ const authentication = require('../../auth/authentication');
 
 const router = express.Router();
 
+router.use(authentication);
 router.get('/:checkoutCostId', validator(schema.id, ValidateSource.PARAM), CheckoutCosts.getCheckoutCost);
 
 module.exports = router;

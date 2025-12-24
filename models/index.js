@@ -61,3 +61,5 @@ exports.NotiSettingsEntity = require('./notificationSettings').NotificationSetti
 exports.CheckoutCostsEntity = require('./checkoutCosts').CheckoutCostsEntity;
 
 exports.KeyStoresEntity = require('./keyStores').KeyStoresEntity;
+
+exports.ContractDraftsEntity = require('./contracts.draf').ContractDraftsEntity;

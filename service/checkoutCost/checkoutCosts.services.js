@@ -9,7 +9,7 @@ const { formatRoomFees } = require('../../utils/formatRoomFees');
 const { calculateTotalCheckoutCostAmount } = require('./checkoutCosts.helper');
 const generatePaymentContent = require('../../utils/generatePaymentContent');
 const Pipelines = require('../aggregates');
-const { AppError, NotFoundError } = require('../../AppError');
+const { AppError, NotFoundError, InternalError } = require('../../AppError');
 const { errorCodes } = require('../../constants/errorCodes');
 
 const generateCheckoutCost = async (
@@ -48,8 +48,8 @@ const generateCheckoutCost = async (
 	};
 
 	const [newCheckoutCost] = await Entity.CheckoutCostsEntity.create([checkoutCostData], { session });
-
-	return checkoutCostData;
+	if (!newCheckoutCost) throw new InternalError('Can not create checkout cost');
+	return newCheckoutCost;
 };
 
 const getCheckoutCostDetail = async (checkoutCostObjectId) => {

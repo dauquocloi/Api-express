@@ -2,10 +2,28 @@ const UseCase = require('../../data_providers/contracts');
 const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
 
+exports.prepareGenerateContract = asyncHandler(async (req, res) => {
+	let data = req.body;
+	console.log('log of data from prepareGenerateContract: ', data);
+	const result = await UseCase.prepareGenerateContract(
+		data.roomId,
+		data.buildingId,
+		req.user._id,
+		data.finance,
+		data.fees,
+		data.interiors,
+		data.customers,
+		data.contractPeriod,
+		data.note,
+		data.stayDays,
+	);
+	return new SuccessResponse('Success', result).send(res);
+});
+
 exports.generateContract = asyncHandler(async (req, res) => {
 	let data = req.body;
 	console.log('log of data from create: ', data);
-	await UseCase.generateContract(data);
+	await UseCase.generateContract(data.contractDraftId);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

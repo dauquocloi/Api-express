@@ -1,4 +1,4 @@
-var UseCase = require('../cores/transactions');
+const UseCase = require('../../data_providers/transactions');
 
 exports.collectCashFromEmployee = (req, res, next) => {
 	try {

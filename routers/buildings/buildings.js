@@ -83,7 +83,7 @@ exports.getListSectingRooms = asyncHandler(async (req, res) => {
 exports.getAllCheckoutCosts = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.query };
 	console.log('log of data from getCheckoutCosts: ', data);
-	const result = await UseCase.getCheckoutCosts(data.buildingId, data.month, data.year);
+	const result = await UseCase.getCheckoutCosts(data.buildingId, Number(data.month), Number(data.year));
 	return new SuccessResponse('Success', result).send(res);
 });
 
@@ -229,7 +229,7 @@ exports.getAllCheckoutCosts = asyncHandler(async (req, res) => {
 exports.getStatistics = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.query };
 	console.log('log of getStatistics', data);
-	const result = await UseCase.getStatistics(data.buildingId, data.month, data.year);
+	const result = await UseCase.getStatistics(data.buildingId, Number(data.month), Number(data.year));
 	return new SuccessResponse('Success', result).send(res);
 });
 

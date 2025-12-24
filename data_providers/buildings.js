@@ -1,6 +1,4 @@
 const mongoose = require('mongoose');
-const ObjectId = mongoose.Types.ObjectId;
-const MongoConnect = require('../utils/MongoConnect');
 let Entity = require('../models');
 const bcrypt = require('bcrypt');
 const { result } = require('underscore');
@@ -10,9 +8,7 @@ const withSignedUrls = require('../utils/withSignedUrls');
 const Services = require('../service');
 const Pipelines = require('../service/aggregates');
 const { BadRequestError, NotFoundError, InternalError, NoDataError, InvalidInputError } = require('../AppError');
-
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
-const { Service } = require('aws-sdk');
 
 //  get all buildings by managername
 exports.getAll = async (userId) => {
@@ -52,6 +48,9 @@ exports.getCheckoutCosts = async (buildingId, month, year) => {
 		const currentPeriod = await getCurrentPeriod(buildingId);
 		month = currentPeriod.currentMonth;
 		year = currentPeriod.currentYear;
+	} else {
+		Number(month);
+		Number(year);
 	}
 
 	const result = await Services.checkoutCosts.getCheckoutCosts(buildingObjectId, month, year);
@@ -66,12 +65,15 @@ exports.getStatistics = async (buildingId, month, year) => {
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
 		month = currentPeriod.currentMonth;
 		year = currentPeriod.currentYear;
+	} else {
+		Number(month);
+		Number(year);
 	}
 
 	const statistics = await Entity.BuildingsEntity.aggregate(Pipelines.statistics.getStatisticsPipeline(buildingObjectId, month, year));
 
 	if (statistics.length == 0) {
-		throw new NoDataError(`Không có dữ liệu thống kê cho kỳ ${data.month}, ${data.year}`);
+		throw new NoDataError(`Không có dữ liệu thống kê cho kỳ ${month}, ${year}`);
 	}
 
 	return { statistics: statistics[0].recentStatistics };

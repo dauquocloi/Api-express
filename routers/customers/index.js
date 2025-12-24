@@ -5,6 +5,7 @@ const Customers = require('./customers');
 const authentication = require('../../auth/authentication');
 
 const router = express.Router();
+router.use(authentication);
 router.get('/', validator(schema.getAllCustomers, ValidateSource.QUERY), Customers.getAllCustomers);
 router.get('/list-selections', validator(schema.getListSelections, ValidateSource.QUERY), Customers.getListSelectingCustomer);
 router.post('/', validator(schema.createCustomer, ValidateSource.BODY), Customers.addCustomer);

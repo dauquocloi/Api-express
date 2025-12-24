@@ -3,9 +3,9 @@ const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse
 const asyncHandler = require('../../utils/asyncHandler');
 
 exports.getDepositRefunds = asyncHandler(async (req, res) => {
-	const data = req.params;
+	const data = req.query;
 	console.log('log of getDepositRefunds', data);
-	const result = await UseCase.getDepositRefunds(data.buildingId);
+	const result = await UseCase.getDepositRefunds(data.buildingId, data.mode);
 	return new SuccessResponse('Success', result).send(res);
 });
 
@@ -49,6 +49,6 @@ exports.modifyDepositRefund = asyncHandler(async (req, res) => {
 exports.confirmDepositRefund = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.user };
 	console.log('log of data from submitDepositRefund: ', data);
-	const result = await UseCase.confirmDepositRefund(data);
+	const result = await UseCase.confirmDepositRefund(data.depositRefundId, data._id);
 	return new SuccessMsgResponse('Success').send(res);
 });

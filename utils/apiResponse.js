@@ -30,7 +30,7 @@ class AuthFailureResponse extends ApiResponse {
 
 class BadRequestResponse extends ApiResponse {
 	constructor(message = 'Bad Request') {
-		super(errorCodes.failure, message, responseStatus.BAD_REQUEST);
+		super(errorCodes.invalidInput, message, responseStatus.BAD_REQUEST);
 	}
 }
 

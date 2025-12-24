@@ -1,6 +1,7 @@
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const { feeUnit } = require('../constants/fees');
+const { depositStatus } = require('../constants/deposits');
 
 const FeeSchema = new Schema({
 	feeName: { type: String, required: true },
@@ -51,7 +52,7 @@ const DepositsSchema = new Schema(
 		customer: { type: PersonSchema, required: true },
 		//cancelled: Đã cọc sau đó hủy,
 		//close: Đã làm hợp đồng => đã vào ở.
-		status: { type: String, enum: ['cancelled', 'pending', 'close', 'paid', 'partial'] },
+		status: { type: String, enum: Object.values(depositStatus), default: depositStatus['PENDING'] },
 		version: { type: Number, default: 1 },
 	},
 	{ timestamps: true },

@@ -12,8 +12,8 @@ module.exports = {
 	}),
 	getAllInvoices: Joi.object().keys({
 		buildingId: JoiObjectId().required(),
-		month: Joi.number().optional(),
-		year: Joi.number().optional(),
+		// month: Joi.string().optional(),
+		// year: Joi.string().optional(),
 	}),
 	modifyInvoice: Joi.object().keys({
 		feeIndexValues: Joi.object().pattern(JoiObjectId(), indexValueSchema).required(),
@@ -25,5 +25,14 @@ module.exports = {
 		buildingId: JoiObjectId().required(),
 		stayDays: Joi.number().required(),
 		feeIndexValues: Joi.object().pattern(JoiObjectId(), indexValueSchema).required(),
+		roomVersion: Joi.number().integer().min(1).required(),
+	}),
+	collectCash: Joi.object().keys({
+		amount: Joi.number().min(0).required(),
+		date: Joi.date().required(),
+		idempotencyKey: Joi.string().required(),
+	}),
+	deleteInvoice: Joi.object().keys({
+		roomVersion: Joi.number().integer().min(1).required(),
 	}),
 };

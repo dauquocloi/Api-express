@@ -50,8 +50,10 @@ const DepositRefundsSchema = new Schema(
 				message: 'years must be an integer',
 			},
 		},
+		version: { type: Number, default: 1 },
 	},
 	{
+		versionKey: false,
 		timestamps: true,
 	},
 );

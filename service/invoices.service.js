@@ -5,6 +5,21 @@ const { generateInvoiceFees } = require('./invoices.helper');
 const { calculateTotalFeeAmount } = require('../utils/calculateFeeTotal');
 const generatePaymentContent = require('../utils/generatePaymentContent');
 const Pipelines = require('./aggregates');
+const { invoiceStatus } = require('../constants/invoices');
+
+exports.findByIdQuery = async (invoiceId, session) => {
+	const query = Entity.InvoicesEntity.findById(invoiceId);
+	if (session) query.session(session);
+
+	const invoiceInfo = await query.lean().exec();
+	if (!invoiceInfo) throw new NotFoundError('Hóa đơn không tồn tại');
+	return invoiceInfo;
+};
+
+exports.findById = async (invoiceId) => {
+	const invoiceInfo = await Entity.InvoicesEntity.findById(invoiceId);
+	return invoiceInfo;
+};
 
 exports.closeAndSetDetucedInvoice = async (invoiceId, detuctedType, detuctedId, session) => {
 	const result = await Entity.InvoicesEntity.findOneAndUpdate(
@@ -17,6 +32,9 @@ exports.closeAndSetDetucedInvoice = async (invoiceId, detuctedType, detuctedId, 
 					detuctedType,
 					detuctedId,
 				},
+			},
+			$inc: {
+				version: 1,
 			},
 		},
 		{ session },
@@ -37,6 +55,7 @@ exports.createInvoice = async (
 		currentPeriod,
 		payerName,
 		creater,
+		initialStatus = invoiceStatus['UNPAID'],
 	},
 
 	session,
@@ -53,7 +72,7 @@ exports.createInvoice = async (
 				month: currentPeriod.currentMonth,
 				year: currentPeriod.currentYear,
 				room: roomId,
-				status: 'unpaid',
+				status: initialStatus,
 				fee: listFees,
 				total: totalInvoiceAmount,
 				paidAmount: 0,
@@ -81,13 +100,15 @@ exports.getInvoiceDetail = async (invoiceObjectId) => {
 	return invoiceDetail;
 };
 
-exports.getInvoiceInfo = async (invoiceId) => {
-	const invoiceInfo = await Entity.InvoicesEntity.findOne({ _id: invoiceId }).exec();
+exports.getInvoiceInfo = async (invoiceId, session) => {
+	const query = Entity.InvoicesEntity.findById(invoiceId);
+	if (session) query.session(session);
+	const invoiceInfo = await query.lean().exec();
 	if (!invoiceInfo) throw new NotFoundError('Hóa đơn không tồn tại');
 	return invoiceInfo;
 };
 
-exports.modifyInvoice = async ({ total, fee, status, stayDays, invoiceId, version }) => {
+exports.modifyInvoice = async ({ total, fee, status, stayDays, invoiceId, version }, session) => {
 	const result = await Entity.InvoicesEntity.updateOne(
 		{ _id: invoiceId, version: version },
 		{
@@ -101,7 +122,13 @@ exports.modifyInvoice = async ({ total, fee, status, stayDays, invoiceId, versio
 				version: 1,
 			},
 		},
+		{ session },
 	);
-	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
+	if (result.n === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 	return result;
+};
+
+exports.getInvoiceInfoByInvoiceCode = async (invoiceCode) => {
+	const [invoiceInfo] = await Entity.InvoicesEntity.aggregate(Pipelines.invoices.getInvoiceInfoByInvoiceCode(invoiceCode));
+	return invoiceInfo;
 };

@@ -5,7 +5,7 @@ const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse
 exports.getExpenditures = asyncHandler(async (req, res) => {
 	const data = req.query;
 	console.log('log of getExpenditures', data);
-	const result = await UseCase.getExpenditures(data.buildingId, data.month, data.year);
+	const result = await UseCase.getExpenditures(data.buildingId, Number(data.month), Number(data.year));
 	return new SuccessResponse('Success', result).send(res);
 });
 

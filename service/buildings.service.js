@@ -2,6 +2,18 @@ const { NotFoundError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
 
+const findById = async (buildingId) => {
+	return await Entity.BuildingsEntity.findById(buildingId).lean().exec();
+};
+
+const findByManagementId = async (userId) => {
+	return await Entity.BuildingsEntity.find({ 'management.user': userId }).lean().exec();
+};
+
+const findUserInBuilding = async (userId, buildingId) => {
+	return await Entity.BuildingsEntity.findOne({ _id: buildingId, 'management.user': userId }).lean().exec();
+};
+
 const getAllByManagementId = async (userId) => {
 	return await Entity.BuildingsEntity.find({ 'management.user': userId }).lean().exec();
 };
@@ -47,4 +59,12 @@ const getStatisticGeneral = async (buildingObjectId, year) => {
 	return await Entity.StatisticsEntity.aggregate(Pipelines.buildings.getStatisticGeneral(buildingObjectId, year));
 };
 
-module.exports = { getAllByManagementId, getAllBills, getListSelectingRooms, getStatisticGeneral };
+module.exports = {
+	getAllByManagementId,
+	getAllBills,
+	getListSelectingRooms,
+	getStatisticGeneral,
+	findById,
+	findByManagementId,
+	findUserInBuilding,
+};

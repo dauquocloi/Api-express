@@ -60,7 +60,7 @@ exports.addVehicle = async (data) => {
 };
 
 exports.getVehicle = async (vehicleId) => {
-	const vehicleObjectId = mongoose.Types.ObjectId(`${data.vehicleId}`);
+	const vehicleObjectId = mongoose.Types.ObjectId(vehicleId);
 
 	const vehicle = await Services.vehicles.getVehicleDetail(vehicleObjectId);
 

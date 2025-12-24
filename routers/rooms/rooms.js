@@ -38,7 +38,7 @@ exports.generateDepositReceiptAndFirstInvoice = asyncHandler(async (req, res) =>
 	const roomId = req.params.roomId;
 	const buildingId = req.body.buildingId;
 	const createrId = req.user._id;
-	await UseCase.generateDepositReceiptAndFirstInvoice(
+	const result = await UseCase.generateDepositReceiptAndFirstInvoice(
 		roomId,
 		buildingId,
 		createrId,
@@ -47,7 +47,7 @@ exports.generateDepositReceiptAndFirstInvoice = asyncHandler(async (req, res) =>
 		req.body.stayDays,
 		req.body.feeIndexValues,
 	);
-	return new SuccessMsgResponse('Success').send(res);
+	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.modifyRent = asyncHandler(async (req, res) => {
@@ -59,7 +59,7 @@ exports.modifyRent = asyncHandler(async (req, res) => {
 
 exports.generateCheckoutCost = asyncHandler(async (req, res) => {
 	console.log('log of req from generateCheckoutCost: ', req.body);
-	await UseCase.generateCheckoutCost(
+	const result = await UseCase.generateCheckoutCost(
 		req.params.roomId,
 		req.body.buildingId,
 		req.body.contractId,
@@ -67,8 +67,9 @@ exports.generateCheckoutCost = asyncHandler(async (req, res) => {
 		req.body.feeIndexValues,
 		req.body.feesOther,
 		req.body.stayDays,
+		req.body.roomVersion,
 	);
-	return new SuccessMsgResponse('Success').send(res);
+	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.deleteDebts = asyncHandler(async (req, res) => {
@@ -76,6 +77,19 @@ exports.deleteDebts = asyncHandler(async (req, res) => {
 	console.log('log of data from deleteDebts: ', data);
 	await UseCase.deleteDebts(data.roomId);
 	return new SuccessMsgResponse('Success').send(res);
+});
+
+exports.getDebtsAndReceiptUnpaid = asyncHandler(async (req, res) => {
+	const data = { ...req.params, ...req.query };
+	console.log('log of data from getDebtsAndReceiptUnpaid: ', data);
+	const result = await UseCase.getDebtsAndReceiptUnpaid(data.roomId, data.buildingId);
+	return new SuccessResponse('Success', result).send(res);
+});
+
+exports.getRoomFeesAndDebts = asyncHandler(async (req, res) => {
+	console.log('log of data from getRoomFeesAndDebts: ', req.params);
+	const result = await UseCase.getRoomFeesAndDebts(req.params.roomId, req.user._id);
+	return new SuccessResponse('Success', result).send(res);
 });
 
 //============================ UN REFACTED =====================================//

@@ -8,22 +8,13 @@ module.exports = {
 	}),
 	getAllRevenues: Joi.object().keys({
 		buildingId: JoiObjectId().required(),
-		month: Joi.number().optional(),
-		year: Joi.number().optional(),
-	}),
-	createIncidentalRevenue: Joi.object().keys({
-		buildingId: JoiObjectId().required(),
-		amount: Joi.number().required(),
-		content: Joi.string().required(),
-	}),
-	modifyIncidentalRevenue: Joi.object().keys({
-		amount: Joi.number().required(),
-		content: Joi.string().required(),
+		month: Joi.string().optional(),
+		year: Joi.string().optional(),
 	}),
 	getFees: Joi.object().keys({
 		buildingId: JoiObjectId().required(),
-		month: Joi.number().optional(),
-		year: Joi.number().optional(),
+		month: Joi.string().optional(),
+		year: Joi.string().optional(),
 		feeKey: Joi.string()
 			.valid(...listFeeKeys)
 			.required()

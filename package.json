@@ -7,7 +7,7 @@
 		"unsafe-perm": true
 	},
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1",
+		"test": "jest",
 		"prettyme": "prettier --write \"./**/*.{js,jsx,json}\"",
 		"start": "nodemon server.js"
 	},
@@ -80,6 +80,7 @@
 		"node": ">=18.0.0"
 	},
 	"devDependencies": {
+		"jest": "^30.2.0",
 		"prettier": "^2.4.1"
 	}
 }

@@ -1,7 +1,7 @@
 const { NotFoundError } = require('../AppError');
 const Entity = require('../models');
 const { withSignedUrls } = require('../utils/withSignedUrls');
-const { generateContractCode } = require('../utils/generateContractCode');
+const generateContractCode = require('../utils/generateContractCode');
 
 exports.getContractPdfUrl = async (contractCode) => {
 	const currentContract = await Entity.ContractsEntity.findOne({ contractCode: contractCode });
@@ -53,4 +53,53 @@ exports.generateContract = async (
 		{ session },
 	);
 	return createContract;
+};
+
+exports.createContractDraft = async (
+	{
+		room,
+		rent,
+		depositAmount,
+		depositId = null,
+		depositReceiptId,
+		firstInvoiceId,
+
+		interiors,
+		fees,
+		customers,
+		contractSignDate,
+		contractEndDate,
+		contractTerm,
+		note,
+	},
+	session,
+) => {
+	const [contractDraft] = await Entity.ContractDraftsEntity.create(
+		[
+			{
+				room,
+				rent,
+				depositAmount,
+				interiors,
+				fees,
+				customers,
+				contractSignDate,
+				contractEndDate,
+				contractTerm,
+				depositId,
+				firstInvoiceId,
+				depositReceiptId,
+				note,
+			},
+		],
+		session,
+	);
+
+	return contractDraft;
+};
+
+exports.getContractDraftById = async (contractDraftId, session) => {
+	const result = await Entity.ContractDraftsEntity.findById(contractDraftId).session(session).lean().exec();
+	if (!result) throw new NotFoundError('Dữ liệu không tồn tại!');
+	return result;
 };

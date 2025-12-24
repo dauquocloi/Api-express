@@ -69,6 +69,14 @@ const RoomsSchema = new Schema({
 		type: String,
 		default: '',
 	},
+	version: { type: Number, default: 1, required: true },
+	writeLock: {
+		ownerId: { type: Schema.Types.ObjectId, ref: 'users' },
+		locked: { type: Boolean, default: false },
+		expAt: { type: Date },
+		reason: { type: String, default: '' },
+		lockedAt: { type: Date },
+	},
 });
 
 RoomsSchema.post('aggregate', async function (docs, next) {

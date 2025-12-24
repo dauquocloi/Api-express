@@ -29,6 +29,7 @@
 // Refactory 10/12/2025
 const Login = require('./access/login');
 const Buildings = require('./buildings');
+const Bills = require('./bills');
 const Customers = require('./customers');
 const Contracts = require('./contracts');
 const Expenditures = require('./expenditures');
@@ -43,6 +44,8 @@ const Notifications = require('./notifications');
 const Users = require('./users');
 const Vehicles = require('./vehicles');
 const Tasks = require('./tasks');
+const CheckoutCosts = require('./checkoutCosts');
+const IncidentalRevenues = require('./incidentalRevenues');
 
 const express = require('express');
 const router = express.Router();
@@ -390,6 +393,7 @@ exports.routerApi = (app) => {
 router.use('/login', Login);
 router.use('/buildings', Buildings);
 router.use('/contracts', Contracts);
+router.use('/checkoutCosts', CheckoutCosts);
 router.use('/deposits', Deposits);
 router.use('/depositRefunds', DepositRefunds);
 router.use('/customers', Customers);
@@ -400,8 +404,10 @@ router.use('/revenues', Revenues);
 router.use('/receipts', Receipts);
 router.use('/notifications', Notifications);
 router.use('/invoices', Invoices);
+router.use('/incidentalRevenues', IncidentalRevenues);
 router.use('/users', Users);
 router.use('/vehicles', Vehicles);
 router.use('/tasks', Tasks);
+router.use('/api/v1/bills', Bills);
 
 module.exports = router;

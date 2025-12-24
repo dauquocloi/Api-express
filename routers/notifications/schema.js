@@ -12,4 +12,7 @@ module.exports = {
 			.required(),
 		enabled: Joi.boolean().required(),
 	}),
+	getAllNotis: Joi.object().keys({
+		page: Joi.string().required(),
+	}),
 };

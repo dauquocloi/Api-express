@@ -1,70 +1,98 @@
 const getTasks = (userObjectId, page, daysPerPage, search, startDate, endDate) => {
-	let matchQuery = {};
-	if (search) {
-		search.trim().replace(/\s+/g, ' ');
-	}
-	if (search && search.trim() !== '') {
-		matchQuery.$search = {
-			index: 'default',
-			compound: {
-				must: [
-					{
-						text: {
-							query: search,
-							path: ['taskContent', 'detail'],
-						},
+	console.log('log of getTasks: ', search);
+	const pipeline = [];
+
+	const userIdStr = userObjectId.toString();
+
+	// =========================
+	// 1. $search (KHI CÓ KEYWORD)
+	// =========================
+	if (search && search.trim()) {
+		search = search.trim().replace(/\s+/g, ' ');
+
+		const compound = {
+			should: [
+				{
+					autocomplete: {
+						query: search,
+						path: 'taskContent',
 					},
-					{
-						equals: {
-							path: 'managements',
-							value: userObjectId,
-						},
+				},
+				{
+					autocomplete: {
+						query: search,
+						path: 'detail',
 					},
-				],
+				},
+			],
+			minimumShouldMatch: 1,
+		};
+
+		// filter theo ngày (nếu có)
+		if (startDate || endDate) {
+			compound.filter = [
+				{
+					range: {
+						path: 'executionDate',
+						...(startDate && { gte: new Date(startDate) }),
+						...(endDate && { lte: new Date(endDate) }),
+					},
+				},
+			];
+		}
+
+		pipeline.push(
+			{
+				$search: {
+					index: 'default',
+					compound,
+				},
 			},
-		};
-	} else {
-		matchQuery.$match = {
-			managements: { $eq: userObjectId },
-		};
+			{
+				$match: {
+					managements: { $in: [userObjectId] },
+				},
+			},
+		);
 	}
 
-	// Tìm kiếm theo matchQuery
-	// if (queryStatus) matchQuery.$and = [queryStatus];
+	// =========================
+	// 2. $match (KHI KHÔNG SEARCH)
+	// =========================
+	else {
+		const match = {
+			managements: { $in: [userObjectId] },
+		};
 
-	// Tìm kiếm theo ngày
-	if (startDate || endDate) {
-		matchQuery.executionDate = {};
+		if (startDate || endDate) {
+			match.executionDate = {};
 
-		if (startDate) {
-			const start = new Date(startDate);
-			start.setHours(0, 0, 0, 0); // bắt đầu từ 00:00:00
-			matchQuery.executionDate.$gte = start;
+			if (startDate) {
+				const start = new Date(startDate);
+				start.setHours(0, 0, 0, 0);
+				match.executionDate.$gte = start;
+			}
+
+			if (endDate) {
+				const end = new Date(endDate);
+				end.setHours(23, 59, 59, 999);
+				match.executionDate.$lte = end;
+			}
 		}
 
-		if (endDate) {
-			const end = new Date(data.endDate);
-			end.setHours(23, 59, 59, 999); // hết ngày 23:59:59
-			matchQuery.executionDate.$lte = end;
-		}
+		pipeline.push({ $match: match });
 	}
 
-	return [
-		matchQuery,
+	// =========================
+	// 3. LOOKUP USERS
+	// =========================
+	pipeline.push(
 		{
 			$lookup: {
 				from: 'users',
 				localField: 'managements',
 				foreignField: '_id',
-				pipeline: [
-					{
-						$project: {
-							_id: 1,
-							fullName: 1,
-							avatar: 1,
-						},
-					},
-				],
+				pipeline: [{ $project: { _id: 1, fullName: 1, avatar: 1 } }],
 				as: 'managements',
 			},
 		},
@@ -73,36 +101,34 @@ const getTasks = (userObjectId, page, daysPerPage, search, startDate, endDate) =
 				from: 'users',
 				localField: 'performers',
 				foreignField: '_id',
-				pipeline: [
-					{
-						$project: {
-							_id: 1,
-							fullName: 1,
-							avatar: 1,
-						},
-					},
-				],
+				pipeline: [{ $project: { _id: 1, fullName: 1, avatar: 1 } }],
 				as: 'performers',
 			},
 		},
-		{
-			$project: {
-				_id: 1,
-				status: 1,
-				performers: 1,
-				managements: 1,
-				taskContent: 1,
-				createdAt: 1,
-				updatedAt: 1,
-				executionDate: 1,
-			},
-		},
+	);
 
-		{
-			$sort: {
-				createdAt: -1,
-			},
+	// =========================
+	// 4. PROJECT
+	// =========================
+	pipeline.push({
+		$project: {
+			_id: 1,
+			status: 1,
+			performers: 1,
+			managements: 1,
+			taskContent: 1,
+			detail: 1,
+			createdAt: 1,
+			updatedAt: 1,
+			executionDate: 1,
 		},
+	});
+
+	// =========================
+	// 5. SORT + GROUP THEO NGÀY
+	// =========================
+	pipeline.push(
+		{ $sort: { createdAt: -1 } },
 		{
 			$group: {
 				_id: {
@@ -112,21 +138,18 @@ const getTasks = (userObjectId, page, daysPerPage, search, startDate, endDate) =
 						timezone: '+07:00',
 					},
 				},
-				data: {
-					$push: '$$ROOT',
-				},
+				data: { $push: '$$ROOT' },
 			},
 		},
-		{
-			$sort: {
-				_id: -1,
-			},
-		},
+		{ $sort: { _id: -1 } },
+	);
 
-		// Phân trang theo ngày
-		{ $skip: (page - 1) * daysPerPage },
-		{ $limit: daysPerPage + 1 },
-	];
+	// =========================
+	// 6. PAGINATION THEO NGÀY
+	// =========================
+	pipeline.push({ $skip: (page - 1) * daysPerPage }, { $limit: daysPerPage + 1 });
+
+	return pipeline;
 };
 
 module.exports = { getTasks };

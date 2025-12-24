@@ -64,7 +64,7 @@ var BuildingsSchema = new Schema(
 			},
 		],
 		invoiceNotes: { type: String, default: '' },
-		settings: { type: PermissionsSchema },
+		settings: { PermissionsSchema },
 	},
 	{
 		versionKey: false,
