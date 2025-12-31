@@ -2,8 +2,8 @@ const Entity = require('../models');
 const Roles = require('../constants/userRoles');
 const Pipelines = require('./aggregates');
 
-exports.findUserById = async (userId) => {
-	return await Entity.UsersEntity.findOne({ _id: userId }).lean().exec();
+exports.findById = (userId) => {
+	return Entity.UsersEntity.findById(userId);
 };
 
 exports.findUserByPhone = async (phone) => {
@@ -54,4 +54,8 @@ exports.getListSelectionManagements = async (userObjectId) => {
 	const [listSelectionManagements] = await Entity.BuildingsEntity.aggregate(Pipelines.users.getListSelectionManagements(userObjectId));
 	if (!listSelectionManagements) return [];
 	return listSelectionManagements.listManagements;
+};
+
+exports.findUserByIds = (userIds) => {
+	return Entity.UsersEntity.find({ _id: { $in: userIds } });
 };

@@ -39,16 +39,6 @@ const FeeInvoiceSchema = new Schema({
 	},
 });
 
-FeeInvoiceSchema.pre('validate', function (next) {
-	if (this.type === 'index' && (this.firstIndex == null || this.lastIndex == null)) {
-		return next(new Error('firstIndex và lastIndex là bắt buộc khi type là "index"'));
-	}
-	if ((this.type === 'person' || this.type === 'vehicle') && this.quantity == null) {
-		return next(new Error('quantity là bắt buộc khi type là "person" hoặc "vehicle"'));
-	}
-	next();
-});
-
 const InvoicesSchema = new Schema(
 	{
 		stayDays: {
@@ -148,16 +138,5 @@ const InvoicesSchema = new Schema(
 		timestamps: true, // Thêm thời gian tạo và cập nhật
 	},
 );
-
-InvoicesSchema.pre('save', async function (next) {
-	if (!this.payer) {
-		const currentCustomer = await Entity.CustomersEntity.findOne({ room: this.room, isContractOwner: true });
-		console.log('log of currentCustomer from Pre-save InvoicesSchema: ', currentCustomer);
-		if (currentCustomer != null) {
-			this.payer = currentCustomer.fullName;
-		}
-	}
-	next();
-});
 
 exports.InvoicesEntity = mongoose.model('InvoicesEntity', InvoicesSchema, 'invoices');

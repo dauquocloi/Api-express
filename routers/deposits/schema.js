@@ -1,13 +1,14 @@
 const Joi = require('joi');
 const { JoiObjectId } = require('../../utils/validator');
 const initialFees = require('../../utils/getListFeeInital');
+const initialFeeKeys = initialFees.map((fee) => fee.feeKey);
 
 const roomDepositSchema = Joi.object().keys({
 	rent: Joi.number().required(),
 	depositAmount: Joi.number().required(),
 	depositCompletionDate: Joi.date().required(),
 	checkinDate: Joi.date().required(),
-	rentalTerm: Joi.string().empty().optional(),
+	rentalTerm: Joi.string().allow('', null).optional(),
 	numberOfOccupants: Joi.number().optional(),
 });
 
@@ -25,14 +26,15 @@ const customerSchema = Joi.object().keys({
 const feeSchema = Joi.object().keys({
 	feeAmount: Joi.number().required(),
 	feeKey: Joi.string()
-		.valid(...Object.values(initialFees))
+		.valid(...initialFeeKeys)
 		.required(),
-	lastIndex: Joi.number().optional(),
+	lastIndex: Joi.number().allow('', null).optional(),
 });
 
 const InteriorSchema = Joi.object().keys({
 	interiorName: Joi.string().required(),
 	quantity: Joi.number().required(),
+	interiorRentalDate: Joi.date().optional(),
 });
 
 module.exports = {
@@ -46,7 +48,7 @@ module.exports = {
 	}),
 	createDeposit: Joi.object().keys({
 		room: roomDepositSchema.required(),
-		interior: Joi.array().items(InteriorSchema.required()).optional(),
+		interiors: Joi.array().items(InteriorSchema.required()).optional(),
 		fees: Joi.array().items(feeSchema.required()).optional(),
 		customer: customerSchema.required(),
 		roomId: JoiObjectId().required(),

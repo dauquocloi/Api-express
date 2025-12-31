@@ -246,6 +246,8 @@ const getReceiptDetail = (receiptObjectId) => {
 									_id: '$collectorInfo._id',
 								},
 								transactionId: '$transactions.transactionId',
+								accountNumber: '$transactions.accountNumber',
+								gateway: '$transactions.gateway',
 							},
 							'$$REMOVE',
 						],
@@ -416,7 +418,7 @@ const getReceiptInfoByReceiptCode = (receiptCode) => {
 	return [
 		{
 			$match: {
-				receiptCode: { $regex: new RegExp(`^${receiptCode}$`, 'i') },
+				receiptCode: receiptCode,
 			},
 		},
 		{
@@ -498,4 +500,184 @@ const getReceiptInfoByReceiptCode = (receiptCode) => {
 	];
 };
 
-module.exports = { getReceiptPaymentStatus, getReceiptDetail, getDepositReceiptDetail, getCurrentReceiptAndTransaction, getReceiptInfoByReceiptCode };
+const getCashCollectorInfo = (receiptObjectId) => {
+	return [
+		{
+			$match: {
+				_id: receiptObjectId,
+			},
+		},
+		{
+			$lookup: {
+				from: 'rooms',
+				localField: 'room',
+				foreignField: '_id',
+				as: 'room',
+			},
+		},
+		{
+			$unwind: {
+				path: '$room',
+			},
+		},
+		{
+			$lookup: {
+				from: 'buildings',
+				localField: 'room.building',
+				foreignField: '_id',
+				as: 'building',
+			},
+		},
+		{
+			$addFields:
+				/**
+				 * newField: The new field name.
+				 * expression: The new field expression.
+				 */
+				{
+					building: {
+						$first: '$building',
+					},
+				},
+		},
+		{
+			$lookup: {
+				from: 'users',
+				let: {
+					management: '$building.management',
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$in: [
+									'$_id',
+									{
+										$map: {
+											input: {
+												$filter: {
+													input: '$$management',
+													as: 'm',
+													cond: {
+														$eq: ['$$m.role', 'owner'],
+													},
+												},
+											},
+											as: 'owner',
+											in: '$$owner.user',
+										},
+									},
+								],
+							},
+						},
+					},
+					{
+						$project: {
+							_id: 1,
+							expoPushToken: 1,
+							fullName: 1,
+							role: 1,
+						},
+					},
+				],
+				as: 'receiver',
+			},
+		},
+		{
+			$project:
+				/**
+				 * specifications: The fields to
+				 *   include or exclude.
+				 */
+				{
+					_id: 1,
+					status: 1,
+					receiptContent: 1,
+					room: {
+						_id: '$room._id',
+						roomIndex: '$room.roomIndex',
+					},
+					building: {
+						_id: '$building._id',
+						buildingName: '$building.buildingName',
+					},
+					receiver: {
+						$first: '$receiver',
+					},
+				},
+		},
+	];
+};
+
+const getReceiptByPaymentContent = (paymentContent) => {
+	return [
+		{
+			$match: {
+				paymentContent: paymentContent,
+			},
+		},
+		{
+			$lookup: {
+				from: 'rooms',
+				localField: 'room',
+				foreignField: '_id',
+				as: 'room',
+			},
+		},
+		{
+			$unwind: {
+				path: '$room',
+			},
+		},
+		{
+			$lookup: {
+				from: 'buildings',
+				localField: 'room.building',
+				foreignField: '_id',
+				as: 'building',
+			},
+		},
+		{
+			$addFields: {
+				buildingId: {
+					$first: '$building._id',
+				},
+				management: {
+					$first: '$building.management',
+				},
+				buildingName: {
+					$first: '$building.buildingName',
+				},
+			},
+		},
+		{
+			$project: {
+				_id: 1,
+				receiptContent: 1,
+				amount: 1,
+				paidAmount: 1,
+				status: 1,
+				locked: 1,
+				detuctedInfo: 1,
+				version: 1,
+				room: {
+					_id: '$room._id',
+					roomIndex: '$room.roomIndex',
+				},
+				buildingId: 1,
+				management: 1,
+				buildingName: 1,
+			},
+		},
+	];
+};
+
+module.exports = {
+	getReceiptPaymentStatus,
+	getReceiptDetail,
+	getDepositReceiptDetail,
+	getCurrentReceiptAndTransaction,
+	getReceiptInfoByReceiptCode,
+	getCashCollectorInfo,
+	getReceiptByPaymentContent,
+};

@@ -35,24 +35,32 @@ class AppError extends Error {
 		switch (err.type) {
 			case errorTypes.accessToken:
 				return new AccessTokenErrorResponse(err.message).send(res);
+
 			case errorTypes.badToken:
 			case errorTypes.unauthorized:
 			case errorTypes.tokenExpired:
 				return new AuthFailureResponse(err.message).send(res);
+
 			case errorTypes.badRequest:
 				return new BadRequestResponse(err.message).send(res);
+
 			case errorTypes.conflict:
 				return new ConflictResponse(err.message).send(res);
+
 			case errorTypes.forbidden:
 				return new ForbiddenResponse(err.message).send(res);
+
 			case errorTypes.noEntry:
 			case errorTypes.notFound:
 			case errorTypes.noData:
 				return new NotFoundResponse(err.message).send(res);
+
 			case errorTypes.invalidInput:
 				return new InvalidInputResponse(err.message).send(res);
+
 			case errorTypes.internal:
 				return new InternalServerErrorResponse(err.message).send(res);
+
 			default: {
 				let message = err.message;
 				// Do not send failure message in production

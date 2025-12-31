@@ -1,5 +1,5 @@
 const getTasks = (userObjectId, page, daysPerPage, search, startDate, endDate) => {
-	console.log('log of getTasks: ', search);
+	console.log('log of getTasks: ', daysPerPage, page);
 	const pipeline = [];
 
 	const userIdStr = userObjectId.toString();

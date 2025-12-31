@@ -63,3 +63,5 @@ exports.CheckoutCostsEntity = require('./checkoutCosts').CheckoutCostsEntity;
 exports.KeyStoresEntity = require('./keyStores').KeyStoresEntity;
 
 exports.ContractDraftsEntity = require('./contracts.draf').ContractDraftsEntity;
+
+exports.BankAccountsEntity = require('./bankAccounts').BankAccountsEntity;

@@ -10,9 +10,11 @@ const { receiptTypes, receiptStatus } = require('../constants/receipt');
 
 const { calculateReceiptStatusAfterModified } = require('../service/receipts.helper');
 const Services = require('../service');
+const { calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
+const { TaskNotiJob, NotiManagerCollectCashReceiptJob } = require('../jobs/Notifications');
 
 exports.getListReceiptPaymentStatus = async (buildingId, month, year) => {
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
 	if (!month && !year) {
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
@@ -25,20 +27,20 @@ exports.getListReceiptPaymentStatus = async (buildingId, month, year) => {
 
 	const receipt = await Services.receipts.getListReceiptsPaymentStatus(buildingObjectId, month, year);
 
-	return { period: { month, year }, listReceiptPaymentStatus: receipt.receipts };
+	return { period: { month, year }, listReceiptPaymentStatus: receipt?.receipts ?? [] };
 };
 
 exports.createDepositReceipt = async (roomId, buildingId, receipAmount, payerName) => {
-	const roomObjectId = mongoose.Types.ObjectId(roomId);
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+
 	const currentPeriod = await getCurrentPeriod(buildingObjectId);
-	const roomInfo = await Entity.RoomsEntity.findOne({ _id: roomObjectId });
+	const roomInfo = await Services.rooms.findById(roomId).lean().exec();
 	if (!roomInfo) {
 		throw new NotFoundError(`Phòng với id: ${roomId} không tồn tại !`);
 	}
 
 	const newReceipt = {
-		roomObjectId: roomObjectId,
+		roomObjectId: roomId,
 		receiptAmount: receipAmount,
 		payer: payerName,
 		currentPeriod,
@@ -47,35 +49,53 @@ exports.createDepositReceipt = async (roomId, buildingId, receipAmount, payerNam
 		receiptType: receiptTypes['DEPOSIT'],
 		status: receiptStatus['PENDING'],
 	};
-	const createReceipt = await Services.receipts.createReceipt(newReceipt);
-	return createReceipt;
+	const depositReceiptCreated = await Services.receipts.createReceipt(newReceipt, null);
+	return { _id: depositReceiptCreated._id, status: depositReceiptCreated.status };
 };
 
 exports.createReceipt = async (roomId, buildingId, receiptAmount, receiptContent, date, userId) => {
-	const roomObjectId = mongoose.Types.ObjectId(roomId);
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	let session;
+	let result;
+	try {
+		session = await mongoose.startSession();
+		await session.withTransaction(async () => {
+			const roomObjectId = new mongoose.Types.ObjectId(roomId);
+			const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
-	await Services.rooms.assertRoomWritable({ roomId, userId, session: null });
+			await Services.rooms.assertRoomWritable({ roomId, userId, session: null });
+			const currentPeriod = await getCurrentPeriod(buildingObjectId);
+			const contractOwner = await Services.customers.getContractOwner(roomObjectId, session);
 
-	const [currentPeriod, contractOwner] = await Promise.all([getCurrentPeriod(buildingObjectId), Services.customers.getContractOwner(roomObjectId)]);
+			const receiptCreated = await Services.receipts.createReceipt(
+				{
+					roomObjectId: roomId,
+					receiptAmount: receiptAmount,
+					payer: contractOwner?.fullName,
+					currentPeriod: currentPeriod,
+					receiptContent,
+					receiptType: receiptTypes['INCIDENTAL'],
+					initialStatus: receiptStatus['UNPAID'],
+					date: date,
+				},
 
-	const receiptCreated = await Services.receipts.createReceipt({
-		roomObjectId: roomId,
-		receiptAmount: receiptAmount,
-		payer: contractOwner?.fullName,
-		currentPeriod: currentPeriod,
-		receiptContent,
-		receiptType: receiptTypes['INCIDENTAL'],
-		initialStatus: receiptStatus['UNPAID'],
-		date: date,
-	});
+				session,
+			);
 
-	return receiptCreated;
+			await Services.rooms.bumpRoomVersionBlind(roomId, session);
+			result = receiptCreated;
+			return 'Success';
+		});
+		return result;
+	} catch (error) {
+		throw error;
+	} finally {
+		if (session) session.endSession();
+	}
 };
 
 exports.getReceiptDetail = async (receiptId, buildingId) => {
-	// const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
-	const receiptObjectId = mongoose.Types.ObjectId(receiptId);
+	// const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
+	const receiptObjectId = new mongoose.Types.ObjectId(receiptId);
 
 	const getReceipt = await Services.receipts.getReceiptAndTransDetail(receiptObjectId);
 
@@ -92,8 +112,8 @@ exports.getReceiptDetail = async (receiptId, buildingId) => {
 };
 
 exports.getDepositReceiptDetail = async (receiptId, buildingId) => {
-	const receiptObjectId = mongoose.Types.ObjectId(receiptId);
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const receiptObjectId = new mongoose.Types.ObjectId(receiptId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
 	const receipt = await Services.receipts.getDepositReceiptDetail(receiptObjectId);
 	return receipt;
@@ -119,9 +139,9 @@ exports.collectCashMoney = async (data) => {
 		session = await mongoose.startSession();
 		session.startTransaction();
 
-		const receiptObjectId = mongoose.Types.ObjectId(data.receiptId);
-		const collectorObjectId = mongoose.Types.ObjectId(data._id);
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		const receiptObjectId = new mongoose.Types.ObjectId(data.receiptId);
+		const collectorObjectId = new mongoose.Types.ObjectId(data._id);
+		const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 
 		const currentReceipt = await Services.receipts.getCurrentReceiptAndTransaction(receiptObjectId, session);
 		if (currentReceipt.version !== data.version) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
@@ -163,7 +183,10 @@ exports.collectCashMoney = async (data) => {
 
 		await Entity.ReceiptsEntity.updateOne(
 			{ _id: receiptObjectId },
-			{ $set: { status: status, paidAmount: updatedTotalPaid, version: { $inc: 1 } } },
+			{
+				$set: { status: status, paidAmount: updatedTotalPaid },
+				$inc: { version: 1 },
+			},
 			{ session },
 		);
 
@@ -184,6 +207,11 @@ exports.collectCashMoney = async (data) => {
 		}
 		//=========
 
+		await new NotiManagerCollectCashReceiptJob().enqueue({
+			collectorId: data._id,
+			receiptId: data.receiptId,
+			amount: data.amount,
+		});
 		await session.commitTransaction();
 
 		const cbData = {
@@ -206,20 +234,53 @@ exports.collectCashMoney = async (data) => {
 	}
 };
 
-exports.deleteReceipt = async (receiptId, userId) => {
+exports.deleteReceipt = async (receiptId, userId, version) => {
 	let session;
 	try {
 		session = await mongoose.startSession();
 		await session.withTransaction(async () => {
-			const currentReceipt = await Entity.ReceiptsEntity.findOne({ _id: receiptId }).session(session);
+			const currentReceipt = await Services.receipts.findById(receiptId).session(session).lean().exec();
 			if (!currentReceipt) throw new NotFoundError('Hóa đơn không tồn tại');
-
+			if (currentReceipt.locked === true) throw new BadRequestError('Bạn không thể sửa hóa đơn đã khóa !');
+			if (currentReceipt.version !== version) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 			await Services.rooms.assertRoomWritable({ roomId: currentReceipt.room, userId, session });
 
-			currentReceipt.status = receiptStatus['CANCELLED'];
-			currentReceipt.locked = true;
+			if (currentReceipt.detuctedInfo && currentReceipt.detuctedInfo.detuctedId !== null) {
+				const { detuctedInfo } = currentReceipt;
+				const receiptUnpaiAmount = calculateInvoiceUnpaidAmount(currentReceipt.amount, currentReceipt.paidAmount);
 
-			await currentReceipt.save({ session });
+				if (detuctedInfo.detuctedType === 'depositRefund') {
+					const depositRefund = await Services.depositRefunds.findById(detuctedInfo.detuctedId).session(session);
+					depositRefund.depositRefundAmount += receiptUnpaiAmount;
+					depositRefund.receiptsUnpaid = depositRefund.receiptsUnpaid.filter(
+						(receipt) => receipt._id.toString() !== currentReceipt._id.toString(),
+					);
+					depositRefund.version += 1;
+					await depositRefund.save({ session });
+				}
+				if (detuctedInfo.detuctedType === 'terminateContractEarly') {
+					const checkoutCost = await Services.checkoutCosts.findById(detuctedInfo.detuctedId).session(session);
+					checkoutCost.total -= receiptUnpaiAmount;
+					checkoutCost.receiptsUnpaid = checkoutCost.receiptsUnpaid.filter(
+						(receipt) => receipt._id.toString() !== currentReceipt._id.toString(),
+					);
+					checkoutCost.version += 1;
+					await checkoutCost.save({ session });
+				}
+			}
+
+			const receiptUpdated = await Entity.ReceiptsEntity.findOneAndUpdate(
+				{ _id: receiptId, version: version },
+				{
+					$set: {
+						status: receiptStatus['TERMINATED'],
+						locked: true,
+					},
+					$inc: { version: 1 },
+				},
+				{ session },
+			);
+			if (!receiptUpdated) throw new ConflictError(`Dữ liệu hóa đơn đã bị thay đổi !`);
 			return;
 		});
 		return 'Success';
@@ -260,8 +321,8 @@ exports.modifyReceipt = async (receiptId, newReceiptAmount, receiptContent, user
 exports.createDebtsReceipt = async (data) => {
 	let session;
 	try {
-		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		const roomObjectId = new mongoose.Types.ObjectId(data.roomId);
+		const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 
 		session = await mongoose.startSession();
 		session.startTransaction();

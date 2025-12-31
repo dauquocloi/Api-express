@@ -20,8 +20,8 @@ exports.createReceipt = asyncHandler(async (req, res) => {
 exports.createDepositReceipt = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.body };
 	console.log('log of createDepositReceipt req.body: ', data);
-	await UseCase.createDepositReceipt(data.roomId, data.buildingId, data.amount, data.payer);
-	return new SuccessMsgResponse('Success').send(res);
+	const result = await UseCase.createDepositReceipt(data.roomId, data.buildingId, data.amount, data.payer);
+	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.getReceiptDetail = asyncHandler(async (req, res) => {
@@ -46,9 +46,9 @@ exports.collectCashMoney = asyncHandler(async (req, res) => {
 });
 
 exports.deleteReceipt = asyncHandler(async (req, res) => {
-	const data = req.params;
+	const data = { ...req.params, ...req.body };
 	console.log('log of deleteReceipt', data);
-	await UseCase.deleteReceipt(data.receiptId, req.user._id);
+	await UseCase.deleteReceipt(data.receiptId, req.user._id, data.version);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

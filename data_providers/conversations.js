@@ -13,7 +13,7 @@ exports.createConversation = ({ data }) => {
 exports.getAll = (data, cb) => {
 	const { userId } = data;
 
-	const _id = mongoose.Types.ObjectId(userId);
+	const _id = new mongoose.Types.ObjectId(userId);
 	MongoConnect.Connect(config.database.fullname).then(() => {
 		Entity.ConversationEntity.aggregate(
 			[

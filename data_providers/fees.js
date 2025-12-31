@@ -6,7 +6,7 @@ const Services = require('../service');
 const { NotFoundError, InternalError, InvalidInputError, ConflictError } = require('../AppError');
 
 exports.addFee = async (roomId, feeKey, feeAmount, lastIndex) => {
-	let roomObjectId = mongoose.Types.ObjectId(roomId);
+	let roomObjectId = new mongoose.Types.ObjectId(roomId);
 
 	let findFee = listFeeInitial.find((fee) => fee.feeKey === feeKey);
 	if (!findFee) {
@@ -36,7 +36,7 @@ exports.addFee = async (roomId, feeKey, feeAmount, lastIndex) => {
 
 // exports.getFeesByRoomId = async (data, cb, next) => {
 // 	try {
-// 		let roomId = mongoose.Types.ObjectId(`${data}`);
+// 		let roomId = new mongoose.Types.ObjectId(`${data}`);
 // 		const fees = await Entity.FeesEntity.find({ room: roomId });
 
 // 		if (!fees) {

@@ -50,4 +50,6 @@ router.patch(
 	Buildings.setBuildingPermission,
 );
 
+router.get('/:buildingId/deposit-term-file', validator(schema.id, ValidateSource.PARAM), Buildings.getDepositTermFile);
+
 module.exports = router;

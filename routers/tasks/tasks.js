@@ -1,11 +1,12 @@
 const UseCase = require('../../data_providers/tasks');
 const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
+
 exports.createTask = asyncHandler(async (req, res) => {
 	let data = req.body;
 	console.log('log of data from createTask: ', data);
-	await UseCase.createTask(data);
-	return SuccessMsgResponse('Success').send(res);
+	const result = await UseCase.createTask(data.performers, req.user._id, data.taskContent, data.detail, new Date(data.executionDate));
+	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.getTasks = asyncHandler(async (req, res) => {
@@ -28,10 +29,12 @@ exports.getTaskDetail = asyncHandler(async (req, res) => {
 });
 
 exports.modifyTask = asyncHandler(async (req, res) => {
+	console.log('req: ', req.files);
 	const taskImages = req.files;
 	let data = { ...req.body, ...req.user, ...req.params, taskImages };
 	console.log('log of data from modifyTask: ', data);
 	await UseCase.modifyTask(data);
+	// return new SuccessMsgResponse('Success').send(res);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
@@ -39,5 +42,5 @@ exports.deleteTask = asyncHandler(async (req, res, next) => {
 	let data = req.params;
 	console.log('log of data from deleteTask: ', data);
 	await UseCase.deleteTask(data.taskId);
-	return SuccessMsgResponse('Success').send(res);
+	return new SuccessMsgResponse('Success').send(res);
 });

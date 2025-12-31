@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const Entity = require('../models');
-const { getNotiForm } = require('../utils/getNotiForm');
+const { NotiForm } = require('../utils/NotiForm');
 const Services = require('../service');
 const { NotFoundError } = require('../AppError');
 
@@ -9,16 +9,17 @@ const getLastName = (fullName) => {
 	return fullName.trim().split(' ').slice(-1).join(' ');
 };
 
+//piece of shit
 exports.createNotification = async (notiType, data) => {
 	try {
 		switch (notiType) {
 			case 'collectCash': {
 				// buildingName, roomIndex, receiptContent
-				const receiverObjectIds = data.receiverIds.map((r) => mongoose.Types.ObjectId(r));
+				const receiverObjectIds = data.receiverIds.map((r) => new mongoose.Types.ObjectId(r));
 
 				let getNotiData;
 				if (data.billType == 'receipt') {
-					const receiptObjectId = mongoose.Types.ObjectId(data.receiptId);
+					const receiptObjectId = new mongoose.Types.ObjectId(data.receiptId);
 					[getNotiData] = await Entity.ReceiptsEntity.aggregate([
 						{
 							$match: {
@@ -59,7 +60,7 @@ exports.createNotification = async (notiType, data) => {
 						},
 					]);
 				} else if (data.billType == 'invoice') {
-					const invoiceObjectId = mongoose.Types.ObjectId(data.invoiceId);
+					const invoiceObjectId = new mongoose.Types.ObjectId(data.invoiceId);
 					[getNotiData] = await Entity.InvoicesEntity.aggregate([
 						{
 							$match: {
@@ -110,7 +111,7 @@ exports.createNotification = async (notiType, data) => {
 					amount: data.amount, // Số tiền nhân viên thu
 					collector: data.collectorName,
 				};
-				const createNotiForm = getNotiForm('collectCash', collectCashDataFormat);
+				const createNotiForm = NotiForm('collectCash', collectCashDataFormat);
 
 				const createCollectCashNoti = await Entity.NotisEntity.create({
 					type: 'collectCash',
@@ -130,8 +131,8 @@ exports.createNotification = async (notiType, data) => {
 			}
 
 			case 'task': {
-				const performerObjectIds = data.performerIds.map((p) => mongoose.Types.ObjectId(p));
-				const receiverObjectIds = data.receiverIds.map((r) => mongoose.Types.ObjectId(r));
+				const performerObjectIds = data.performerIds.map((p) => new mongoose.Types.ObjectId(p));
+				const receiverObjectIds = data.receiverIds.map((r) => new mongoose.Types.ObjectId(r));
 
 				const getPerformerName = await Entity.UsersEntity.find({ _id: { $in: performerObjectIds } }, { _id: 1, fullName: 1 });
 				if (!getPerformerName) throw new Error('Lỗi user không tồn tại !');
@@ -140,7 +141,7 @@ exports.createNotification = async (notiType, data) => {
 					taskTitle: data.title,
 					performersName: getPerformerName?.map((performer) => getLastName(performer.fullName)).join(', '),
 				};
-				const createNotiForm = getNotiForm('task', taskDoneDataFormat);
+				const createNotiForm = NotiForm('task', taskDoneDataFormat);
 
 				const createNoti = await Entity.NotisEntity.create({
 					type: 'task',
@@ -166,7 +167,7 @@ exports.createNotification = async (notiType, data) => {
 };
 
 exports.getNotifications = async (receiverId, page) => {
-	const receiverObjectId = mongoose.Types.ObjectId(receiverId);
+	const receiverObjectId = new mongoose.Types.ObjectId(receiverId);
 	const pages = page || 1;
 	const limit = 10; // Ngày
 

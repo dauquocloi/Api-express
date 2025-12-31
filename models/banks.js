@@ -9,7 +9,6 @@ const BanksSchema = new Schema({
 	bankId: {
 		type: String,
 		trim: true,
-		required: true,
 	},
 	brandName: {
 		type: String,
@@ -47,7 +46,7 @@ const BanksSchema = new Schema({
 	building: [
 		{
 			type: Schema.Types.ObjectId,
-			ref: 'buildings',
+			ref: 'BuildingsEnity',
 		},
 	],
 });

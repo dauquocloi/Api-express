@@ -27,14 +27,14 @@ exports.getInvoiceDetail = asyncHandler(async (req, res) => {
 exports.modifyInvoice = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('log of data from modifyInvoice: ', data);
-	await UseCase.modifyInvoice(data.invoiceId, data.feeIndexValues, data.stayDays, data.version);
+	await UseCase.modifyInvoice(data.invoiceId, data.feeIndexValues, data.stayDays, data.version, req.user._id);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
 exports.deleteInvoice = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('log of data from deleteInvoice: ', data);
-	await UseCase.deleteInvoice(data.invoiceId, data.roomVersion, req.user._id);
+	await UseCase.deleteInvoice(data.invoiceId, data.roomVersion, req.user._id, data.version);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
@@ -47,7 +47,7 @@ exports.collectCashMoney = asyncHandler(async (req, res) => {
 exports.createInvoice = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.body, ...req.user };
 	console.log('log of data from createInvoice: ', data);
-	await UseCase.createInvoice(data);
+	await UseCase.createInvoice(data.roomId, data.buildingId, data.stayDays, data.feeIndexValues, req.user._id, data.roomVersion);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

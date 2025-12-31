@@ -1,0 +1,25 @@
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+
+const BankAccountsSchema = new Schema(
+	{
+		bank: {
+			type: Schema.Types.ObjectId,
+			ref: 'BanksEntity',
+		},
+		user: { type: Schema.Types.ObjectId, ref: 'UsersEntity' },
+		company: { type: Schema.Types.ObjectId },
+		accountNumber: { type: String, required: true, trim: true },
+		accountName: { type: String, required: true },
+		accumulated: { type: Number },
+		label: { type: String },
+		bankApiConnected: { type: Boolean, default: false },
+		lastTransaction: { type: Date },
+		version: { type: Number, default: 1 },
+	},
+	{
+		timestamps: true,
+	},
+);
+
+exports.BankAccountsEntity = mongoose.model('BankAccountsEntity', BankAccountsSchema, 'bankAccounts');

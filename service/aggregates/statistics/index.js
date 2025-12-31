@@ -504,7 +504,7 @@ const getStatisticsPipeline = (buildingId, month, year) => {
 						},
 						[
 							{
-								_id: mongoose.Types.ObjectId(),
+								_id: new mongoose.Types.ObjectId(),
 								revenue: '$revenue',
 								expenditure: '$expenditure',
 								profit: '$profit',

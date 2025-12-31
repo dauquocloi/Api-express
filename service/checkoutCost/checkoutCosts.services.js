@@ -9,9 +9,8 @@ const { formatRoomFees } = require('../../utils/formatRoomFees');
 const { calculateTotalCheckoutCostAmount } = require('./checkoutCosts.helper');
 const generatePaymentContent = require('../../utils/generatePaymentContent');
 const Pipelines = require('../aggregates');
-const { AppError, NotFoundError, InternalError } = require('../../AppError');
-const { errorCodes } = require('../../constants/errorCodes');
-
+const { AppError, NotFoundError, InternalError, ConflictError } = require('../../AppError');
+const { checkoutCostStatus } = require('../../constants/checkoutCosts');
 const generateCheckoutCost = async (
 	{
 		roomId,
@@ -70,4 +69,41 @@ const getCheckoutCosts = async (buildingId, month, year) => {
 	};
 };
 
-module.exports = { generateCheckoutCost, getCheckoutCostDetail, getCheckoutCosts };
+const findById = (checkoutCostId) => {
+	return Entity.CheckoutCostsEntity.findById(checkoutCostId);
+};
+
+const modifyCheckoutCost = async ({ checkoutCostId, version, fees, feesOther, newTotal }, session) => {
+	const result = await Entity.CheckoutCostsEntity.updateOne(
+		{ _id: checkoutCostId, version: version },
+		{
+			$set: {
+				fees: fees,
+				feesOther: feesOther,
+				total: newTotal,
+			},
+			$inc: { version: 1 },
+		},
+		{
+			session,
+		},
+	);
+
+	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu này đã bị thay đổi !');
+	return result;
+};
+
+const terminateCheckoutCost = async (checkoutCostId, version, session) => {
+	const result = await Entity.CheckoutCostsEntity.updateOne(
+		{ _id: checkoutCostId, version: version },
+		{
+			$set: { status: checkoutCostStatus['TERMINATED'] },
+			$inc: { version: 1 },
+		},
+		{ session },
+	);
+	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu này đã bị thay đổi !');
+	return result;
+};
+
+module.exports = { generateCheckoutCost, getCheckoutCostDetail, getCheckoutCosts, findById, modifyCheckoutCost, terminateCheckoutCost };

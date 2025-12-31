@@ -34,5 +34,6 @@ module.exports = {
 	}),
 	deleteInvoice: Joi.object().keys({
 		roomVersion: Joi.number().integer().min(1).required(),
+		version: Joi.number().integer().min(1).required(),
 	}),
 };

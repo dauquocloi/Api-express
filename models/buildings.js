@@ -1,4 +1,5 @@
 var mongoose = require('mongoose');
+const Roles = require('../constants/userRoles');
 require('mongoose-double')(mongoose);
 const Schema = mongoose.Schema;
 
@@ -49,7 +50,7 @@ var BuildingsSchema = new Schema(
 
 		bank: {
 			type: Schema.Types.ObjectId,
-			ref: 'banks',
+			ref: 'BanksEntity',
 			default: null,
 		},
 		contractDocxUrl: { type: String },
@@ -59,12 +60,13 @@ var BuildingsSchema = new Schema(
 		management: [
 			{
 				_id: false, // Tắt tự động thêm _id
-				user: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true },
-				role: { type: String, enum: ['owner', 'manager', 'staff'], required: true },
+				user: { type: mongoose.Schema.Types.ObjectId, ref: 'UsersEntity', required: true },
+				role: { type: String, enum: Object.values(Roles), required: true },
 			},
 		],
 		invoiceNotes: { type: String, default: '' },
 		settings: { PermissionsSchema },
+		version: { type: Number, default: 1 },
 	},
 	{
 		versionKey: false,

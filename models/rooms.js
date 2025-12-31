@@ -37,11 +37,11 @@ const RoomsSchema = new Schema({
 		// 1 - đang ở
 		// 2 - sắp trả phòng
 	},
-	// Nên tham chiếu đến ref deposits
-	// isDeposited: {
-	// 	type: Boolean,
-	// 	default: false,
-	// },
+
+	isDeposited: {
+		type: Boolean,
+		default: false,
+	},
 
 	//Nên tham triếu đến depositRefunds
 	isRefundDeposit: {

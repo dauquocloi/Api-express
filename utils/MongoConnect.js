@@ -28,10 +28,7 @@ exports.Connect = function (dbName) {
 
 		// connect to database
 		mongoose
-			.connect(connectionString, {
-				useNewUrlParser: true,
-				useUnifiedTopology: true,
-			})
+			.connect(connectionString)
 			.then(() => {
 				db = mongoose.connection;
 				console.log('MongoDb connection created to [' + db.name + ']');

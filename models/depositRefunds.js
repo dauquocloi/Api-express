@@ -1,5 +1,6 @@
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { depositRefundStatus } = require('../constants/deposits');
 
 const feesIndexSchema = new Schema({
 	feeName: { type: String, trim: true },
@@ -16,7 +17,7 @@ const DepositRefundsSchema = new Schema(
 		building: { type: Schema.Types.ObjectId, ref: 'buildings' },
 		contract: { type: Schema.Types.ObjectId, ref: 'contracts' },
 		// isRefundedDeposit: { type: Boolean, default: false },
-		status: { type: String, enum: ['pending', 'paid', 'terminated'], default: 'pending' },
+		status: { type: String, enum: Object.values(depositRefundStatus), default: 'pending' },
 		feesIndex: [feesIndexSchema],
 		feesOther: [
 			{

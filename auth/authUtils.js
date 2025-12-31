@@ -10,7 +10,6 @@ const getAccessToken = (authorization) => {
 };
 
 const validateTokenData = (payload) => {
-	console.log('log of payload: ', payload);
 	if (
 		!payload ||
 		!payload.iss ||

@@ -5,7 +5,7 @@ const { feeUnit } = require('../constants/fees');
 const generateInvoiceFees = (listFeeOfRoom, rentAmount, stayDays, feeIndexValues, shouldGetFull, mode = 'create') => {
 	const formatListFees = listFeeOfRoom.map((fee) => {
 		switch (fee.unit) {
-			case 'index':
+			case feeUnit['INDEX']:
 				return {
 					feeAmount: Number(fee.feeAmount),
 					feeName: fee.feeName,
@@ -19,8 +19,8 @@ const generateInvoiceFees = (listFeeOfRoom, rentAmount, stayDays, feeIndexValues
 						Number(feeIndexValues[fee._id]?.firstIndex ?? 0),
 					),
 				};
-			case 'person':
-			case 'vehicle':
+			case feeUnit['PERSON']:
+			case feeUnit['VEHICLE']:
 				let quantity;
 				if (mode === 'create') fee.unit === 'vehicle' ? fee.vehicleInfo?.length : fee.customerInfo?.length;
 				else quantity = fee.quantity;
@@ -33,7 +33,7 @@ const generateInvoiceFees = (listFeeOfRoom, rentAmount, stayDays, feeIndexValues
 					feeKey: fee.feeKey,
 					amount: calculateFeeUnitQuantityAmount(fee.feeAmount, fee.quantity, stayDays),
 				};
-			case 'room':
+			case feeUnit['ROOM']:
 				return {
 					feeAmount: Number(fee.feeAmount),
 					feeName: fee.feeName,

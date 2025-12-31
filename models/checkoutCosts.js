@@ -14,18 +14,18 @@ const feesSchema = new Schema({
 
 const CheckoutCostsSchema = new Schema(
 	{
-		contractId: { type: Schema.Types.ObjectId, ref: 'contracts' },
-		roomId: { type: Schema.Types.ObjectId, ref: 'rooms' },
-		buildingId: { type: Schema.Types.ObjectId, ref: 'buildings' },
-		receiptsUnpaid: { type: [Schema.Types.ObjectId], ref: 'receipts' },
-		invoiceUnpaid: { type: Schema.Types.ObjectId, ref: 'invoices' },
-		creatorId: { type: Schema.Types.ObjectId, ref: 'users' },
+		contractId: { type: Schema.Types.ObjectId, ref: 'ContractsEntity' },
+		roomId: { type: Schema.Types.ObjectId, ref: 'RoomsEntity' },
+		buildingId: { type: Schema.Types.ObjectId, ref: 'BuildingsEntity' },
+		receiptsUnpaid: { type: [Schema.Types.ObjectId], ref: 'ReceiptsEntity' },
+		invoiceUnpaid: { type: Schema.Types.ObjectId, ref: 'InvoicesEntity' },
+		creatorId: { type: Schema.Types.ObjectId, ref: 'UsersEntity' },
 		customerName: { type: String, trim: true },
-		debts: { type: [Schema.Types.ObjectId], ref: 'debts' },
+		debts: { type: [Schema.Types.ObjectId], ref: 'DebtsEntity' },
 		status: { type: String, enum: ['pending', 'paid', 'terminated'], default: 'pending' },
 		fees: [feesSchema],
 		stayDays: { type: Number },
-		checkoutCostReceipt: { type: Schema.Types.ObjectId, ref: 'receipts' },
+		checkoutCostReceipt: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity' },
 		feesOther: [
 			{
 				feeContent: { type: String },
@@ -52,8 +52,9 @@ const CheckoutCostsSchema = new Schema(
 			required: true,
 		},
 		total: { type: Number, required: true },
+		version: { type: Number, default: 1 },
 	},
-	{ timestamps: true },
+	{ timestamps: true, versionKey: false },
 );
 
 exports.CheckoutCostsEntity = mongoose.model('CheckoutCostsEntity', CheckoutCostsSchema, 'checkoutCosts');

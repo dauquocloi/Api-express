@@ -17,7 +17,7 @@ router.use(
 			const payload = await JWT.validate(req.accessToken);
 			validateTokenData(payload);
 
-			const user = await Services.users.findUserById(new mongoose.Types.ObjectId(payload.sub));
+			const user = await Services.users.findById(new mongoose.Types.ObjectId(payload.sub)).lean().exec();
 			if (!user) throw new AuthFailureError('User not registered');
 			req.user = user;
 

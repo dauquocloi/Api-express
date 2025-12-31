@@ -46,6 +46,7 @@ const Vehicles = require('./vehicles');
 const Tasks = require('./tasks');
 const CheckoutCosts = require('./checkoutCosts');
 const IncidentalRevenues = require('./incidentalRevenues');
+const Payments = require('./payments');
 
 const express = require('express');
 const router = express.Router();
@@ -409,5 +410,6 @@ router.use('/users', Users);
 router.use('/vehicles', Vehicles);
 router.use('/tasks', Tasks);
 router.use('/api/v1/bills', Bills);
+router.use('/api/v1/webhooks/sepay', Payments);
 
 module.exports = router;

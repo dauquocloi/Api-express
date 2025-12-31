@@ -13,7 +13,7 @@ const NotificationsSchema = new Schema(
 			default: {},
 		},
 		isRead: { type: Boolean, default: false },
-		receivers: [{ type: Schema.Types.ObjectId, ref: 'users', required: true }],
+		receivers: [{ type: Schema.Types.ObjectId, ref: 'UsersEntity', required: true }],
 	},
 	{
 		timestamps: true,

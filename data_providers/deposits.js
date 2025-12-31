@@ -1,117 +1,109 @@
 const mongoose = require('mongoose');
-const MongoConnect = require('../utils/MongoConnect');
-var Entity = require('../models');
+const Entity = require('../models');
 const listFees = require('../utils/getListFeeInital');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
-const { createDepositReceipt } = require('./receipts');
-const generatePaymentContent = require('../utils/generatePaymentContent');
-const { AppError, NotFoundError, BadRequestError } = require('../AppError');
-const { errorCodes } = require('../constants/errorCodes');
+const { NotFoundError, BadRequestError } = require('../AppError');
 const Pipelines = require('../service/aggregates');
+const Services = require('../service');
+const { depositStatus } = require('../constants/deposits');
 
 exports.getDeposits = async (buildingId) => {
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
-	const deposits = await Entity.DepositsEntity.aggregate(Pipelines.deposits.getDepositsPipeline(buildingObjectId));
-	return deposits[0]?.listDeposits ?? [];
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+	const deposits = Services.deposits.getDeposits(buildingObjectId);
+	return deposits;
 };
 
 exports.createDeposit = async (data) => {
 	let session;
+	let result;
 	try {
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
-		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
-		const receiptObjectId = mongoose.Types.ObjectId(data.receiptId);
+		const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
+		const roomObjectId = new mongoose.Types.ObjectId(data.roomId);
+		const receiptObjectId = new mongoose.Types.ObjectId(data.receiptId);
 
 		const { room, customer } = data;
 		// Khởi tạo transaction
 		session = await mongoose.startSession();
-		session.startTransaction();
+		await session.withTransaction(async () => {
+			const depositReceipt = await Services.receipts.findById(data.receiptId).session(session).lean().exec();
 
-		const checkReceipt = await Entity.ReceiptsEntity.aggregate([
-			{
-				$match: {
-					_id: receiptObjectId,
-				},
-			},
-			{
-				$lookup: {
-					from: 'transactions',
-					localField: '_id',
-					foreignField: 'receipt',
-					as: 'transactions',
-				},
-			},
-		]).session(session);
-
-		if (checkReceipt.length === 0) {
-			throw new BadRequestError(`Hóa đơn đặt cọc chưa được khởi tạo !`);
-		} else if (checkReceipt[0]?.transactions?.length === 0) {
-			throw new BadRequestError(`Hóa đơn đặt cọc chưa có giao dịch !`);
-		}
-
-		const transactions = checkReceipt[0].transactions;
-		const actualDepositAmount = [...transactions].reduce((sum, item) => item.amount + sum, 0);
-
-		const getInitialFeesByFeeKey = () => {
-			if (!Array.isArray(data?.fees) || !Array.isArray(listFees)) return [];
-
-			// Tạo Map để tra nhanh theo feeKey
-			const feeMap = new Map(listFees.map((fee) => [fee.feeKey, fee]));
-
-			const fees = [];
-			for (const feeItem of data.fees) {
-				const match = feeMap.get(feeItem.feeKey);
-				if (match) {
-					if (match.unit === 'index') {
-						fees.push({
-							feeName: match.feeName,
-							unit: match.unit,
-							firstIndex: match.firstIndex,
-							feeAmount: feeItem.feeAmount,
-							lastIndex: feeItem?.lastIndex,
-						});
-					} else {
-						fees.push({ feeName: match.feeName, unit: match.unit, feeAmount: feeItem.feeAmount });
-					}
-				}
+			if (!depositReceipt) {
+				throw new BadRequestError(`Hóa đơn đặt cọc chưa được khởi tạo !`);
+			} else if (depositReceipt.paidAmount === 0) {
+				throw new BadRequestError(`Hóa đơn đặt cọc chưa thanh toán !`);
 			}
 
-			return fees;
-		};
+			const { transactions, paidAmount } = depositReceipt;
 
-		const getDepositStatus = () => {
-			if (actualDepositAmount === room.depositAmount || actualDepositAmount > room.depositAmount) return 'paid';
-			else if (actualDepositAmount < room.depositAmount) return 'partial';
-		};
+			const getInitialFeesByFeeKey = () => {
+				if (!Array.isArray(data?.fees) || !Array.isArray(listFees)) return [];
 
-		const [newDeposit] = await Entity.DepositsEntity.create(
-			[
-				{
-					room: roomObjectId,
-					building: buildingObjectId,
-					receipt: receiptObjectId,
-					status: getDepositStatus(),
-					rent: room.rent,
-					depositAmount: room.depositAmount,
-					actualDepositAmount: actualDepositAmount,
-					depositCompletionDate: room.depositCompletionDate,
-					checkinDate: room.checkinDate,
-					rentalTerm: room.rentalTerm,
-					numberOfOccupants: room.numberOfOccupants,
-					customer: customer,
-					fees: getInitialFeesByFeeKey(),
-					interiors: data.interiors,
-				},
-			],
-			{ session },
-		);
+				// Tạo Map để tra nhanh theo feeKey
+				const feeMap = new Map(listFees.map((fee) => [fee.feeKey, fee]));
 
-		const updateRoomState = await Entity.RoomsEntity.findOneAndUpdate({ _id: roomObjectId }, { isDeposited: true }).session(session);
-		await session.commitTransaction();
+				const fees = [];
+				for (const feeItem of data.fees) {
+					const match = feeMap.get(feeItem.feeKey);
+					if (match) {
+						if (match.unit === 'index') {
+							fees.push({
+								feeName: match.feeName,
+								unit: match.unit,
+								firstIndex: match.firstIndex,
+								feeAmount: feeItem.feeAmount,
+								lastIndex: feeItem?.lastIndex,
+								iconPath: match.iconPath,
+								feeKey: match.feeKey,
+							});
+						} else {
+							fees.push({
+								feeName: match.feeName,
+								unit: match.unit,
+								feeAmount: feeItem.feeAmount,
+								iconPath: match.iconPath,
+								feeKey: match.feeKey,
+							});
+						}
+					}
+				}
 
-		return newDeposit;
+				return fees;
+			};
+
+			const getDepositStatus = () => {
+				if (paidAmount >= room.depositAmount) return depositStatus['PAID'];
+				else if (paidAmount < room.depositAmount) return depositStatus['PARTIAL'];
+			};
+
+			const [newDeposit] = await Entity.DepositsEntity.create(
+				[
+					{
+						room: roomObjectId,
+						building: buildingObjectId,
+						receipt: receiptObjectId,
+						status: getDepositStatus(),
+						rent: room.rent,
+						depositAmount: room.depositAmount,
+						actualDepositAmount: paidAmount,
+						depositCompletionDate: room.depositCompletionDate,
+						checkinDate: room.checkinDate,
+						rentalTerm: room.rentalTerm,
+						numberOfOccupants: room.numberOfOccupants,
+						customer: customer,
+						fees: getInitialFeesByFeeKey(),
+						interiors: data.interiors,
+					},
+				],
+				{ session },
+			);
+
+			await Services.rooms.setRoomDeposited({ roomId: data.roomId, isDeposited: true, session });
+
+			result = newDeposit.toObject();
+			return 'Success';
+		});
+		return result;
 	} catch (error) {
-		if (session) await session.abortTransaction();
 		throw error;
 	} finally {
 		if (session) session.endSession();
@@ -119,7 +111,7 @@ exports.createDeposit = async (data) => {
 };
 
 exports.getDepositDetail = async (depositId) => {
-	const depositObjectId = mongoose.Types.ObjectId(depositId);
+	const depositObjectId = new mongoose.Types.ObjectId(depositId);
 
 	const [depositDetail] = await Entity.DepositsEntity.aggregate(Pipelines.deposits.getDepositDetail(depositObjectId));
 	if (!depositDetail) throw new NotFoundError('Dữ liệu không tồn tại');
@@ -130,7 +122,7 @@ exports.getDepositDetail = async (depositId) => {
 exports.modifyDeposit = async (data) => {
 	let session;
 	try {
-		const depositObjectId = mongoose.Types.ObjectId(data.depositId);
+		const depositObjectId = new mongoose.Types.ObjectId(data.depositId);
 
 		const { room, customer } = data;
 		// Khởi tạo transaction
@@ -258,7 +250,7 @@ exports.modifyDeposit = async (data) => {
 			if (data.interiors?.length > 0) {
 				return data.interiors.map((i) => ({
 					interiorName: i.interiorName,
-					interiorRentalDate: i.interiorRentalDate ?? '',
+					interiorRentalDate: i.interiorRentalDate ?? new Date(),
 					quantity: i.quantity,
 				}));
 			} else return [];
@@ -292,24 +284,23 @@ exports.modifyDeposit = async (data) => {
 	}
 };
 
-exports.terminateDeposit = async (depositId) => {
+exports.terminateDeposit = async (depositId, version) => {
 	let session;
 	try {
 		// Khởi tạo transaction
 		session = await mongoose.startSession();
 		return session.withTransaction(async () => {
-			const depositObjectId = mongoose.Types.ObjectId(data.depositId);
-			const deposit = await Entity.DepositsEntity.findOne({ _id: depositObjectId }).session(session);
+			const deposit = await Entity.DepositsEntity.findById(depositId).session(session).lean().exec();
 			if (!deposit) NotFoundError('Dữ liệu đặt cọc không tồn tại');
 
-			const currentPeriod = await getCurrentPeriod(buildingObjectId);
+			const currentPeriod = await getCurrentPeriod(deposit.building);
 			const { currentMonth: month, currentYear: year } = currentPeriod;
 
-			await Entity.DepositsEntity.updateOne({ _id: depositObjectId }, { $set: { status: 'terminated' } }, { session });
+			await Services.deposits.cancelledDeposit(depositId, version, session);
 
 			await Entity.ReceiptsEntity.updateOne({ _id: deposit.receipt }, { $set: { month, year, locked: true } }, { session });
 
-			await Entity.RoomsEntity.updateOne({ _id: deposit.room }, { $set: { isDeposited: false } }, { session });
+			await Services.rooms.setRoomDeposited({ roomId: deposit.room, isDeposited: false, session });
 
 			return 'Success';
 		});
@@ -319,7 +310,7 @@ exports.terminateDeposit = async (depositId) => {
 };
 
 exports.uploardDepositTerm = async (data) => {
-	const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 	const buildingInfo = await Entity.BuildingsEntity.exists({ _id: buildingObjectId });
 	if (!buildingInfo) throw new NotFoundError(`Tòa nhà với Id: ${buildingObjectId} không tồn tại !`);
 };
@@ -328,7 +319,7 @@ exports.uploardDepositTerm = async (data) => {
 
 exports.getDepositDetailByRoomId = async (data, cb, next) => {
 	try {
-		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
+		const roomObjectId = new mongoose.Types.ObjectId(data.roomId);
 
 		const depositDetail = await Entity.DepositsEntity.aggregate([
 			{

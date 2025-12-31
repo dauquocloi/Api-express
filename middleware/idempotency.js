@@ -28,7 +28,7 @@ module.exports = async function checkIdempotency(req, res, next) {
 		});
 	}
 
-	// Không có → set PROCESSING với TTL 5 phút
+	// Không có: set PROCESSING với TTL 5 phút
 	await redis.set(redisKey, 'PROCESSING', 'EX', 300);
 
 	req.idempotencyKey = idempotencyKey;

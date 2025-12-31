@@ -36,7 +36,7 @@ exports.prepareGenerateContract = async (
 			const currentPeriod = await getCurrentPeriod(buildingId);
 
 			const getRoomFees = formatInitialFees(fees);
-			console.log('getRoomFees: ', getRoomFees);
+
 			let formatRoomFees = [];
 			if (getRoomFees.length > 0) {
 				formatRoomFees = generateInvoiceFeesFromReq(getRoomFees, finance.rent, stayDays);
@@ -329,7 +329,7 @@ exports.setExpectedMoveOutDate = async (contractId, expectedMoveOutDate) => {
 		session = await mongoose.startSession();
 		session.startTransaction();
 
-		const contractObjectId = mongoose.Types.ObjectId(contractId);
+		const contractObjectId = new mongoose.Types.ObjectId(contractId);
 
 		const currentContract = await Services.contracts.getContractById(contractObjectId, session);
 
@@ -363,7 +363,7 @@ exports.terminateContractUnRefund = async (contractId) => {
 		session = await mongoose.startSession();
 		session.startTransaction();
 
-		const contractObjectId = mongoose.Types.ObjectId(contractId);
+		const contractObjectId = new mongoose.Types.ObjectId(contractId);
 
 		const currentContract = await Entity.ContractsEntity.findOne({ _id: contractObjectId }).exec();
 		if (!currentContract) throw new NotFoundError(`Hợp đồng với không tồn tại`);

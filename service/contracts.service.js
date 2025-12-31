@@ -3,6 +3,10 @@ const Entity = require('../models');
 const { withSignedUrls } = require('../utils/withSignedUrls');
 const generateContractCode = require('../utils/generateContractCode');
 
+exports.findById = (contractId) => {
+	return Entity.ContractsEntity.findById(contractId);
+};
+
 exports.getContractPdfUrl = async (contractCode) => {
 	const currentContract = await Entity.ContractsEntity.findOne({ contractCode: contractCode });
 	if (!currentContract) throw new NotFoundError('Hợp đồng không tồn tại');

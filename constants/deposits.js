@@ -6,4 +6,10 @@ const depositStatus = {
 	CLOSED: 'close', // Đã làm hợp đồng.
 };
 
-module.exports = { depositStatus };
+const depositRefundStatus = {
+	PENDING: 'pending', // Chờ thanh toán
+	PAID: 'paid',
+	TERMINATED: 'terminated',
+};
+
+module.exports = { depositStatus, depositRefundStatus };

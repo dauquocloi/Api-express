@@ -141,6 +141,7 @@ const getRoomFeesAndDebts = (roomObjectId) => {
 				customerInfo: 1,
 				vehicleInfo: 1,
 				rent: '$contractInfo.rent',
+				version: 1,
 			},
 		},
 		{
@@ -151,6 +152,7 @@ const getRoomFeesAndDebts = (roomObjectId) => {
 					roomState: '$roomState',
 					rent: '$rent',
 					debtsInfo: '$debtsInfo',
+					version: '$version',
 				},
 				feeInfo: {
 					$push: {

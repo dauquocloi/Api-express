@@ -33,9 +33,15 @@ exports.getDepositRefundDetail = asyncHandler(async (req, res) => {
 });
 
 exports.generateDepositRefund = asyncHandler(async (req, res) => {
-	const data = { ...req.body, ...req.params, ...req.user };
+	const data = { ...req.body, ...req.params };
 	console.log('log of data from generateDepositRefund: ', data);
-	const result = await UseCase.generateDepositRefund(data);
+	const result = await UseCase.generateDepositRefund({
+		contractId: data.contractId,
+		roomVersion: data.roomVersion,
+		feeIndexValues: data.feeIndexValues,
+		feesOther: data.feesOther,
+		userId: req.user._id,
+	});
 	return new SuccessMsgResponse('Success').send(res);
 });
 
@@ -51,4 +57,14 @@ exports.confirmDepositRefund = asyncHandler(async (req, res) => {
 	console.log('log of data from submitDepositRefund: ', data);
 	const result = await UseCase.confirmDepositRefund(data.depositRefundId, data._id);
 	return new SuccessMsgResponse('Success').send(res);
+});
+
+exports.removeDebtsFromDepositRefund = asyncHandler(async (req, res) => {
+	const result = await UseCase.removeDebtsFromDepositRefund(req.params.depositRefundId);
+	return new SuccessMsgResponse('Success').send(res);
+});
+
+exports.getModifyDepositRefundInfo = asyncHandler(async (req, res) => {
+	const result = await UseCase.getModifyDepositRefundInfo(req.params.depositRefundId);
+	return new SuccessResponse('Success', result).send(res);
 });

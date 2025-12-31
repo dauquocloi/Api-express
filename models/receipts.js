@@ -122,15 +122,4 @@ const ReceiptsSchema = new Schema(
 // 	},
 // );
 
-ReceiptsSchema.pre('save', async function (next) {
-	if (!this.payer) {
-		const currentCustomer = await Entity.CustomersEntity.findOne({ room: this.room, isContractOwner: true });
-		console.log('log of currentCustomer from Pre-save receiptsSchema: ', currentCustomer);
-		if (currentCustomer != null) {
-			this.payer = currentCustomer.fullName;
-		}
-	}
-	next();
-});
-
 exports.ReceiptsEntity = mongoose.model('ReceiptsEntity', ReceiptsSchema, 'receipts');

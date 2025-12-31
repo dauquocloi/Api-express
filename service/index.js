@@ -15,6 +15,9 @@ const transactions = require('./transactions.service');
 const tasks = require('./tasks.service');
 const vehicles = require('./vehicles.service');
 const contracts = require('./contracts.service');
+const bankAccounts = require('./bankAccounts.service');
+const sepays = require('./sepays.service');
+
 module.exports = {
 	buildings,
 	customers,
@@ -33,4 +36,6 @@ module.exports = {
 	tasks,
 	users,
 	vehicles,
+	bankAccounts,
+	sepays,
 };

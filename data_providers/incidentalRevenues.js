@@ -7,7 +7,7 @@ const { NotFoundError } = require('../AppError');
 const Pipelines = require('../service/aggregates');
 
 exports.createIncidentalRevenue = async (amount, content, collector, date, buildingId) => {
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
 	const currentPeriod = await getCurrentPeriod(buildingObjectId);
 	const newIncidentalRevenue = await Entity.IncidentalRevenuesEntity.create({
@@ -35,7 +35,7 @@ exports.modifyIncidentalRevenue = async (data) => {
 };
 
 exports.deleteIncidentalRevenue = async (data) => {
-	const incidentalRevenueObjectId = mongoose.Types.ObjectId(data.incidentalRevenueId);
+	const incidentalRevenueObjectId = new mongoose.Types.ObjectId(data.incidentalRevenueId);
 
 	const incidentalRevenue = await Entity.IncidentalRevenuesEntity.deleteOne({ _id: incidentalRevenueObjectId });
 

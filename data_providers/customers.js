@@ -58,7 +58,7 @@ const Services = require('../service');
 // };
 
 exports.editCustomer = async (data) => {
-	let customerId = mongoose.Types.ObjectId(`${data.customerId}`);
+	let customerId = new mongoose.Types.ObjectId(`${data.customerId}`);
 
 	const customerInfo = await Entity.CustomersEntity.findById(customerId);
 	if (!customerInfo) {
@@ -73,7 +73,7 @@ exports.editCustomer = async (data) => {
 };
 
 exports.addCustomer = async (data) => {
-	const roomId = mongoose.Types.ObjectId(data.roomId);
+	const roomId = new mongoose.Types.ObjectId(data.roomId);
 
 	const newCustomerInfo = {
 		room: roomId,
@@ -121,7 +121,7 @@ exports.getListSelectingCustomer = async (roomId) => {
 };
 
 exports.getAllCustomers = async (buildingId, status) => {
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 	const customers = await Services.customers.getAllCustomers(buildingObjectId, status);
 	return customers;
 };

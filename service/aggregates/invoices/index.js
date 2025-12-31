@@ -489,6 +489,8 @@ const getInvoiceDetail = (invoiceId) => {
 									_id: '$collector._id',
 								},
 								transactionId: '$transactionInfo.transactionId',
+								accountNumber: '$transactionInfo.accountNumber',
+								gateway: '$transactionInfo.gateway',
 							},
 							'$$REMOVE',
 						],
@@ -586,9 +588,73 @@ const getInvoiceInfoByInvoiceCode = (invoiceCode) => {
 	];
 };
 
+const findInvoiceInfoByPaymentContent = (paymentContent) => {
+	return [
+		{
+			$match: {
+				paymentContent: paymentContent,
+			},
+		},
+		{
+			$lookup: {
+				from: 'rooms',
+				localField: 'room',
+				foreignField: '_id',
+				as: 'room',
+			},
+		},
+		{
+			$unwind: {
+				path: '$room',
+			},
+		},
+		{
+			$lookup: {
+				from: 'buildings',
+				localField: 'room.building',
+				foreignField: '_id',
+				as: 'building',
+			},
+		},
+		{
+			$addFields: {
+				buildingId: {
+					$first: '$building._id',
+				},
+				management: {
+					$first: '$building.management',
+				},
+				buildingName: {
+					$first: '$building.buildingName',
+				},
+			},
+		},
+		{
+			$project: {
+				_id: 1,
+				invoiceContent: 1,
+				total: 1,
+				paidAmount: 1,
+				status: 1,
+				locked: 1,
+				detuctedInfo: 1,
+				version: 1,
+				room: {
+					_id: '$room._id',
+					roomIndex: '$room.roomIndex',
+				},
+				buildingId: 1,
+				management: 1,
+				buildingName: 1,
+			},
+		},
+	];
+};
+
 module.exports = {
 	getInvoicePaymentStatus,
 	getInvoicesSendingStatus,
 	getInvoiceDetail,
 	getInvoiceInfoByInvoiceCode,
+	findInvoiceInfoByPaymentContent,
 };

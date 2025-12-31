@@ -9,17 +9,18 @@ const Services = require('../service');
 const Pipelines = require('../service/aggregates');
 const { BadRequestError, NotFoundError, InternalError, NoDataError, InvalidInputError } = require('../AppError');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
+const getFileUrl = require('../utils/getFileUrl');
 
 //  get all buildings by managername
 exports.getAll = async (userId) => {
-	const userObjectId = mongoose.Types.ObjectId(userId);
+	const userObjectId = new mongoose.Types.ObjectId(userId);
 	const buildings = await Services.buildings.getAllByManagementId(userObjectId);
 	if (!buildings || buildings.length === 0) throw new NotFoundError('Không tìm thấy tòa nhà');
 	return buildings;
 };
 
 exports.getBillCollectionProgress = async (data) => {
-	const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 
 	const currentPeriod = await getCurrentPeriod(buildingObjectId);
 	const { currentMonth, currentYear } = currentPeriod;
@@ -30,20 +31,20 @@ exports.getBillCollectionProgress = async (data) => {
 };
 
 exports.getRooms = async (data) => {
-	const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 	const rooms = await Services.rooms.getAllRooms(buildingObjectId);
 
 	return rooms;
 };
 
 exports.getListSelectingRoom = async (buildingId) => {
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 	const rooms = await Services.buildings.getListSelectingRooms(buildingObjectId);
 	return rooms;
 };
 
 exports.getCheckoutCosts = async (buildingId, month, year) => {
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 	if (!month || !year) {
 		const currentPeriod = await getCurrentPeriod(buildingId);
 		month = currentPeriod.currentMonth;
@@ -59,7 +60,7 @@ exports.getCheckoutCosts = async (buildingId, month, year) => {
 };
 
 exports.getStatistics = async (buildingId, month, year) => {
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
 	if (!month || !year) {
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
@@ -93,14 +94,14 @@ exports.getBuildingPermissions = async (userId) => {
 
 // owner only
 exports.setBuildingPermission = async (buildingId, type, enabled) => {
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 	const result = await Entity.BuildingsEntity.findOneAndUpdate({ _id: buildingObjectId }, { $set: { [`settings.${type}`]: enabled } });
 	if (!result) throw new NotFoundError('Tòa nhà không tồn tại!');
 	return 'Success';
 };
 
 exports.getStatisticGeneral = async (buildingId, year) => {
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 	if (!year) {
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
 		const { currentMonth, currentYear } = currentPeriod;
@@ -112,4 +113,11 @@ exports.getStatisticGeneral = async (buildingId, year) => {
 	if (!statistics || statistics.length === 0) throw new NotFoundError('Dữ liệu khởi tạo không tồn tại');
 
 	return statistics;
+};
+
+exports.getDepositTermFile = async (buildingId) => {
+	const building = await Services.buildings.findById(buildingId).lean().exec();
+	if (!building) throw NotFoundError('Dữ liệu không tồn tại');
+	const depositTermFileUrl = await getFileUrl(building.depositTermUrl);
+	return { depositTermFileUrl: depositTermFileUrl };
 };

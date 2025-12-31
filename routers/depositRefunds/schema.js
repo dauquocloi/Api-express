@@ -17,9 +17,6 @@ module.exports = {
 		mode: Joi.string().optional(),
 	}),
 	createDepositRefund: Joi.object().keys({
-		receiptId: JoiObjectId().required(),
-		roomId: JoiObjectId().required(),
-		buildingId: JoiObjectId().required(),
 		contractId: JoiObjectId().required(),
 		feeIndexValues: Joi.object().pattern(JoiObjectId(), feeIndexValuesSchema).optional(),
 		feesOther: Joi.array().items(
@@ -28,6 +25,7 @@ module.exports = {
 				amount: Joi.number().required(),
 			}),
 		),
+		roomVersion: Joi.number().integer().min(1).required(),
 	}),
 	modifyDepositRefund: Joi.object().keys({
 		version: Joi.number().integer().min(1).required(),

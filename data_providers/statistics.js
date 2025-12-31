@@ -7,7 +7,7 @@ const AppError = require('../AppError');
 //remove to buildings
 exports.getRevenues = async (data, cb, next) => {
 	try {
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 
 		var revenueInfo;
 		var month;
@@ -521,7 +521,7 @@ exports.getRevenues = async (data, cb, next) => {
 
 exports.getRevenuesModified = async (data, cb, next) => {
 	try {
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 		var revenueInfo;
 		var month;
 		var year;
@@ -1080,7 +1080,7 @@ exports.getRevenuesModified = async (data, cb, next) => {
 
 exports.getExpenditures = async (data, cb, next) => {
 	try {
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 
 		var month;
 		var year;
@@ -1165,7 +1165,7 @@ exports.getExpenditures = async (data, cb, next) => {
 
 exports.getStatistics = async (data, cb, next) => {
 	try {
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 
 		let month;
 		let year;
@@ -1683,7 +1683,7 @@ exports.getStatistics = async (data, cb, next) => {
 							},
 							[
 								{
-									_id: mongoose.Types.ObjectId(),
+									_id: new mongoose.Types.ObjectId(),
 									revenue: '$revenue',
 									expenditure: '$expenditure',
 									profit: '$profit',

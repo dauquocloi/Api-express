@@ -6,7 +6,7 @@ const Pipelines = require('../service/aggregates');
 const { BadRequestError, NotFoundError } = require('../AppError');
 
 exports.getExpenditures = async (buildingId, month, year) => {
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 	var status;
 
 	const currentPeriod = await getCurrentPeriod(buildingObjectId);
@@ -31,8 +31,8 @@ exports.getExpenditures = async (buildingId, month, year) => {
 };
 
 exports.createExpenditure = async (data) => {
-	const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
-	const spenderObjectId = mongoose.Types.ObjectId(data.spender);
+	const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
+	const spenderObjectId = new mongoose.Types.ObjectId(data.spender);
 
 	if (data.type == 'incidental') {
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
@@ -63,7 +63,7 @@ exports.createExpenditure = async (data) => {
 };
 
 exports.modifyExpenditure = async (data) => {
-	const expenditureObjectId = mongoose.Types.ObjectId(data.expenditureId);
+	const expenditureObjectId = new mongoose.Types.ObjectId(data.expenditureId);
 
 	if (data.type === 'incidental') {
 		const currentExpenditure = await Entity.ExpendituresEntity.findOne({ _id: expenditureObjectId });
@@ -104,7 +104,7 @@ exports.modifyExpenditure = async (data) => {
 };
 
 exports.deleteExpenditure = async (data) => {
-	const expenditureObjectId = mongoose.Types.ObjectId(data.expenditureId);
+	const expenditureObjectId = new mongoose.Types.ObjectId(data.expenditureId);
 	if (data.type === 'incidental') {
 		const deletedExpenditure = await Entity.ExpendituresEntity.findOneAndDelete({ _id: expenditureObjectId });
 		if (deletedExpenditure === null) {
@@ -128,7 +128,7 @@ exports.deleteExpenditure = async (data) => {
 // exports.createPeriodicExpenditure = async (data, cb, next) => {
 // 	try {
 // 		const db = MongoConnect.Connect(config.database.fullname);
-// 		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+// 		const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 
 // 		const newPeriodcExpenditure = new Entity.PeriodicExpendituresEntity({
 // 			content: data.content,

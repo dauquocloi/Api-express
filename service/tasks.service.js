@@ -2,6 +2,8 @@ const { NotFoundError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
 
+exports.findById = (taskId) => Entity.TasksEntity.findById(taskId);
+
 exports.createTask = async ({ taskContent, performers, detail, managements, executionDate }) => {
 	const newTask = await Entity.TasksEntity.create({ taskContent, performers, detail, managements, executionDate, status: 'pending' });
 

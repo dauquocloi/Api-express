@@ -4,6 +4,7 @@ const generatePaymentContent = require('../utils/generatePaymentContent');
 const { calculateReceiptStatusAfterModified } = require('./receipts.helper');
 const Pipelines = require('./aggregates');
 const { receiptStatus } = require('../constants/receipt');
+const { getInvoiceStatus } = require('./invoices.helper');
 
 exports.findById = (receiptId) => {
 	return Entity.ReceiptsEntity.findById(receiptId);
@@ -22,7 +23,7 @@ exports.closeAndSetDetucted = async (receiptIds, detuctedType, detuctedId, sessi
 		{ session },
 	);
 
-	if (result.matchedCount === 0) throw new NotFoundError('Không tìm thấy bản ghi!');
+	if (result.matchedCount === 0 || result.matchedCount !== receiptIds.length) throw new NotFoundError('Không tìm thấy bản ghi!');
 
 	return result;
 };
@@ -66,7 +67,7 @@ exports.createReceipt = async (
 		{ session },
 	);
 	if (!result) throw new InternalError('Can not create receipt');
-	return result;
+	return result.toObject();
 };
 
 exports.getReceiptDetail = async (receiptId, session) => {
@@ -103,39 +104,53 @@ exports.getCurrentReceiptAndTransaction = async (receiptObjectId, session) => {
 };
 
 exports.modifyReceipt = async ({ receiptObjectId, receiptVersion, receiptAmount, receiptContent }, session) => {
+	const currentReceipt = await this.findById(receiptObjectId).session(session).lean().exec();
+	if (!currentReceipt) throw new NotFoundError('Hóa đơn không tồn tại');
+	const newReceiptStatus = getInvoiceStatus(currentReceipt.paidAmount, receiptAmount);
 	const result = await Entity.ReceiptsEntity.findOneAndUpdate(
 		{
 			_id: receiptObjectId,
 			version: receiptVersion,
-			amount: { $ne: Number(receiptAmount) },
 		},
 		{
 			$set: {
-				receiptContent,
+				receiptContent: receiptContent ?? currentReceipt.receiptContent,
 				amount: Number(receiptAmount),
-				status: {
-					$cond: [
-						{
-							$gte: ['$paidAmount', Number(receiptAmount)],
-						},
-						`${receiptStatus['PAID']}`,
-						`${receiptStatus['PARTIAL']}`,
-					],
-				},
+				status: newReceiptStatus,
 			},
 			$inc: { version: 1 },
 		},
 		{
 			session,
-			returnDocument: 'before',
 		},
 	);
 
-	if (!result) {
+	if (result.matchedCount === 0) {
 		throw new ConflictError('Hóa đơn đã bị thay đổi hoặc dữ liệu không hợp lệ');
 	}
 
-	return result._id;
+	return 'Success';
+};
+
+exports.updateReceiptPaidAmount = async ({ receiptId, paidAmount, receiptStatus }, session) => {
+	const result = await Entity.ReceiptsEntity.findOneAndUpdate(
+		{
+			_id: receiptId,
+		},
+		{
+			$set: {
+				paidAmount,
+				status: receiptStatus,
+			},
+			$inc: { version: 1 },
+		},
+		{
+			session,
+			new: true,
+		},
+	);
+	if (!result) return null;
+	return result;
 };
 
 exports.modifyDepositReceipt = async ({ receiptObjectId, receiptAmount }, session) => {
@@ -173,6 +188,56 @@ exports.modifyDepositReceipt = async ({ receiptObjectId, receiptAmount }, sessio
 };
 
 exports.getReceiptInfoByReceiptCode = async (receiptCode) => {
-	const [result] = await Entity.ReceiptsEntity.aggregate(Pipelines.receipts.getReceiptInfoByReceiptCode(receiptCode));
+	const normalizedCode = receiptCode.toString().trim().replace(/\s+/g, '').toUpperCase();
+	const [result] = await Entity.ReceiptsEntity.aggregate(Pipelines.receipts.getReceiptInfoByReceiptCode(normalizedCode));
+	return result;
+};
+
+exports.unLockReceipt = async (receiptId) => {
+	const result = await Entity.ReceiptsEntity.findOneAndUpdate({ _id: receiptId }, { $set: { locked: false } }, { new: true });
+	if (!result) throw new NotFoundError('Hóa đơn không tồn tại');
+	return result;
+};
+
+exports.unlockManyReceipts = async (receiptIds, session) => {
+	console.log('log of receiptIds: ', receiptIds);
+	const result = await Entity.ReceiptsEntity.updateMany({ _id: { $in: receiptIds } }, { $set: { locked: false } }, { session });
+	console.log('log of result: ', result);
+	if (result.matchedCount === 0 || result.matchedCount !== receiptIds.length) {
+		throw new NotFoundError('Hóa đơn không tồn tại');
+	}
+	return 'Success';
+};
+
+exports.rollBackManyDetuctedReceipts = async (receiptIds, session) => {
+	const result = await Entity.ReceiptsEntity.updateMany({ _id: { $in: receiptIds } }, { $set: { locked: false, detuctedInfo: null } }, { session });
+	if (result.matchedCount === 0 || result.matchedCount !== receiptIds.length) throw new NotFoundError('Hóa đơn không tồn tại');
+	return result;
+};
+
+exports.terminateReceipt = async (receiptId, version, session) => {
+	const result = await Entity.ReceiptsEntity.updateOne(
+		{ _id: receiptId, version: version },
+		{
+			$set: { status: receiptStatus['TERMINATED'] },
+			$inc: { version: 1 },
+		},
+		{ session },
+	);
+	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
+	return result;
+};
+
+exports.getNotiReceivedInfoByReceiptId = async (receiptObjectId) => {
+	const [result] = await Entity.ReceiptsEntity.aggregate(Pipelines.receipts.getCashCollectorInfo(receiptObjectId));
+	return result;
+};
+
+//for payment
+exports.findReceiptInfoByPaymentContent = async (paymentContent, session) => {
+	const normalizedPaymentContent = paymentContent.toString().trim().replace(/\s+/g, '').toUpperCase();
+	const [result] = await Entity.ReceiptsEntity.aggregate(Pipelines.receipts.getReceiptByPaymentContent(normalizedPaymentContent)).session(session);
+	console.log('log of result: ', result);
+	if (!result) return null;
 	return result;
 };

@@ -3,7 +3,7 @@ const { JoiObjectId } = require('../../utils/validator');
 
 module.exports = {
 	id: Joi.object().keys({
-		receiptId: Joi.string().required(),
+		receiptId: JoiObjectId().required(),
 	}),
 	getAllReceipts: Joi.object().keys({
 		buildingId: Joi.string().required(),
@@ -34,5 +34,8 @@ module.exports = {
 		version: Joi.number().integer().min(1).required(),
 		idempotencyKey: Joi.string().required(),
 		buildingId: JoiObjectId().required(),
+	}),
+	deleteReceipt: Joi.object().keys({
+		version: Joi.number().integer().min(1).required(),
 	}),
 };

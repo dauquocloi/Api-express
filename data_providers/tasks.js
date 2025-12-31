@@ -3,48 +3,65 @@ const Entity = require('../models');
 const uploadFile = require('../utils/uploadFile');
 const { errorCodes } = require('../constants/errorCodes');
 const Services = require('../service');
+const { NotiTaskCompletedJob } = require('../jobs/Notifications');
+const { BadRequestError } = require('../AppError');
+const ROLES = require('../constants/userRoles');
 
-exports.createTask = async (data) => {
-	const performerObjectIds = data.performers.map((performer) => mongoose.Types.ObjectId(performer));
+exports.createTask = async (performers, userId, taskContent, detail, executionDate) => {
+	let performerObjectIds = [];
 
-	const getManagements = await Entity.BuildingsEntity.aggregate([
-		{
-			$match: {
-				'management.user': {
-					$in: performerObjectIds,
-				},
-			},
-		},
-		{
-			$unwind: {
-				path: '$management',
-			},
-		},
-		{
-			$group: {
-				_id: '$management.user',
-				role: {
-					$first: '$management.role',
-				},
-			},
-		},
-	]);
-	const managements = getManagements.map((m) => mongoose.Types.ObjectId(m._id));
+	const buildings = await Services.buildings.getAllByManagementId(userId);
+	if (!Array.isArray(buildings) || buildings.length === 0) {
+		throw new BadRequestError('Dữ liệu người dùng không tồn tại trong hệ thống!');
+	}
+
+	const allBuildingUserSet = new Set();
+	const managementUserSet = new Set();
+
+	for (const b of buildings) {
+		for (const m of b.management || []) {
+			const userIdStr = m.user.toString();
+
+			allBuildingUserSet.add(userIdStr);
+
+			// chỉ management (owner / manager)
+			if (m.role !== ROLES['STAFF']) {
+				managementUserSet.add(userIdStr);
+			}
+		}
+	}
+
+	if (managementUserSet.size === 0) {
+		throw new BadRequestError('Dữ liệu đầu vào không hợp lệ!');
+	}
+
+	if (!Array.isArray(performers) || performers.length === 0) {
+		performerObjectIds = [...managementUserSet].map((id) => new mongoose.Types.ObjectId(id));
+	} else {
+		const inputSet = new Set(performers.map((id) => id.toString()));
+
+		for (const id of inputSet) {
+			if (!allBuildingUserSet.has(id)) {
+				throw new BadRequestError(`Performer không thuộc danh sách nhân sự các tòa nhà quản lý: ${id}`);
+			}
+		}
+
+		performerObjectIds = [...inputSet].map((id) => new mongoose.Types.ObjectId(id));
+	}
 
 	const newTaskData = {
-		taskContent: data.taskContent,
+		taskContent,
 		performers: performerObjectIds,
-		detail: data.detail,
-		managements: managements,
-		executionDate: data.executionDate || Date.now(),
+		detail: detail ?? '',
+		managements: [...managementUserSet].map((id) => new mongoose.Types.ObjectId(id)),
+		executionDate: executionDate || Date.now(),
 	};
-	const taskCreated = await Services.tasks.createTask(newTaskData);
 
-	return taskCreated;
+	return await Services.tasks.createTask(newTaskData);
 };
 
 exports.getTasks = async (userId, page = 1, search, startDate, endDate) => {
-	const userObjectId = mongoose.Types.ObjectId(userId);
+	const userObjectId = new mongoose.Types.ObjectId(userId);
 	const daysPerPage = 5; //days;
 	const tasks = await Services.tasks.getTasks(userObjectId, page, daysPerPage, search, startDate, endDate);
 	const isListEnd = tasks.length <= daysPerPage; // like has more
@@ -53,16 +70,12 @@ exports.getTasks = async (userId, page = 1, search, startDate, endDate) => {
 };
 
 exports.modifyTask = async (data) => {
-	const taskObjectId = mongoose.Types.ObjectId(data.taskId);
-
-	const performerObjectIds = JSON.parse(data.performers).map((p) => mongoose.Types.ObjectId(p));
-
-	const getTaskInfo = await Services.tasks.getTaskById(taskObjectId);
+	const getTaskInfo = await Services.tasks.findById(data.taskId);
 
 	getTaskInfo.taskContent = data.taskContent;
 	getTaskInfo.detail = data.detail;
 	getTaskInfo.executionDate = data.executionDate;
-	getTaskInfo.performers = performerObjectIds;
+	getTaskInfo.performers = data.performers;
 	getTaskInfo.status = data.status; // Done task
 
 	if (data.taskImages.length > 0) {
@@ -75,15 +88,18 @@ exports.modifyTask = async (data) => {
 	}
 
 	await getTaskInfo.save();
+	if (getTaskInfo.status === 'completed') {
+		const jobPayload = {
+			managementIds: getTaskInfo.managements,
+			performerIds: data.performers,
+			taskTitle: getTaskInfo.taskContent,
+			taskId: data.taskId,
+		};
+		await new NotiTaskCompletedJob().enqueue(jobPayload);
+	}
 
 	return {
 		taskId: data.taskId,
-		completedRole: data.role,
-		type: data.type, // ['modify', 'doneTask']
-		performerIds: JSON.parse(data.performers),
-		taskTitle: getTaskInfo.taskContent,
-		taskStatus: data.status,
-		managementIds: getTaskInfo.managements,
 	};
 };
 

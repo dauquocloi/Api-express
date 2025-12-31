@@ -1,4 +1,9 @@
+const { depositRefundStatus } = require('../constants/deposits');
 const Entity = require('../models');
+
+const findById = (depositRefundId) => {
+	return Entity.DepositRefundsEntity.findById(depositRefundId);
+};
 
 const createDepositRefund = async (
 	roomId,
@@ -45,7 +50,10 @@ const createDepositRefund = async (
 };
 
 const getDepositRefundByContractId = async (contractId, session) => {
-	return await Entity.DepositRefundsEntity.findOne({ contract: contractId }).session(session);
+	return await Entity.DepositRefundsEntity.findOne({
+		contract: contractId,
+		status: { $in: [depositRefundStatus['PAID'], depositRefundStatus['PENDING']] },
+	}).session(session);
 };
 
-module.exports = { createDepositRefund, getDepositRefundByContractId };
+module.exports = { createDepositRefund, getDepositRefundByContractId, findById };

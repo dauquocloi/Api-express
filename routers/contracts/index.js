@@ -8,15 +8,20 @@ const ROLES = require('../../constants/userRoles');
 const router = express.Router();
 
 router.use(authentication);
+
 router.get('/pdf-url', validator(schema.getContractSignedUrl, ValidateSource.QUERY), Contracts.getContractPdfSignedUrl);
+
 router.post('/', authorization(ROLES['OWNER'], ROLES['MANAGER']), validator(schema.createContract, ValidateSource.BODY), Contracts.generateContract);
+
 router.post('/workflow/prepare', validator(schema.generatePrepareContract, ValidateSource.BODY), Contracts.prepareGenerateContract);
+
 router.patch(
 	'/:contractId/workflow/set-move-out-date',
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.setMoveOutDate, ValidateSource.BODY),
 	Contracts.setExpectedMoveOutDate,
 );
+
 router.patch(
 	'/:contractId/workflow/cancel-terminate-early',
 	validator(schema.id, ValidateSource.PARAM),

@@ -2,13 +2,9 @@ const { NotFoundError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
 
-const findById = async (buildingId) => {
-	return await Entity.BuildingsEntity.findById(buildingId).lean().exec();
-};
+const findById = (buildingId) => Entity.BuildingsEntity.findById(buildingId);
 
-const findByManagementId = async (userId) => {
-	return await Entity.BuildingsEntity.find({ 'management.user': userId }).lean().exec();
-};
+const findByManagementId = (userId) => Entity.BuildingsEntity.find({ 'management.user': userId });
 
 const findUserInBuilding = async (userId, buildingId) => {
 	return await Entity.BuildingsEntity.findOne({ _id: buildingId, 'management.user': userId }).lean().exec();

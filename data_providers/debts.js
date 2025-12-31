@@ -7,8 +7,8 @@ const { getDebtsAndReceiptUnpaid } = require('../service/debts.service');
 
 exports.getCreateDepositRefundInfo = async (data, cb, next) => {
 	try {
-		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		const roomObjectId = new mongoose.Types.ObjectId(data.roomId);
+		const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
 

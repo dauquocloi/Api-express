@@ -7,7 +7,7 @@ var Entity = require('../models');
 const { NotFoundError } = require('../AppError');
 
 exports.getAll = async (buildingId, status) => {
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 	const vehicles = await Services.vehicles.getAllVehicles(buildingObjectId, status);
 	return vehicles;
 };
@@ -37,8 +37,8 @@ exports.editVehicle = async (data) => {
 };
 
 exports.addVehicle = async (data) => {
-	let customerObjectId = mongoose.Types.ObjectId(`${data.customerId}`);
-	let roomObjectId = mongoose.Types.ObjectId(`${data.roomId}`);
+	let customerObjectId = new mongoose.Types.ObjectId(`${data.customerId}`);
+	let roomObjectId = new mongoose.Types.ObjectId(`${data.roomId}`);
 
 	let image = '';
 	if (data.vehicle && data.vehicle !== '') {
@@ -60,7 +60,7 @@ exports.addVehicle = async (data) => {
 };
 
 exports.getVehicle = async (vehicleId) => {
-	const vehicleObjectId = mongoose.Types.ObjectId(vehicleId);
+	const vehicleObjectId = new mongoose.Types.ObjectId(vehicleId);
 
 	const vehicle = await Services.vehicles.getVehicleDetail(vehicleObjectId);
 

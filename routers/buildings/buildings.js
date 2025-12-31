@@ -192,26 +192,6 @@ exports.getAllCheckoutCosts = asyncHandler(async (req, res) => {
 // 	);
 // };
 
-// exports.getDepositTermFile = (req, res, next) => {
-// 	var data = req.params;
-// 	console.log('log of data from getDepositTermFile: ', data);
-
-// 	UseCase.getDepositTermFile(
-// 		data,
-// 		(err, result) => {
-// 			if (!err) {
-// 				return res.status(200).send({
-// 					errorCode: 0,
-// 					data: result,
-// 					message: 'succesfull',
-// 					errors: [],
-// 				});
-// 			}
-// 		},
-// 		next,
-// 	);
-// };
-
 // exports.getInvoicesPaymentStatus = asyncHandler(async (req, res) => {
 // 	const data = { ...req.params, ...req.query };
 // 	console.log('log of getInvoicesPaymentStatus', data);
@@ -251,5 +231,12 @@ exports.getStatisticGeneral = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.query };
 	console.log('log of getStatisticGeneral', data);
 	const result = await UseCase.getStatisticGeneral(data.buildingId, data.year);
+	return new SuccessResponse('Success', result).send(res);
+});
+
+exports.getDepositTermFile = asyncHandler(async (req, res) => {
+	const data = req.params;
+	console.log('log of getDepositTermFile', data);
+	const result = await UseCase.getDepositTermFile(data.buildingId);
 	return new SuccessResponse('Success', result).send(res);
 });

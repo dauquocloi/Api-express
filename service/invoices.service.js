@@ -16,9 +16,8 @@ exports.findByIdQuery = async (invoiceId, session) => {
 	return invoiceInfo;
 };
 
-exports.findById = async (invoiceId) => {
-	const invoiceInfo = await Entity.InvoicesEntity.findById(invoiceId);
-	return invoiceInfo;
+exports.findById = (invoiceId) => {
+	return Entity.InvoicesEntity.findById(invoiceId);
 };
 
 exports.closeAndSetDetucedInvoice = async (invoiceId, detuctedType, detuctedId, session) => {
@@ -124,11 +123,55 @@ exports.modifyInvoice = async ({ total, fee, status, stayDays, invoiceId, versio
 		},
 		{ session },
 	);
-	if (result.n === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
+	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 	return result;
 };
 
 exports.getInvoiceInfoByInvoiceCode = async (invoiceCode) => {
 	const [invoiceInfo] = await Entity.InvoicesEntity.aggregate(Pipelines.invoices.getInvoiceInfoByInvoiceCode(invoiceCode));
 	return invoiceInfo;
+};
+
+exports.unLockInvoice = async (invoiceId) => {
+	const result = await Entity.InvoicesEntity.findOneAndUpdate({ _id: invoiceId }, { $set: { locked: false } }, { new: true });
+	if (!result) throw new NotFoundError('Hóa đơn không tồn tại');
+	return result;
+};
+
+exports.rollBackInvoiceAtCheckoutCost = async (invoiceId, session) => {
+	const result = await Entity.InvoicesEntity.updateOne(
+		{
+			_id: invoiceId,
+		},
+		{
+			$set: {
+				locked: false,
+				detuctedInfo: null,
+			},
+			$inc: { version: 1 },
+		},
+		{ session },
+	);
+	if (result.matchedCount === 0) throw new NotFoundError('Hóa đơn không tồn tại !');
+	return result;
+};
+
+exports.findInvoiceInfoByPaymentContent = async (paymentContent) => {
+	const normalizedPaymentContent = paymentContent.toString().trim().replace(/\s+/g, '').toUpperCase();
+	const [result] = await Entity.InvoicesEntity.aggregate(Pipelines.invoices.findInvoiceInfoByPaymentContent(normalizedPaymentContent));
+	if (!result) return null;
+	return result;
+};
+
+exports.updateInvoicePaidStatus = async ({ invoiceId, paidAmount, invoiceStatus }, session) => {
+	const result = await Entity.InvoicesEntity.findOneAndUpdate(
+		{ _id: invoiceId },
+		{
+			$set: { paidAmount, status: invoiceStatus },
+			$inc: { version: 1 },
+		},
+		{ session },
+	);
+	if (!result) return null;
+	return result;
 };

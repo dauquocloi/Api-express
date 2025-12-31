@@ -74,10 +74,10 @@ const ContractsPdfFileSchema = new Schema({
 
 const ContractsSchema = new Schema(
 	{
-		room: { type: Schema.Types.ObjectId, ref: 'rooms', required: true },
-		depositReceiptId: { type: Schema.Types.ObjectId, ref: 'receipts', required: false },
-		depositId: { type: Schema.Types.ObjectId, ref: 'deposits' },
-		user: { type: Schema.Types.ObjectId, ref: 'users' },
+		room: { type: Schema.Types.ObjectId, ref: 'RoomsEntity', required: true },
+		depositReceiptId: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity', required: false },
+		depositId: { type: Schema.Types.ObjectId, ref: 'DepositsEntity' },
+		user: { type: Schema.Types.ObjectId, ref: 'UsersEntity' },
 		fees: [FeeSchema],
 		rent: { type: Number, required: true },
 		contractSignDate: { type: Date, required: true },

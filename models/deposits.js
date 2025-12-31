@@ -9,11 +9,10 @@ const FeeSchema = new Schema({
 	unit: { type: String, enum: Object.values(feeUnit), required: true },
 	lastIndex: {
 		type: Number,
-		required: function () {
-			return this.unit === 'index';
-		},
+		default: 0,
 	},
 	feeKey: { type: String },
+	iconPath: { type: String },
 });
 
 const InteriorSchema = new Schema({
@@ -36,10 +35,10 @@ const PersonSchema = new Schema({
 
 const DepositsSchema = new Schema(
 	{
-		room: { type: Schema.Types.ObjectId, ref: 'rooms' },
-		building: { type: Schema.Types.ObjectId, ref: 'buildings' },
-		receipt: { type: Schema.Types.ObjectId, ref: 'receipts' },
-		contract: { type: Schema.Types.ObjectId, ref: 'contracts' },
+		room: { type: Schema.Types.ObjectId, ref: 'RoomsEntity' },
+		building: { type: Schema.Types.ObjectId, ref: 'BuildingsEntity' },
+		receipt: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity' },
+		contract: { type: Schema.Types.ObjectId, ref: 'ContractsEntity' },
 		rent: { type: Number, required: true },
 		depositAmount: { type: Number, required: true },
 		actualDepositAmount: { type: Number, required: true },

@@ -2,7 +2,7 @@ const { createNotification } = require('../data_providers/notifications');
 const { sendNotification } = require('../utils/notificationUtils');
 const Entity = require('../models');
 const mongoose = require('mongoose');
-const { getNotiForm } = require('../utils/getNotiForm');
+const { NotiForm } = require('../utils/NotiForm');
 const { Connect } = require('../utils/MongoConnect');
 const generateContract = require('../utils/generateContract');
 const moment = require('moment');
@@ -25,14 +25,14 @@ notificationQueue.process(async (job) => {
 		let receiverIds;
 		let expoPushTokens;
 		if (type == 'task') {
-			const managementObjectIds = payload.managementIds.map((m) => mongoose.Types.ObjectId(m));
+			const managementObjectIds = payload.managementIds.map((m) => new mongoose.Types.ObjectId(m));
 			const receiverInfo = await Entity.UsersEntity.find({ _id: { $in: managementObjectIds } }, { _id: 1, expoPushToken: 1 });
 			if (!receiverInfo) throw new Error('Không tồn tại receiver');
 
 			receiverIds = receiverInfo?.map((r) => r._id);
 			expoPushTokens = receiverInfo?.map((r) => r.expoPushToken);
 		} else {
-			const buildingObjectId = mongoose.Types.ObjectId(payload.buildingId);
+			const buildingObjectId = new mongoose.Types.ObjectId(payload.buildingId);
 			const [receiverInfo] = await Entity.BuildingsEntity.aggregate([
 				{
 					$match: {
@@ -140,9 +140,9 @@ generateContractQueue.process(async (job) => {
 		if (!mongoose.isValidObjectId(contractId)) throw new Error('Invalid contractId');
 		if (!mongoose.isValidObjectId(roomId)) throw new Error('Invalid roomId');
 
-		const buildingObjectId = mongoose.Types.ObjectId(buildingId);
-		const contractObjectId = mongoose.Types.ObjectId(contractId);
-		const roomObjectId = mongoose.Types.ObjectId(roomId);
+		const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+		const contractObjectId = new mongoose.Types.ObjectId(contractId);
+		const roomObjectId = new mongoose.Types.ObjectId(roomId);
 
 		const customerInfo = await Entity.CustomersEntity.findOne({ room: roomObjectId, isContractOwner: true, status: { $in: [1, 2] } });
 		if (!customerInfo) throw new Error('Lỗi không tìm thấy khách hàng !');
@@ -215,7 +215,7 @@ modifyContractQueue.process(async (job) => {
 	console.log('log of modifyContractData: ', job.data);
 
 	const { contractId, buildingId, rent } = job.data;
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
 	// 1️⃣ Lấy contract trước, không giữ transaction lâu
 	const contract = await Entity.ContractsEntity.findById(contractId);

@@ -1,6 +1,6 @@
 const { Expo } = require('expo-server-sdk');
 const express = require('express');
-const { getNotiForm } = require('./getNotiForm');
+const { NotiForm } = require('./NotiForm');
 const mongoose = require('mongoose');
 const Entity = require('../models');
 

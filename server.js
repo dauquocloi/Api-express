@@ -2,17 +2,23 @@ require('./instrument.js');
 const Sentry = require('@sentry/node');
 
 const express = require('express');
-const app = express();
-const errorHandler = require('./middleware/errorMidlewares');
-// const server = require('http').createServer(app);
-const port = 8080;
-const routers = require('./routers');
-const adminRouters = require('./routers/admin');
-global.config = require('./config');
-const cookieParser = require('cookie-parser');
-const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
+const cookieParser = require('cookie-parser');
+const cors = require('cors');
+
+// ========== CONFIG ==========
+const port = 8080;
+global.config = require('./config');
+
+// ========== IMPORT ==========
+const { initializeInstances } = require('./instance');
+const { Connect } = require('./utils/MongoConnect');
+const errorHandler = require('./middleware/errorMidlewares');
+const routers = require('./routers');
+
+// ========== EXPRESS & SOCKET SETUP ==========
+const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
 	cors: {
@@ -20,81 +26,77 @@ const io = new Server(server, {
 		methods: ['GET', 'POST'],
 	},
 });
-const { Connect } = require('./utils/MongoConnect');
 
-// const { getIO } = require('./utils/SocketConnect');
-// const io = getIO(server);
+// ✅ Initialize TransactionManager
+const { transactionManager } = initializeInstances(io);
+console.log('✅ TransactionManager initialized');
+
+// ========== EXPRESS MIDDLEWARE ==========
 app.use(cookieParser());
-
 app.use(cors({ origin: '*' }));
-app.use(
-	express.json({
-		limit: '500mb',
-	}),
-);
-app.use(
-	express.urlencoded({
-		limit: '500mb',
-		extended: true,
-	}),
-);
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ limit: '500mb', extended: true }));
 
-// -----------SOCKET--------------------//
-
-const userSocketMap = {};
-const groupSocketMap = [];
-
+// ========== SOCKET EVENTS ==========
 io.on('connection', (socket) => {
-	console.log('a user connected ', socket.id);
+	console.log(`✅ Client connected: ${socket.id}`);
 
-	const currentUserId = socket.handshake.query.userId;
-	console.log(currentUserId);
+	// Subscribe transaction
+	socket.on('receipt:subscribe', (data) => {
+		const { receiptId } = data;
+		socket.join(`receipt:${receiptId}`);
 
-	if (currentUserId != undefined) {
-		userSocketMap[currentUserId] = socket.id;
-	}
+		socket.emit('receipt:currentStatus', {
+			id: receiptId,
+			status: 'unknown',
+		});
 
-	socket.on('joinRoom', ({ groupId, roomName }) => {});
-
-	socket.on('sendMessage', ({ senderId, receiverId, message }) => {
-		console.log('[server<sendMessage>receiverId:', receiverId);
-
-		const receiveSocketId = userSocketMap[receiverId];
-		console.log('[server/sendMessage<receiveSocketId>:', receiveSocketId);
-		if (receiveSocketId) {
-			socket.to(receiveSocketId).emit('receiveMessage', { senderId, message });
-		}
+		console.log(`📌 Subscribed: ${receiptId}`);
 	});
 
-	socket.on('sendMessageToGroupChat', ({ senderId, messageContent, groupId }) => {
-		console.log('[server<sendMessageToGroupChat>groupId:', groupId);
-		socket.to(groupId).emit('receiveMessage', { senderId, messageContent });
+	socket.on('receipt:unsubscribe', (data) => {
+		const { receiptId } = data;
+		socket.leave(`receipt:${receiptId}`);
+		console.log(`🔴 Unsubscribed: ${receiptId}`);
+	});
+
+	socket.on('invoice:subscribe', (data) => {
+		const { invoiceId } = data;
+		socket.join(`invoice:${invoiceId}`);
+
+		console.log(`📌 Subscribed: ${invoiceId}`);
+	});
+
+	socket.on('invoice:unsubscribe', (data) => {
+		const { invoiceId } = data;
+		socket.leave(`invoice:${invoiceId}`);
+		console.log(`🔴 Unsubscribed: ${invoiceId}`);
 	});
 
 	socket.on('disconnect', () => {
-		console.log('user has disconnected: ', socket.id);
+		console.log(`❌ Disconnected: ${socket.id}`);
 	});
 });
 
-// Gọi hàm Connect và chỉ chạy server nếu kết nối thành công
+// ========== DATABASE CONNECTION ==========
 Connect('Qltro-test')
 	.then(() => {
-		console.log('✅ Đã kết nối MongoDB Atlas');
+		console.log('✅ MongoDB connected');
 	})
 	.catch((err) => {
-		console.error('❌ Kết nối MongoDB thất bại:', err);
+		console.error('❌ MongoDB connection failed:', err);
 	});
 
-//khai báo router
+// ========== ROUTES ==========
 app.use('/', routers);
-// routers.routerApi(app);
-// adminRouters.adminRouters(app);
 
-// The error handler must be registered before any other error middleware and after all controllers
+// ========== ERROR HANDLER ==========
 Sentry.setupExpressErrorHandler(app);
-
-//middleware handle error
 app.use(errorHandler);
-server.listen(port);
 
-console.log('Server is listening on port ' + port);
+// ========== START SERVER ==========
+server.listen(port, () => {
+	console.log(`🚀 Server listening on port ${port}`);
+});
+
+module.exports = { io, transactionManager };

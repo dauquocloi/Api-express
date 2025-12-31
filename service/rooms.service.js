@@ -2,9 +2,10 @@ const { NotFoundError, ConflictError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
 const { ROOM_LOCK_TTL_MS, LOCK_REASON } = require('../constants/rooms');
+const { depositStatus } = require('../constants/deposits');
 
-const findById = async (roomId) => {
-	return await Entity.RoomsEntity.findById(roomId).lean().exec();
+const findById = (roomId) => {
+	return Entity.RoomsEntity.findById(roomId);
 };
 
 const getAllRooms = async (buildingId) => {
@@ -154,6 +155,31 @@ const assertRoomWritable = async ({ roomId, userId, session = null }) => {
 	return room.writeLock;
 };
 
+const checkRoomDeposited = async (roomId, session) => {
+	const result = await Entity.DepositsEntity.findOne({ room: roomId, status: { $in: [depositStatus['PAID'], depositStatus['PARTIAL']] } })
+		.session(session)
+		.lean()
+		.exec();
+	if (result) return true;
+	return false;
+};
+
+const updateRoomState = async ({ roomId, roomState }, session) => {
+	const result = await Entity.RoomsEntity.updateOne({ _id: roomId }, { $set: { state: roomState }, $inc: { version: 1 } }, { session });
+
+	if (result.matchedCount === 0) {
+		throw new NotFoundError('Phòng không tồn tại');
+	}
+
+	return 'Success';
+};
+
+const setRoomDeposited = async ({ roomId, isDeposited, session }) => {
+	const result = await Entity.RoomsEntity.updateOne({ _id: roomId }, { $set: { isDeposited: isDeposited }, $inc: { version: 1 } }, { session });
+	if (result.matchedCount === 0) throw new ConflictError('Phòng không tồn tại ');
+	return 'Success';
+};
+
 module.exports = {
 	getAllRooms,
 	getRoom,
@@ -167,4 +193,7 @@ module.exports = {
 	setWriteLockedRoom,
 	unLockedRoom,
 	assertRoomWritable,
+	checkRoomDeposited,
+	updateRoomState,
+	setRoomDeposited,
 };

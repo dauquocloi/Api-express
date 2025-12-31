@@ -30,3 +30,17 @@ exports.closeDebts = async (roomId, session) => {
 
 	return result;
 };
+
+exports.terminateDebts = async (debtIds, session) => {
+	const result = await Entity.DebtsEntity.updateMany({ _id: { $in: debtIds } }, { $set: { status: debtStatus['TERMINATED'] } }, { session });
+	if (result.matchedCount === 0 || result.matchedCount !== debtIds.length) throw new NotFoundError('Không tìm thấy bản ghi');
+	return result;
+};
+
+exports.getDebtsByIds = async (debtIds, session) => {
+	const query = Entity.DebtsEntity.find({ _id: { $in: debtIds } });
+	if (session) query.session(session);
+	const result = await query.lean().exec();
+	if (!result || result.length === 0) throw new NotFoundError('Dữ liệu không tồn tại');
+	return result;
+};

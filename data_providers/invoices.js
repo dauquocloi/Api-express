@@ -13,9 +13,10 @@ const { calculateTotalFeeAmount } = require('../utils/calculateFeeTotal');
 const { generateInvoiceFees } = require('../service/invoices.helper');
 const { getInvoiceStatus } = require('../service/invoices.helper');
 const { feeUnit } = require('../constants/fees');
+const { invoiceStatus } = require('../constants/invoices');
 
 exports.getInvoicesPaymentStatus = async (buildingId, month, year) => {
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
 	if (!month || !year) {
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
@@ -40,7 +41,7 @@ exports.getInvoicesPaymentStatus = async (buildingId, month, year) => {
 };
 
 exports.getInvoiceSendingStatus = async (buildingId) => {
-	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
 	const currentPeriod = await getCurrentPeriod(buildingObjectId);
 	const { currentMonth, currentYear } = currentPeriod;
@@ -58,17 +59,18 @@ exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, use
 	let session;
 	try {
 		session = await mongoose.startSession();
-		return await session.withTransaction(async () => {
+		await session.withTransaction(async () => {
 			const currentInvoice = await Services.invoices.getInvoiceInfo(invoiceId, session);
 			if (!currentInvoice) throw new NotFoundError('Hóa đơn không tồn tại');
 			if (currentInvoice.locked === true) throw new BadRequestError('Hóa đơn đã đóng');
 			if (version !== currentInvoice.version) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 
-			await Services.rooms.assertRoomWritable({ roomId: currentInvoice.roomId, userId, session });
+			await Services.rooms.assertRoomWritable({ roomId: currentInvoice.room, userId, session });
 
 			const formatFees = generateInvoiceFees(currentInvoice.fee, 0, stayDays, feeIndexValues, false, 'modify');
 			const totalRoomfees = calculateTotalFeeAmount(formatFees);
 			const totalDebts = currentInvoice.debts?.reduce((sum, debt) => sum + debt.amount, 0) ?? 0;
+
 			const newTotalInvoice = totalRoomfees + totalDebts;
 			const invoiceStatus = getInvoiceStatus(currentInvoice.paidAmount, newTotalInvoice);
 
@@ -83,9 +85,28 @@ exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, use
 				},
 				session,
 			);
+			console.log('log of modifiedInvoice: ', modifedInvoice);
+
+			const roomFees = await Entity.FeesEntity.find({ room: currentInvoice.room, unit: feeUnit['INDEX'] }).session(session);
+
+			if (roomFees.length === 0) return;
+
+			const newFeeMap = new Map(formatFees.map((f) => [f.feeKey, f]));
+			console.log('log of newFeeMap: ', newFeeMap);
+			console.log('log of roomFees: ', roomFees);
+
+			for (const fee of roomFees) {
+				const newFee = newFeeMap.get(fee.feeKey);
+				if (!newFee) continue;
+
+				if (newFee.lastIndex !== fee.lastIndex) {
+					await Services.fees.modifyFeeUnitIndex(fee._id, newFee.lastIndex, newFee.amount, fee.version, session);
+				}
+			}
 
 			return 'success';
 		});
+		return 'success';
 	} finally {
 		if (session) {
 			session.endSession();
@@ -94,8 +115,8 @@ exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, use
 };
 
 exports.getInvoiceDetail = async (invoiceId, buildingId) => {
-	const invoiceObjectId = mongoose.Types.ObjectId(invoiceId);
-	// const buildingObjectId = mongoose.Types.ObjectId(buildingId);
+	const invoiceObjectId = new mongoose.Types.ObjectId(invoiceId);
+	// const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
 	const invoice = await Services.invoices.getInvoiceDetail(invoiceObjectId);
 	const { _id: invoiceInfo, transactionInfo } = invoice;
@@ -111,30 +132,30 @@ exports.getInvoiceDetail = async (invoiceId, buildingId) => {
 };
 
 //owner only
-exports.deleteInvoice = async (invoiceId, roomVersion, userId) => {
+exports.deleteInvoice = async (invoiceId, roomVersion, userId, invoiceVersion) => {
 	let session;
 	try {
 		const invoiceObjectId = new mongoose.Types.ObjectId(invoiceId);
 
 		session = await mongoose.startSession();
-		return await session.withTransaction(async () => {
-			const invoice = await Entity.InvoicesEntity.findOne({ _id: invoiceObjectId }).session(session);
+		await session.withTransaction(async () => {
+			const invoice = await Services.invoices.findById(invoiceObjectId).session(session).lean().exec();
 			if (!invoice) throw new NotFoundError('Hóa đơn không tồn tại');
 
-			await Services.rooms.assertRoomWritable({ roomId: invoice.roomId, userId, session });
+			await Services.rooms.assertRoomWritable({ roomId: invoice.room, userId, session });
 
 			const { fee } = invoice;
-			const indexFees = fee.filter((f) => f.unit === 'index');
+			const indexFees = fee.filter((f) => f.unit === feeUnit['INDEX']);
 
-			const terminateInvoice = async () => {
-				await Entity.InvoicesEntity.findOneAndUpdate({ _id: invoiceObjectId }, { $set: { status: 'terminated' } }, { session });
-			};
+			const invoiceTerminated = await Entity.InvoicesEntity.findOneAndUpdate(
+				{ _id: invoiceObjectId, version: invoiceVersion },
+				{ $set: { status: invoiceStatus['TERMINATED'] }, $inc: { version: 1 } },
+				{ session },
+			);
 
-			if (invoice.status === 'paid') {
-				await terminateInvoice();
-			}
-			if (invoice.status === 'unpaid') {
-				await terminateInvoice();
+			if (invoiceTerminated.matchedCount === 0) throw new ConflictError('Hóa đơn này đã bị thay đổi !');
+
+			if (invoice.status === invoiceStatus['UNPAID']) {
 				if (indexFees.length > 0) {
 					const operations = indexFees.map((f) => ({
 						updateOne: {
@@ -159,14 +180,13 @@ exports.deleteInvoice = async (invoiceId, roomVersion, userId) => {
 					);
 				}
 			}
-			if (invoice.status === 'partial') {
-				await terminateInvoice();
-			}
 
 			await Services.rooms.bumpRoomVersion(invoice.room, roomVersion, session);
 
 			return 'Success';
 		});
+
+		return 'Success';
 	} finally {
 		if (session) session.endSession();
 	}
@@ -177,8 +197,8 @@ exports.collectCashMoney = async (data) => {
 	try {
 		session = await mongoose.startSession();
 		session.startTransaction();
-		const invoiceObjectId = mongoose.Types.ObjectId(data.invoiceId);
-		const collectorObjectId = mongoose.Types.ObjectId(data.userId);
+		const invoiceObjectId = new mongoose.Types.ObjectId(data.invoiceId);
+		const collectorObjectId = new mongoose.Types.ObjectId(data.userId);
 
 		const [currentInvoice] = await Entity.InvoicesEntity.aggregate([
 			{
@@ -269,16 +289,16 @@ exports.collectCashMoney = async (data) => {
 	}
 };
 
-exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, createrId) => {
+exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, createrId, roomVersion) => {
 	let session;
-
+	let result;
 	try {
-		const roomObjectId = mongoose.Types.ObjectId(roomId);
-		const buildingObjectId = mongoose.Types.ObjectId(buildingId);
-		const createrObjectId = mongoose.Types.ObjectId(createrId);
+		const roomObjectId = new mongoose.Types.ObjectId(roomId);
+		const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+		const createrObjectId = new mongoose.Types.ObjectId(createrId);
 		session = await mongoose.startSession();
 
-		return session.withTransaction(async () => {
+		await session.withTransaction(async () => {
 			await Services.rooms.assertRoomWritable({ roomId, userId: createrObjectId, session });
 			const currentPeriod = await getCurrentPeriod(buildingObjectId);
 			const roomContractOwner = await Services.customers.getContractOwner(roomObjectId, session);
@@ -291,7 +311,7 @@ exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, cre
 			if (getDebts.length > 0) getDebts = formatDebts(getDebts);
 			else getDebts = null;
 
-			const totalInvoiceAmount = totalRoomfees + (getDebts.amount ?? 0);
+			const totalInvoiceAmount = totalRoomfees + (getDebts?.amount ?? 0);
 			const createdInvoice = await Services.invoices.createInvoice(
 				{
 					roomId: roomObjectId,
@@ -312,24 +332,27 @@ exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, cre
 				{ session },
 			);
 
-			const roomFeeIndexIds = roomFees.feeInfo.map((fee) => {
-				if (fee.unit === feeUnit['INDEX']) return fee._id;
-			});
+			const roomFeeIndexIds = roomFees.feeInfo.filter((fee) => fee.unit === feeUnit.INDEX).map((fee) => fee._id.toString());
 
 			await Services.fees.updateFeeIndexValues(roomFeeIndexIds, feeIndexValues, session);
 			await Services.rooms.unLockedRoom(roomId, session);
+			await Services.rooms.bumpRoomVersion(roomId, roomVersion, session);
 
-			return createdInvoice;
+			result = createdInvoice;
+			return 'Success';
 		});
+		return result;
+	} catch (error) {
+		throw error;
 	} finally {
-		session.endSession();
+		if (session) session.endSession();
 	}
 };
 
 // exports.createFirstInvoice = async (roomId, buildingId, fees, rent, stayDays) => {
-// 	const roomObjectId = mongoose.Types.ObjectId(roomId);
-// 	const buildingObjectId = mongoose.Types.ObjectId(buildingId);
-// 	const createrObjectId = mongoose.Types.ObjectId(userId);
+// 	const roomObjectId = new mongoose.Types.ObjectId(roomId);
+// 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+// 	const createrObjectId = new mongoose.Types.ObjectId(userId);
 // 	const currentPeriod = await getCurrentPeriod(buildingObjectId);
 // 	const roomContractOwner = await Services.customers.getContractOwner(roomObjectId, session);
 
@@ -392,10 +415,10 @@ exports.create = async (data, cb, next) => {
 		session.startTransaction();
 
 		const { fees, stayDays } = data;
-		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		const roomObjectId = new mongoose.Types.ObjectId(data.roomId);
+		const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 
-		const feesObjectIds = fees.map((fee) => mongoose.Types.ObjectId(fee._id));
+		const feesObjectIds = fees.map((fee) => new mongoose.Types.ObjectId(fee._id));
 		const feesFromDb = await Entity.FeesEntity.find({ _id: { $in: feesObjectIds } });
 		const getRentAmount = await Entity.ContractsEntity.findOne({ room: roomObjectId, status: 'active' });
 		const getDebts = await Entity.DebtsEntity.find(
@@ -587,8 +610,8 @@ exports.create = async (data, cb, next) => {
 exports.generateFirstInvoice = async (data, cb, next) => {
 	try {
 		// throw new AppError(errorCodes.notExist, 'Phòng không tồn tại', 200);
-		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
-		const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+		const roomObjectId = new mongoose.Types.ObjectId(data.roomId);
+		const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
 		const calculateFeeIndexTotalAmount = (firstIndex, lastIndex, feeAmount) => {

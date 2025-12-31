@@ -24,7 +24,7 @@ const createMessage = (prop) => {
 };
 
 exports.getAllMessagesByUserId = (data, cb) => {
-	var userId = mongoose.Types.ObjectId(`${data.userId}`);
+	var userId = new mongoose.Types.ObjectId(`${data.userId}`);
 	console.log('this is log of userId of getAllMessagesByUserId at data_provider:', userId);
 	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
@@ -72,7 +72,7 @@ exports.getAllMessagesByUserId = (data, cb) => {
 
 exports.newMessage = (data, cb) => {
 	const { messageContent, senderId, conversationId } = data.params;
-	const sender = mongoose.Types.ObjectId(`${senderId}`);
+	const sender = new mongoose.Types.ObjectId(`${senderId}`);
 
 	MongoConnect.Connect(config.database.fullname)
 		.then((db) => {
@@ -95,9 +95,9 @@ exports.testCreateMessage = (data, cb) => {
 
 	for (var i = 0; i <= 5; i++) {
 		let messageInfo = {
-			conversation: mongoose.Types.ObjectId('66d5c28b31d8bbca407258a5'),
+			conversation: new mongoose.Types.ObjectId('66d5c28b31d8bbca407258a5'),
 			content: `tin nhắn thứ ${i}`,
-			sender: mongoose.Types.ObjectId('6639ccbdb6e895454cd97d5f'),
+			sender: new mongoose.Types.ObjectId('6639ccbdb6e895454cd97d5f'),
 		};
 		createMessage(messageInfo);
 	}
@@ -108,7 +108,7 @@ exports.getAllInfoByTextInput = (data, cb) => {
 	let { query, token } = data;
 	let verifyToken = jwt.verify(token, config.JWT.JWT_SECRET);
 	let userId = verifyToken.userId;
-	mongoose.Types.ObjectId(userId);
+	new mongoose.Types.ObjectId(userId);
 	console.log('this is log of request sender Id', userId);
 	MongoConnect.Connect(config.database.fullname).then((db) => {
 		Entity.CustomersEntity.aggregate(
@@ -162,7 +162,7 @@ exports.getAllInfoByTextInput = (data, cb) => {
 							{
 								$match: {
 									// request sender _id
-									_id: mongoose.Types.ObjectId('6639ccbdb6e895454cd97d5f'),
+									_id: new mongoose.Types.ObjectId('6639ccbdb6e895454cd97d5f'),
 								},
 							},
 							{
@@ -304,7 +304,7 @@ exports.getAllInfoByTextInput = (data, cb) => {
 };
 
 exports.getMessagesByConversationId = (data, cb) => {
-	const conversationId = mongoose.Types.ObjectId(data.conversationId);
+	const conversationId = new mongoose.Types.ObjectId(data.conversationId);
 	const PAGE_NUMBER = Number(data.page) - 1;
 	const PAGE_SIZE = 20;
 	console.log(PAGE_NUMBER);

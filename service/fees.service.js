@@ -14,21 +14,25 @@ exports.getRoomFeesAndDebts = async (roomObjectId, session) => {
 };
 
 exports.updateFeeIndexValues = async (feeIndexIds, feeIndexValues, session) => {
-	const operations = feeIndexIds.map((feeId) => ({
-		updateOne: {
-			filter: {
-				_id: feeId,
-			},
-			update: {
-				$set: {
-					lastIndex: Number(feeIndexValues[feeId].secondIndex),
-					// firstIndex: Number(feeIndexValues[feeId].firstIndex),
+	const operations = feeIndexIds.map((feeId) => {
+		const key = feeId.toString();
+		const indexValue = feeIndexValues[key];
+
+		if (!indexValue) {
+			throw new ConflictError(`Missing index value for fee ${key}`);
+		}
+
+		return {
+			updateOne: {
+				filter: { _id: feeId },
+				update: {
+					$set: { lastIndex: Number(indexValue.secondIndex) },
+					$inc: { version: 1 },
 				},
-				$inc: { version: 1 },
 			},
-			upsert: false,
-		},
-	}));
+		};
+	});
+
 	const result = await Entity.FeesEntity.bulkWrite(operations, { session });
 	if (result.matchedCount !== operations.length) {
 		throw new ConflictError('Some fees were modified by another transaction');
@@ -71,11 +75,11 @@ exports.modifyFeeAmount = async (feeId, feeAmount, version) => {
 			},
 		},
 	);
-	if (result.n === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
+	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 	return result;
 };
 
-exports.modifyFeeUnitIndex = async (feeId, lastIndex, feeAmount, version) => {
+exports.modifyFeeUnitIndex = async (feeId, lastIndex, feeAmount, version, session) => {
 	const result = await Entity.FeesEntity.updateOne(
 		{ _id: feeId, version: version },
 		{
@@ -87,8 +91,9 @@ exports.modifyFeeUnitIndex = async (feeId, lastIndex, feeAmount, version) => {
 				version: 1,
 			},
 		},
+		{ session },
 	);
-	if (result.n === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
+	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 	return result;
 };
 
@@ -97,4 +102,75 @@ exports.removeFee = async (feeId, session) => {
 	if (result.deletedCount !== 1) throw new NotFoundError('Phí không tồn tại !');
 
 	return 'success';
+};
+
+// use for modify checkout, refund deposit, modify invoice.
+exports.updateFeeIndexValuesByFeeKey = async (feeKeys, roomId, modifyFees, session) => {
+	const operations = [];
+
+	for (const feeKey of feeKeys) {
+		const indexValue = modifyFees.find((item) => item.feeKey === feeKey);
+
+		if (!indexValue) {
+			throw new ConflictError(`Missing index value for fee ${feeKey}`);
+		}
+
+		operations.push({
+			updateOne: {
+				filter: {
+					room: roomId,
+					feeKey: feeKey,
+				},
+				update: {
+					$set: {
+						lastIndex: Number(indexValue.lastIndex),
+					},
+					$inc: {
+						version: 1,
+					},
+				},
+			},
+		});
+	}
+
+	const result = await Entity.FeesEntity.bulkWrite(operations, { session });
+	console.log('result: ', result);
+
+	if (result.matchedCount !== operations.length) {
+		throw new ConflictError('Some fees were modified or not found during update');
+	}
+
+	return 'Success';
+};
+
+exports.rollbackFeeIndexValuesByFeeKey = async (fees, roomId, session) => {
+	const operations = [];
+
+	for (const fee of fees) {
+		operations.push({
+			updateOne: {
+				filter: {
+					room: roomId,
+					feeKey: fee.feeKey,
+				},
+				update: {
+					$set: {
+						lastIndex: Number(fee.firstIndex),
+					},
+					$inc: {
+						version: 1,
+					},
+				},
+			},
+		});
+	}
+
+	const result = await Entity.FeesEntity.bulkWrite(operations, { session });
+	console.log('result: ', result);
+
+	if (result.matchedCount !== operations.length) {
+		throw new ConflictError('Some fees were modified or not found during update');
+	}
+
+	return 'Success';
 };

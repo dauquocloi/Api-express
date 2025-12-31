@@ -15,7 +15,7 @@ exports.create = (data) => {
 
 exports.modifyPassword = async (data, cb, next) => {
 	try {
-		const userId = mongoose.Types.ObjectId(data.userId);
+		const userId = new mongoose.Types.ObjectId(data.userId);
 
 		const userCurrent = await Entity.UsersEntity.findOne({ _id: userId });
 		if (userCurrent != null) {
@@ -39,7 +39,7 @@ exports.modifyPassword = async (data, cb, next) => {
 
 // un refacted
 exports.modifyUserInfo = async (data) => {
-	const userId = mongoose.Types.ObjectId(data.userId);
+	const userId = new mongoose.Types.ObjectId(data.userId);
 
 	const userCurrent = await Entity.UsersEntity.findOne({ _id: userId });
 	// continue here
@@ -59,13 +59,13 @@ exports.modifyUserInfo = async (data) => {
 // cho trang phân quyền role admin
 // Lấy tất cả các quản trị viên, nhân viên
 exports.getAllManagers = async (userId) => {
-	const ownerId = mongoose.Types.ObjectId(userId);
+	const ownerId = new mongoose.Types.ObjectId(userId);
 	const managerInfo = await Services.users.getAllManagements(ownerId);
 	return managerInfo;
 };
 
 exports.createManager = async (data) => {
-	const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 	let encryptedPassword = await bcrypt.hash(data.phone, 5);
 
 	const userInfo = {
@@ -96,7 +96,7 @@ exports.createManager = async (data) => {
 
 // list chọn manager
 exports.getListSelectionManagements = async (userId) => {
-	const userObjectId = mongoose.Types.ObjectId(userId);
+	const userObjectId = new mongoose.Types.ObjectId(userId);
 	const listManagements = await Services.users.getListSelectionManagements(userObjectId);
 	return listManagements;
 };
@@ -115,7 +115,7 @@ exports.removeManager = async (managerId) => {
 
 // exports.getRefreshToken = async (req, cb, next) => {
 // 	try {
-// 		const userId = mongoose.Types.ObjectId(req.params?.userId);
+// 		const userId = new mongoose.Types.ObjectId(req.params?.userId);
 // 		const currentRefreshToken = await Entity.UsersEntity.findOne({ _id: userId }).lean();
 // 		console.log('log of currentRefreshToken: ', currentRefreshToken);
 // 		if (currentRefreshToken == null) {
@@ -147,7 +147,7 @@ exports.modifyUserPermission = async (userId, newPermission) => {
 };
 
 exports.checkManagerCollectedCash = async (userId) => {
-	const userObjectId = mongoose.Types.ObjectId(userId);
+	const userObjectId = new mongoose.Types.ObjectId(userId);
 	const transactions = await Services.transactions.getTransactionsByUserId(userObjectId);
 	return transactions;
 };
@@ -155,8 +155,8 @@ exports.checkManagerCollectedCash = async (userId) => {
 exports.changeUserBuildingManagement = async (data) => {
 	let session;
 	try {
-		const userObjectId = mongoose.Types.ObjectId(data.userId);
-		const listBuildingObjectIds = data.buildingIds.map((b) => mongoose.Types.ObjectId(b));
+		const userObjectId = new mongoose.Types.ObjectId(data.userId);
+		const listBuildingObjectIds = data.buildingIds.map((b) => new mongoose.Types.ObjectId(b));
 		session = await mongoose.startSession();
 		session.startTransaction();
 

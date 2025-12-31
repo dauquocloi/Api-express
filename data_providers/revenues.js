@@ -7,7 +7,7 @@ const Pipelines = require('../service/aggregates');
 
 // Un Refactored
 exports.getRevenues = async (data) => {
-	const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 	var revenueInfo;
 	var month;
 	var year;
@@ -258,7 +258,7 @@ exports.getRevenues = async (data) => {
 
 // Un refacted
 exports.getTotalFeeRevenue = async (data) => {
-	const buildingObjectId = mongoose.Types.ObjectId(data.buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 
 	var month;
 	var year;

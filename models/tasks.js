@@ -26,7 +26,7 @@ const TasksSchema = new Schema(
 
 TasksSchema.post('findOne', async function (doc) {
 	try {
-		if (doc.images && doc.images?.length > 0) {
+		if (doc?.images && doc.images?.length > 0) {
 			const { images } = doc;
 			const taskImageUrl = [];
 			for (const key of images) {
@@ -37,7 +37,7 @@ TasksSchema.post('findOne', async function (doc) {
 			doc.images = taskImageUrl;
 		}
 	} catch (error) {
-		next(error);
+		throw error;
 	}
 });
 
