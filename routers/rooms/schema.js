@@ -43,4 +43,7 @@ module.exports = {
 	getDebtsAndReceiptUnpaid: Joi.object().keys({
 		buildingId: JoiObjectId().required(),
 	}),
+	getHistoryDetail: Joi.object().keys({
+		roomHistoryId: JoiObjectId().required(),
+	}),
 };

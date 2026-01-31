@@ -11,6 +11,7 @@ const errorTypes = {
 	notFound: 'NotFoundError',
 	noData: 'NoDataError',
 	noEntry: 'NoEntryError',
+	toManyRequest: 'TooManyRequestError',
 };
 
 const {
@@ -60,6 +61,9 @@ class AppError extends Error {
 
 			case errorTypes.internal:
 				return new InternalServerErrorResponse(err.message).send(res);
+
+			case errorTypes.toManyRequest:
+				return new ToManyRequestError(err.message).send(res);
 
 			default: {
 				let message = err.message;
@@ -143,6 +147,12 @@ class AuthFailureError extends AppError {
 	}
 }
 
+class ToManyRequestError extends AppError {
+	constructor(message = 'Too many requests') {
+		super(errorTypes.toManyRequest, message);
+	}
+}
+
 module.exports = {
 	AppError,
 	AuthFailureError,
@@ -157,5 +167,6 @@ module.exports = {
 	InternalError,
 	InvalidInputError,
 	TokenExpiredError,
+	ToManyRequestError,
 	errorTypes,
 };

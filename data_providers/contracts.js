@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
-const MongoConnect = require('../utils/MongoConnect');
 const Entity = require('../models');
 const listFeeInitial = require('../utils/getListFeeInital');
-const { NotFoundError, BadRequestError, InternalError } = require('../AppError');
+const { NotFoundError, BadRequestError, InternalError, ConflictError } = require('../AppError');
+const { GeneratePdfContractJob } = require('../jobs/Contracts');
 const Services = require('../service');
 const { calculateTotalFeeAmount } = require('../utils/calculateFeeTotal');
 const { generateInvoiceFeesFromReq } = require('../service/invoices.helper');
@@ -11,6 +11,9 @@ const { receiptTypes, receiptStatus } = require('../constants/receipt');
 const { feeUnit } = require('../constants/fees');
 const formatInitialFees = require('../utils/formatInitialFees');
 const { invoiceStatus } = require('../constants/invoices');
+const getFieldUrl = require('../utils/getFileUrl');
+const redis = require('../config/redisClient');
+const withSignedUrls = require('../utils/withSignedUrls');
 
 exports.prepareGenerateContract = async (
 	roomId,
@@ -24,6 +27,7 @@ exports.prepareGenerateContract = async (
 	contractPeriod,
 	note,
 	stayDays,
+	redisKey,
 ) => {
 	let session;
 	let result;
@@ -118,13 +122,18 @@ exports.prepareGenerateContract = async (
 			return result;
 		});
 		console.log('log of result from prepareGenerateContract: ', result);
+
+		await redis.set(redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 		return result;
+	} catch (error) {
+		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
+		throw error;
 	} finally {
 		if (session) session.endSession();
 	}
 };
 
-exports.generateContract = async (contractDraftId) => {
+exports.generateContract = async (contractDraftId, userId, redisKey) => {
 	let session;
 	let result;
 	try {
@@ -148,43 +157,6 @@ exports.generateContract = async (contractDraftId) => {
 			currentRoom.version = currentRoom.version + 1;
 			await currentRoom.save({ session });
 
-			let vehicles = [];
-			let customersData = contractDraft.customers?.map((cus, index) => {
-				if (cus.vehicleLicensePlate && cus.vehicleLicensePlate?.trim() !== '') {
-					vehicles.push({
-						licensePlate: cus.vehicleLicensePlate,
-						fromDate: new Date(),
-						owner: cus.phone || null,
-						image: '',
-						room: contractDraft.room,
-						status: 'active',
-					});
-				}
-				return {
-					fullName: cus.fullName,
-					gender: cus.sex.toLowerCase(),
-					isContractOwner: index === 0 ? true : false,
-					birthday: cus.dob,
-					permanentAddress: cus.address,
-					phone: cus.phone,
-					avatar: '',
-					cccd: cus.cccd,
-					cccdIssueDate: cus.cccdIssueDate,
-					cccdIssueAt: cus.cccdIssueAt,
-					status: 1,
-					room: contractDraft.room,
-					temporaryResidence: false,
-					checkinDate: new Date(),
-					checkoutDate: contractDraft.contractEndDate,
-				};
-			});
-
-			const createdCustomers = await Entity.CustomersEntity.insertMany(customersData, { session });
-
-			if (vehicles?.length > 0) {
-				await Entity.VehiclesEntity.insertMany(vehicles, { session });
-			}
-
 			await Entity.FeesEntity.deleteMany({ room: contractDraft.room }, { session });
 
 			const feesData = contractDraft.fees
@@ -204,17 +176,27 @@ exports.generateContract = async (contractDraftId) => {
 					};
 				})
 				.filter(Boolean);
+			let listFeesCreated = [];
 			if (feesData.length > 0) {
-				await Entity.FeesEntity.insertMany(feesData, { session });
+				listFeesCreated = await Entity.FeesEntity.insertMany(feesData, { session });
 			}
-
-			// update depositReceiptType from deposit => incidental
-			const depositReceipt = await Entity.ReceiptsEntity.findOne({ _id: contractDraft.depositReceiptId }).session(session);
-			if (!depositReceipt) throw new NotFoundError(`Hóa đơn đặt cọc không tồn tại !`);
-			if (depositReceipt.status === receiptStatus['PENDING']) {
-				depositReceipt.status = receiptStatus['UNPAID'];
-				depositReceipt.version = depositReceipt.version + 1;
-				await depositReceipt.save({ session });
+			if (listFeesCreated.length > 0) {
+				const feeIndexHistoryPayload = listFeesCreated
+					.filter((fee) => fee.unit === feeUnit.INDEX)
+					.map((fee) => ({
+						feeKey: fee.feeKey,
+						fee: fee._id,
+						room: fee.room,
+						lastIndex: fee.lastIndex,
+						prevIndex: fee.lastIndex,
+						lastUpdated: new Date(),
+						prevUpdated: new Date(),
+						lastEditor: userId,
+						prevEditor: userId,
+					}));
+				if (feeIndexHistoryPayload.length > 0) {
+					await Services.fees.createFeeIndexHistory(feeIndexHistoryPayload, session);
+				}
 			}
 
 			if (contractDraft.depositId) {
@@ -227,25 +209,6 @@ exports.generateContract = async (contractDraftId) => {
 				);
 			}
 
-			// const [createContract] = await Entity.ContractsEntity.create(
-			// 	[
-			// 		{
-			// 			createdAt: new Date(),
-			// 			fees: feesData,
-			// 			rent: data.rent,
-			// 			contractSignDate: data.contractSignDate,
-			// 			contractEndDate: data.contractEndDate,
-			// 			contractTerm: data.contractTerm,
-			// 			status: 'active',
-			// 			room: contractDraft.room,
-			// 			contractCode: contractCode,
-			// 			depositReceiptId: data.receipt,
-			// 			depositId: data.depositId ?? null,
-			// 		},
-			// 	],
-			// 	{ session },
-			// );
-
 			const contractCreated = await Services.contracts.generateContract(
 				{
 					rent: contractDraft.rent,
@@ -256,17 +219,78 @@ exports.generateContract = async (contractDraftId) => {
 					roomId: contractDraft.room,
 					depositReceiptId: contractDraft.depositReceiptId,
 					depositId: contractDraft.depositId ?? null,
+					depositAmount: contractDraft.depositAmount,
 				},
 				session,
 			);
-			if (!contractCreated) throw new InternalError('Có lỗi trong quá trình tạo hợp đồng');
+			// update depositReceiptType from deposit => incidental
+			const depositReceipt = await Services.receipts.findById(contractDraft.depositReceiptId).session(session);
+			if (!depositReceipt) throw new NotFoundError(`Hóa đơn đặt cọc không tồn tại !`);
+			if (depositReceipt.status === receiptStatus['PENDING']) {
+				depositReceipt.status = receiptStatus['UNPAID'];
+				depositReceipt.version = depositReceipt.version + 1;
+				depositReceipt.contract = contractCreated._id;
+				await depositReceipt.save({ session });
+			}
+
+			let vehiclesWithoutOwner = [];
+			let customersData = contractDraft.customers?.map((cus, index) => {
+				if (cus.vehicleLicensePlate && cus.vehicleLicensePlate?.trim() !== '') {
+					vehiclesWithoutOwner.push({
+						licensePlate: cus.vehicleLicensePlate,
+						phone: cus.phone,
+						index: index,
+					});
+				}
+				return {
+					fullName: cus.fullName,
+					gender: cus.sex.toLowerCase(),
+					isContractOwner: index === 0 ? true : false,
+					birthdate: cus.dob,
+					permanentAddress: cus.address,
+					phone: cus.phone,
+					avatar: '',
+					cccd: cus.cccd,
+					cccdIssueDate: cus.cccdIssueDate,
+					cccdIssueAt: cus.cccdIssueAt,
+					status: 1,
+					room: contractDraft.room,
+					temporaryResidence: false,
+					checkinDate: new Date(),
+					checkoutDate: contractDraft.contractEndDate,
+					contract: contractCreated._id,
+				};
+			});
+
+			const createdCustomers = await Entity.CustomersEntity.insertMany(customersData, { session });
+			let ownerId = createdCustomers.filter((c) => c.isContractOwner === true)[0]?._id;
+			await Services.contracts.importCustomerRef(contractCreated._id, ownerId, session);
+
+			if (vehiclesWithoutOwner?.length > 0) {
+				const customerMap = {};
+				createdCustomers.forEach((customer) => {
+					customerMap[customer.phone] = customer._id;
+				});
+
+				const vehicles = vehiclesWithoutOwner.map((vehicleData) => ({
+					licensePlate: vehicleData.licensePlate,
+					fromDate: new Date(),
+					owner: customerMap[vehicleData.phone], // _id của customer sở hữu
+					image: '',
+					room: contractCreated.room,
+					status: 'active',
+					contract: contractCreated._id,
+				}));
+
+				await Entity.VehiclesEntity.insertMany(vehicles, { session });
+			}
 
 			await Services.rooms.bumpRoomVersionBlind(contractDraft.room, session);
+			await Services.rooms.unLockedRoom(contractDraft.room, session);
 
 			result = {
 				buildingId: currentRoom.building,
 				contractId: contractCreated._id,
-				roomId: contractDraft.room,
 				contractSignDate: contractCreated.contractSignDate,
 				contractEndDate: contractCreated.contractEndDate,
 				contractTerm: contractCreated.contractTerm,
@@ -275,48 +299,20 @@ exports.generateContract = async (contractDraftId) => {
 				feesData,
 				interiors: contractDraft.interiors ?? [],
 			};
+
+			await new GeneratePdfContractJob().enqueue(result);
 			return result;
 		});
+
+		await redis.set(redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 		return result;
 	} catch (error) {
+		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
 		throw error;
 	} finally {
 		if (session) session.endSession();
 	}
 };
-
-// exports.createContract = async (contractDraftId) => {
-// 	let session;
-// 	try {
-// 		const roomObjectId = mongoose.Types.ObjectId(data.roomId);
-
-// 		session = await mongoose.startSession();
-// 		await session.withTransaction(async () => {
-// 			const contractDraft = await Services.contracts.getContractDraftById(contractDraftId, session);
-
-// 			const currentRoom = await Entity.RoomsEntity.findOne({ _id: contractDraft.room }).session(session);
-// 			if (!currentRoom) throw new NotFoundError(`Phòng không tồn tại`);
-
-// 			currentRoom.roomPrice = contractDraft.rent;
-// 			currentRoom.roomDeposit = contractDraft.depositAmount;
-// 			currentRoom.roomState = 1;
-// 			currentRoom.interior = contractDraft.interiors;
-// 			currentRoom.isDeposited = false;
-// 			await currentRoom.save({ session });
-
-// 			const contractCreated = await Services.contracts.generateContract(
-// 				{
-// 					rent: contractDraft.rent,
-// 				},
-// 				session,
-// 			);
-// 		});
-// 	} catch (error) {
-// 		throw error;
-// 	} finally {
-// 		if (session) session.endSession();
-// 	}
-// };
 
 exports.getContractPdfSignedUrl = async (contractCode) => {
 	const contractPdfUrf = await Services.contracts.getContractPdfUrl(contractCode);
@@ -357,7 +353,7 @@ exports.setExpectedMoveOutDate = async (contractId, expectedMoveOutDate) => {
 	}
 };
 
-exports.terminateContractUnRefund = async (contractId) => {
+exports.terminateContractUnRefund = async (contractId, redisKey) => {
 	let session;
 	try {
 		session = await mongoose.startSession();
@@ -388,8 +384,11 @@ exports.terminateContractUnRefund = async (contractId) => {
 		);
 
 		await session.commitTransaction();
+
+		await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
 		return 'Success';
 	} catch (error) {
+		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
 		if (session) await session.abortTransaction();
 		throw error;
 	} finally {
@@ -397,13 +396,13 @@ exports.terminateContractUnRefund = async (contractId) => {
 	}
 };
 
-exports.cancelIsEarlyTermination = async (contractId, roomId) => {
+exports.cancelIsEarlyTermination = async (contractId, roomId, redisKey) => {
 	let session;
 	try {
 		session = await mongoose.startSession();
 		session.startTransaction();
 
-		const checkIsExistDeposit = await Entity.RoomsEntity.findOne({
+		const checkIsExistDeposit = await Entity.DepositsEntity.findOne({
 			room: roomId,
 			status: { $nin: ['close', 'cancelled', 'pending'] },
 		}).session(session);
@@ -419,11 +418,84 @@ exports.cancelIsEarlyTermination = async (contractId, roomId) => {
 		await Entity.RoomsEntity.findOneAndUpdate({ _id: roomId }, { $set: { roomState: 1 } }, { session });
 
 		await session.commitTransaction();
+
+		await redis.set(redisKey, `SUCCESS:${JSON.stringify({ contractId: contractId })}`, 'EX', process.env.REDIS_EXP_SEC);
 		return 'Success';
+	} catch (error) {
+		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
+		if (session) await session.abortTransaction();
+		throw error;
+	} finally {
+		if (session) session.endSession();
+	}
+};
+
+// should done this:
+exports.contractExtention = async (contractId, extensionDate, newRent, newDepositAmount, userId, version, redisKey) => {
+	let session;
+	try {
+		session = await mongoose.startSession();
+		await session.withTransaction(async () => {
+			const currentContract = await Services.contracts.findById(contractId).session(session).lean().exec();
+			if (!currentContract) throw new NotFoundError('Hợp đồng không tìm thấy');
+			const { contractEndDate, _id } = currentContract;
+			if (new Date(extensionDate).getTime() < new Date(contractEndDate).getTime()) {
+				throw new BadRequestError('Ngày kết thúc không được bé hơn ngày hiện tại');
+			}
+			if (version !== currentContract.version) throw new ConflictError('Dữ liệu của hợp đồng đã bị thay đổi !');
+
+			const contractExtentionCreated = await Services.contractExtentions.createContractExtention(
+				{
+					contractId: _id,
+					roomId: currentContract.room,
+					extentionDate: extensionDate,
+					newRent: newRent,
+					newDepositAmount: newDepositAmount,
+					creator: userId,
+				},
+				version,
+			);
+		});
 	} catch (error) {
 		if (session) await session.abortTransaction();
 		throw error;
 	} finally {
 		if (session) session.endSession();
 	}
+};
+
+exports.getContractPdfUrlByCustomerPhone = async (phoneNumber) => {
+	const normalizePhoneNumber = phoneNumber.replace(/[^0-9]/g, '');
+	const currentCustomer = await Services.customers.findByPhone(normalizePhoneNumber).populate({ path: 'room', populate: 'building' }).lean().exec();
+	if (!currentCustomer) throw new NotFoundError('Số điện thoại không khớp với bất kỳ khách nào trong hệ thống.');
+	if (!currentCustomer.isContractOwner) throw new BadRequestError('Số điện thoại không phải của chủ hợp đồng. Vui lòng nhập số điện chủ hợp đồng.');
+
+	const currentContracts = await Services.contracts.findByCustomerId(currentCustomer._id).lean().exec();
+	if (!Array.isArray(currentContracts) || currentContracts.length === 0) throw new NotFoundError('Không tìm thấy hợp đồng');
+
+	let contracts = [];
+	for (const contract of currentContracts) {
+		if (!contract.contractPdfUrl) throw new NotFoundError('Hợp đồng không tồn tại');
+		const contractPdfUrl = await getFieldUrl(contract.contractPdfUrl);
+		contracts.push({
+			contractPdfUrl,
+			_id: contract._id,
+			status: contract.status,
+			isCustomerConfirmed: contract.isCustomerConfirmed,
+			contractTerm: contract.contractTerm,
+			contractSignDate: contract.contractSignDate,
+			contractEndDate: contract.contractEndDate,
+			rent: contract.rent,
+			depositAmount: contract.depositAmount,
+		});
+	}
+
+	return {
+		contracts: contracts,
+		fullName: currentCustomer.fullName,
+		phone: currentCustomer.phone,
+		temporaryResidence: currentCustomer.temporaryResidence,
+		roomIndex: currentCustomer.room.roomIndex,
+		buildingAddress: currentCustomer.room.building.buildingAddress,
+	};
 };

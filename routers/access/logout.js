@@ -1,8 +1,8 @@
 const express = require('express');
 const { SuccessMsgResponse } = require('../../utils/apiResponse');
-const { asyncHandler } = require('../../helpers/asyncHandler');
+const asyncHandler = require('../../utils/asyncHandler');
 const authentication = require('../../auth/authentication');
-const Entity = require('../../models');
+const Services = require('../../service');
 
 const router = express.Router();
 
@@ -13,9 +13,10 @@ router.use(authentication);
 router.delete(
 	'/',
 	asyncHandler(async (req, res) => {
-		await Entity.KeyStoresEntity.remove(req.keystore._id);
+		console.log('logout ', req.keyStore);
+		await Services.keyStores.remove(req.keyStore._id);
 		return new SuccessMsgResponse('Logout success').send(res);
 	}),
 );
 
-export default router;
+module.exports = router;

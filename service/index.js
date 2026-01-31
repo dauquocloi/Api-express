@@ -17,11 +17,19 @@ const vehicles = require('./vehicles.service');
 const contracts = require('./contracts.service');
 const bankAccounts = require('./bankAccounts.service');
 const sepays = require('./sepays.service');
+const statistics = require('./statistics.service');
+const expenditures = require('./expenditures.service');
+const revenues = require('./revenues.service');
+const banks = require('./banks.service');
+const contractExtentions = require('./contractExtentions.service');
+const otps = require('./otps.service');
 
 module.exports = {
 	buildings,
+	banks,
 	customers,
 	contracts,
+	contractExtentions,
 	checkoutCosts,
 	debts,
 	deposits,
@@ -38,4 +46,8 @@ module.exports = {
 	vehicles,
 	bankAccounts,
 	sepays,
+	statistics,
+	expenditures,
+	revenues,
+	otps,
 };

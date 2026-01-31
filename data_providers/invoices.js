@@ -9,11 +9,14 @@ const zaloService = require('../service/zalo.service');
 const Pipelines = require('../service/aggregates');
 const Services = require('../service');
 const { formatDebts } = require('../service/debts.helper');
-const { calculateTotalFeeAmount } = require('../utils/calculateFeeTotal');
+const { calculateTotalFeeAmount, calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
 const { generateInvoiceFees } = require('../service/invoices.helper');
 const { getInvoiceStatus } = require('../service/invoices.helper');
 const { feeUnit } = require('../constants/fees');
 const { invoiceStatus } = require('../constants/invoices');
+const redis = require('../config/redisClient');
+const { NotiManagerCollectCashInvoiceJob } = require('../jobs/Notifications');
+const Roles = require('../constants/userRoles');
 
 exports.getInvoicesPaymentStatus = async (buildingId, month, year) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -55,7 +58,7 @@ exports.getInvoiceSendingStatus = async (buildingId) => {
 };
 
 // this un refact bussiness logic
-exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, userId) => {
+exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, userId, redisKey) => {
 	let session;
 	try {
 		session = await mongoose.startSession();
@@ -106,7 +109,12 @@ exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, use
 
 			return 'success';
 		});
+
+		await redis.set(redisKey, 'SUCCESS:' + JSON.stringify({}), 'EX', process.env.REDIS_EXP_SEC, 'NX');
 		return 'success';
+	} catch (error) {
+		await redis.set(redisKey, 'FAIL:' + error.message, 'EX', process.env.REDIS_EXP_SEC, 'NX');
+		throw error;
 	} finally {
 		if (session) {
 			session.endSession();
@@ -145,7 +153,7 @@ exports.deleteInvoice = async (invoiceId, roomVersion, userId, invoiceVersion) =
 			await Services.rooms.assertRoomWritable({ roomId: invoice.room, userId, session });
 
 			const { fee } = invoice;
-			const indexFees = fee.filter((f) => f.unit === feeUnit['INDEX']);
+			const feeIndexes = fee.filter((f) => f.unit === feeUnit['INDEX']);
 
 			const invoiceTerminated = await Entity.InvoicesEntity.findOneAndUpdate(
 				{ _id: invoiceObjectId, version: invoiceVersion },
@@ -156,20 +164,26 @@ exports.deleteInvoice = async (invoiceId, roomVersion, userId, invoiceVersion) =
 			if (invoiceTerminated.matchedCount === 0) throw new ConflictError('Hóa đơn này đã bị thay đổi !');
 
 			if (invoice.status === invoiceStatus['UNPAID']) {
-				if (indexFees.length > 0) {
-					const operations = indexFees.map((f) => ({
-						updateOne: {
-							filter: {
-								feeKey: f.feeKey,
-								room: invoice.room,
-							},
-							update: {
-								$set: { lastIndex: Number(f.firstIndex) },
-							},
-						},
-					}));
+				if (feeIndexes.length > 0) {
+					// const operations = feeIndexes.map((f) => ({
+					// 	updateOne: {
+					// 		filter: {
+					// 			feeKey: f.feeKey,
+					// 			room: invoice.room,
+					// 		},
+					// 		update: {
+					// 			$set: { lastIndex: Number(f.firstIndex) },
+					// 		},
+					// 	},
+					// }));
 
-					await Entity.FeesEntity.bulkWrite(operations, { session });
+					// await Entity.FeesEntity.bulkWrite(operations, { session });
+					await Services.fees.rollbackFeeIndexValuesByFeeKey(feeIndexes, invoice.room, session);
+					await Services.fees.rollBackFeeIndexHistoryMany(
+						feeIndexes.map((f) => f.feeKey),
+						invoice.room,
+						session,
+					);
 				}
 
 				if (invoice.debts?.length > 0) {
@@ -192,118 +206,236 @@ exports.deleteInvoice = async (invoiceId, roomVersion, userId, invoiceVersion) =
 	}
 };
 
-exports.collectCashMoney = async (data) => {
+//should removed
+exports.collectCashMoney = async (invoiceId, buildingId, date, amount, collectorId, version, redisKey) => {
 	let session;
 	try {
 		session = await mongoose.startSession();
 		session.startTransaction();
-		const invoiceObjectId = new mongoose.Types.ObjectId(data.invoiceId);
-		const collectorObjectId = new mongoose.Types.ObjectId(data.userId);
+		const invoiceObjectId = new mongoose.Types.ObjectId(invoiceId);
+		const collectorObjectId = new mongoose.Types.ObjectId(collectorId);
 
-		const [currentInvoice] = await Entity.InvoicesEntity.aggregate([
+		const currentInvoice = await Services.invoices.findById(invoiceObjectId).session(session).lean().exec();
+		if (!currentInvoice) throw new NotFoundError('Hóa đơn không tồn tại');
+		if (currentInvoice.status === invoiceStatus['PAID']) throw new BadRequestError('Hóa đơn này đã được thanh toán, vui lòng tải lại trang');
+		if (currentInvoice.version !== version) throw new ConflictError('Hóa đơn này được bị thay đổi, vui lòng tải lại trang');
+
+		const currentPeriod = await getCurrentPeriod(buildingId);
+
+		const createTransaction = await Services.transactions.createCashTransaction(
 			{
-				$match: {
-					_id: invoiceObjectId,
-				},
+				amount: amount,
+				date: date,
+				type: 'invoice',
+				collectorId: collectorObjectId,
+				id: invoiceObjectId,
+				currentPeriod,
+				idempotencyKey: redisKey,
 			},
-			{
-				$lookup: {
-					from: 'transactions',
-					localField: '_id',
-					foreignField: 'invoice',
-					as: 'transactionInfo',
-				},
-			},
-		]).session(session);
-
-		if (!currentInvoice) {
-			throw new NotFoundError('Hóa đơn không tồn tại');
-		}
-
-		const invoiceUnpaidAmount = currentInvoice.total - currentInvoice.paidAmount;
-		const [createTransaction] = await Entity.TransactionsEntity.create(
-			[
-				{
-					transactionDate: data.date,
-					amount: data.amount,
-					paymentMethod: 'cash',
-					invoice: invoiceObjectId,
-					collector: collectorObjectId,
-					transferType: 'credit',
-					idempotencyKey: data.idempotencyKey,
-				},
-			],
-			{ session },
+			session,
 		);
 
-		let totalTransactionAmount;
-		const { transactionInfo, total: currentInvoiceAmount } = currentInvoice;
-		if (transactionInfo?.length > 0) {
-			totalTransactionAmount = transactionInfo.reduce((sum, item) => {
-				return sum + item.amount;
-			}, 0);
-		} else {
-			totalTransactionAmount = 0;
-		}
+		const unpaidAmount = calculateInvoiceUnpaidAmount(currentInvoice.total, currentInvoice.paidAmount);
+		const appliedAmount = Math.min(createTransaction.amount, unpaidAmount);
 
-		const updatedTotalPaid = totalTransactionAmount + createTransaction.amount;
-		const remainingAmount = currentInvoiceAmount - updatedTotalPaid;
-
-		let status = 'unpaid';
-		if (remainingAmount <= 0) {
-			status = 'paid';
-		} else if (remainingAmount > 0 && updatedTotalPaid > 0) {
-			status = 'partial';
-		}
-
-		await Entity.InvoicesEntity.updateOne(
-			{ _id: invoiceObjectId, version: data.version },
-			{
-				$set: { status, paidAmount: updatedTotalPaid },
-				$inc: { version: 1 },
-			},
-			{ session },
+		const updatedTotalPaid = currentInvoice.paidAmount + createTransaction.amount;
+		const newInvoiceStatus = getInvoiceStatus(updatedTotalPaid, currentInvoice.total);
+		await Services.invoices.updateInvoicePaidStatusWithVersion(
+			{ invoiceId, paidAmount: updatedTotalPaid, invoiceStatus: newInvoiceStatus, version },
+			session,
 		);
-		//Please change this logc
-		if (currentInvoice.isDepositing === true) {
-			const depositRefundInfo = await Entity.DepositRefundsEntity.findOne({ invoiceUnpaid: invoiceObjectId }).exec();
-			if (!depositRefundInfo) throw new NotFoundError('Phiếu đặt cọc không tồn tại');
 
-			const { depositRefundAmount } = depositRefundInfo;
-			if (status === 'paid') {
-				depositRefundInfo.depositRefundAmount = depositRefundAmount + invoiceUnpaidAmount;
-				depositRefundInfo.invoiceUnpaid = null;
-			} else if (status === 'partial') {
-				depositRefundInfo.depositRefundAmount = depositRefundAmount + data.amount;
+		if (currentInvoice?.detuctedInfo) {
+			const { detuctedType } = currentInvoice.detuctedInfo;
+			if (detuctedType === 'depositRefund') {
+				const depositRefundInfo = await Services.depositRefunds.findByInvoiceUnpaidId(invoiceObjectId).session(session);
+				if (!depositRefundInfo) throw new NotFoundError('Phiếu hoàn cọc không tồn tại');
+
+				depositRefundInfo.depositRefundAmount += appliedAmount;
+				if (newInvoiceStatus === invoiceStatus['PAID']) {
+					depositRefundInfo.invoiceUnpaid = null;
+					await Services.invoices.removeDetuctedInfo(invoiceObjectId, session);
+				}
+				depositRefundInfo.version += 1;
+				await depositRefundInfo.save({ session });
 			}
-			await depositRefundInfo.save({ session });
+			if (detuctedType === 'terminateContractEarly') {
+				const checkoutCost = await Services.checkoutCosts.findByInvoiceId(invoiceObjectId).session(session);
+				if (!checkoutCost) throw new NotFoundError('Phiếu trả phòng không tồn tại');
+
+				checkoutCost.total -= appliedAmount;
+				if (newInvoiceStatus === invoiceStatus['PAID']) {
+					checkoutCost.invoiceUnpaid = null;
+					await Services.invoices.removeDetuctedInfo(invoiceObjectId, session);
+				}
+				checkoutCost.version += 1;
+				await checkoutCost.save({ session });
+			}
 		}
+
+		// await new Noti
+
+		await new NotiManagerCollectCashInvoiceJob().enqueue({
+			collectorId: collectorObjectId,
+			invoiceId: invoiceObjectId,
+			amount: amount,
+		});
 
 		await session.commitTransaction();
+
+		const cbData = {
+			transactionId: createTransaction._id,
+		};
+		await redis.set(redisKey, `SUCCESS:${JSON.stringify(cbData)}`, 'EX', process.env.REDIS_EXP_SEC);
 		return 'Success';
 	} catch (error) {
 		if (session) await session.abortTransaction();
+		await redis.set(
+			redisKey,
+			JSON.stringify({
+				status: 'FAILED',
+				message: error.message,
+			}),
+			'EX',
+			process.env.REDIS_EXP_SEC,
+		);
 		throw error;
 	} finally {
 		session.endSession();
 	}
 };
 
-exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, createrId, roomVersion) => {
+exports.checkout = async (invoiceId, buildingId, date, amount, collectorInfo, version, redisKey, paymentMethod) => {
+	let session;
+	try {
+		session = await mongoose.startSession();
+		session.startTransaction();
+		const invoiceObjectId = new mongoose.Types.ObjectId(invoiceId);
+		const collectorObjectId = new mongoose.Types.ObjectId(collectorInfo._id);
+
+		const currentInvoice = await Services.invoices.findById(invoiceObjectId).session(session).lean().exec();
+		if (!currentInvoice) throw new NotFoundError('Hóa đơn không tồn tại');
+		if (currentInvoice.status === invoiceStatus['PAID']) throw new BadRequestError('Hóa đơn này đã được thanh toán, vui lòng tải lại trang');
+		if (currentInvoice.version !== version) throw new ConflictError('Hóa đơn này được bị thay đổi, vui lòng tải lại trang');
+
+		const currentPeriod = await getCurrentPeriod(buildingId);
+
+		let createTransaction;
+		if (paymentMethod === 'cash') {
+			createTransaction = await Services.transactions.createCashTransaction(
+				{
+					amount: amount,
+					date: date,
+					type: 'invoice',
+					collectorId: collectorObjectId,
+					id: invoiceObjectId,
+					currentPeriod,
+					idempotencyKey: redisKey,
+					createdBy: collectorInfo.role,
+				},
+				session,
+			);
+
+			//=========== NOTIFICATION ==========//
+			if (collectorInfo.role !== Roles['OWNER']) {
+				await new NotiManagerCollectCashInvoiceJob().enqueue({
+					collectorId: collectorObjectId,
+					invoiceId: invoiceObjectId,
+					amount: amount,
+				});
+			}
+		} else {
+			createTransaction = await Services.transactions.generateTransferTransactionByManagement(
+				{
+					amount: amount,
+					idempotencyKey: redisKey,
+					collector: collectorObjectId,
+					createdBy: collectorInfo.role,
+					date,
+					invoice: invoiceObjectId,
+					month: currentPeriod.currentMonth,
+					year: currentPeriod.currentYear,
+				},
+				session,
+			);
+		}
+
+		const unpaidAmount = calculateInvoiceUnpaidAmount(currentInvoice.total, currentInvoice.paidAmount);
+		const appliedAmount = Math.min(createTransaction.amount, unpaidAmount);
+
+		const updatedTotalPaid = currentInvoice.paidAmount + createTransaction.amount;
+		const newInvoiceStatus = getInvoiceStatus(updatedTotalPaid, currentInvoice.total);
+		await Services.invoices.updateInvoicePaidStatusWithVersion(
+			{ invoiceId, paidAmount: updatedTotalPaid, invoiceStatus: newInvoiceStatus, version },
+			session,
+		);
+
+		if (currentInvoice?.detuctedInfo) {
+			const { detuctedType } = currentInvoice.detuctedInfo;
+			if (detuctedType === 'depositRefund') {
+				const depositRefundInfo = await Services.depositRefunds.findByInvoiceUnpaidId(invoiceObjectId).session(session);
+				if (!depositRefundInfo) throw new NotFoundError('Phiếu hoàn cọc không tồn tại');
+
+				depositRefundInfo.depositRefundAmount += appliedAmount;
+				if (newInvoiceStatus === invoiceStatus['PAID']) {
+					depositRefundInfo.invoiceUnpaid = null;
+					await Services.invoices.removeDetuctedInfo(invoiceObjectId, session);
+				}
+				depositRefundInfo.version += 1;
+				await depositRefundInfo.save({ session });
+			}
+			if (detuctedType === 'terminateContractEarly') {
+				const checkoutCost = await Services.checkoutCosts.findByInvoiceId(invoiceObjectId).session(session);
+				if (!checkoutCost) throw new NotFoundError('Phiếu trả phòng không tồn tại');
+
+				checkoutCost.total -= appliedAmount;
+				if (newInvoiceStatus === invoiceStatus['PAID']) {
+					checkoutCost.invoiceUnpaid = null;
+					await Services.invoices.removeDetuctedInfo(invoiceObjectId, session);
+				}
+				checkoutCost.version += 1;
+				await checkoutCost.save({ session });
+			}
+		}
+
+		await session.commitTransaction();
+
+		const cbData = {
+			transactionId: createTransaction._id,
+		};
+		await redis.set(redisKey, `SUCCESS:${JSON.stringify(cbData)}`, 'EX', process.env.REDIS_EXP_SEC);
+		return 'Success';
+	} catch (error) {
+		if (session) await session.abortTransaction();
+		await redis.set(redisKey, `FAILED:${JSON.stringify({ error: error.message })}`, 'EX', process.env.REDIS_EXP_SEC);
+		throw error;
+	} finally {
+		session.endSession();
+	}
+};
+
+exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, createrId, roomVersion, redisKey) => {
 	let session;
 	let result;
 	try {
 		const roomObjectId = new mongoose.Types.ObjectId(roomId);
 		const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
-		const createrObjectId = new mongoose.Types.ObjectId(createrId);
+
 		session = await mongoose.startSession();
 
 		await session.withTransaction(async () => {
-			await Services.rooms.assertRoomWritable({ roomId, userId: createrObjectId, session });
+			await Services.rooms.assertRoomWritable({ roomId, userId: createrId, session });
 			const currentPeriod = await getCurrentPeriod(buildingObjectId);
-			const roomContractOwner = await Services.customers.getContractOwner(roomObjectId, session);
+			const roomContractOwner = await Services.customers
+				.findIsContractOwnerByRoomId(roomObjectId)
+				.session(session)
+				.populate('contract')
+				.lean()
+				.exec();
+			if (!roomContractOwner || !roomContractOwner?.contract) throw new NotFoundError(`Phòng không tồn tại chủ hợp đồng !`);
 
 			const roomFees = await Services.fees.getRoomFeesAndDebts(roomObjectId, session);
+			console.log('log of roomFees: ', roomFees);
 			const formatRoomFees = generateInvoiceFees(roomFees.feeInfo, roomFees._id.rent, stayDays, feeIndexValues, true, 'create');
 			const totalRoomfees = calculateTotalFeeAmount(formatRoomFees);
 
@@ -321,7 +453,8 @@ exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, cre
 					debtInfo: getDebts,
 					currentPeriod,
 					payerName: roomContractOwner.fullName,
-					creater: createrObjectId,
+					creater: createrId,
+					contract: roomContractOwner.contract._id,
 				},
 				session,
 			);
@@ -332,17 +465,28 @@ exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, cre
 				{ session },
 			);
 
-			const roomFeeIndexIds = roomFees.feeInfo.filter((fee) => fee.unit === feeUnit.INDEX).map((fee) => fee._id.toString());
+			const roomFeeIndexes = roomFees.feeInfo.filter((fee) => fee.unit === feeUnit.INDEX);
+			const roomFeeIndexIds = roomFeeIndexes.map((fee) => fee._id.toString());
+
+			const updateFeeIndexHistoryPayload = roomFeeIndexes.map((fee) => ({
+				feeId: fee._id,
+				lastIndex: feeIndexValues[fee._id].secondIndex,
+				prevIndex: feeIndexValues[fee._id].firstIndex,
+			}));
 
 			await Services.fees.updateFeeIndexValues(roomFeeIndexIds, feeIndexValues, session);
+			await Services.fees.updateFeeIndexHistoryMany({ payloads: updateFeeIndexHistoryPayload, editorId: createrId }, session);
 			await Services.rooms.unLockedRoom(roomId, session);
 			await Services.rooms.bumpRoomVersion(roomId, roomVersion, session);
 
 			result = createdInvoice;
 			return 'Success';
 		});
+
+		await redis.set(redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 		return result;
 	} catch (error) {
+		await redis.set(redisKey, JSON.stringify({ status: 'FAILED', message: error.message }), 'EX', process.env.REDIS_EXP_SEC);
 		throw error;
 	} finally {
 		if (session) session.endSession();

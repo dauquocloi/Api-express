@@ -22,9 +22,6 @@ module.exports = function getDebtsAndReceiptUnpaidPipeline(roomObjectId, current
 									{
 										$eq: ['$receiptType', 'deposit'],
 									},
-									{
-										$eq: ['$isActive', true],
-									},
 								],
 							},
 						},
@@ -34,7 +31,6 @@ module.exports = function getDebtsAndReceiptUnpaidPipeline(roomObjectId, current
 							_id: 1,
 							amount: 1,
 							paidAmount: 1,
-							isActive: 1,
 							version: 1,
 						},
 					},

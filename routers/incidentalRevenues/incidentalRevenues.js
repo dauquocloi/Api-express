@@ -5,14 +5,14 @@ const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse
 exports.createIncidentalRevenue = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.body, ...req.user };
 	console.log('log of createRevenue: ', data);
-	const result = await UseCase.createIncidentalRevenue(data.amount, data.content, data._id, data.date, data.buildingId);
+	const result = await UseCase.createIncidentalRevenue(data.amount, data.content, data._id, data.date, data.buildingId, req.redisKey);
 	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.modifyIncidentalRevenue = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.body };
 	console.log('log of data from modifyRevenue: ', data);
-	await UseCase.modifyIncidentalRevenue(data);
+	await UseCase.modifyIncidentalRevenue(data, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

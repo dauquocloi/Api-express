@@ -1,63 +1,10 @@
 const mongoose = require('mongoose');
-const MongoConnect = require('../utils/MongoConnect');
-var Entity = require('../models');
-const { AppError, NotFoundError } = require('../AppError');
+const Entity = require('../models');
+const { NotFoundError } = require('../AppError');
 const Services = require('../service');
+const redis = require('../config/redisClient');
 
-// remove this 08/11/2025
-// exports.getCustomerById = async (data, cb, next) => {
-// 	try {
-// 		const customerId = mongoose.Types.ObjectId(`${data.customerId}`);
-
-// 		const customerInfo = await Entity.CustomersEntity.aggregate([
-// 			{
-// 				$match: {
-// 					_id: customerId,
-// 				},
-// 			},
-// 			{
-// 				$lookup: {
-// 					from: 'vehicles',
-// 					localField: '_id',
-// 					foreignField: 'owner',
-// 					as: 'vehicleInfo',
-// 				},
-// 			},
-// 			{
-// 				$unwind: {
-// 					path: '$vehicleInfo',
-// 					preserveNullAndEmptyArrays: true,
-// 				},
-// 			},
-// 			{
-// 				$project: {
-// 					_id: 1,
-// 					isRenting: 1,
-// 					fullName: 1,
-// 					phone: 1,
-// 					gender: 1,
-// 					birthday: 1,
-// 					cccd: 1,
-// 					permanentAddress: 1,
-// 					status: 1,
-// 					checkinDate: 1,
-// 					temporaryResidence: 1,
-// 					vehicleInfo: '$vehicleInfo.licensePlate',
-// 				},
-// 			},
-// 		]);
-
-// 		if (customerInfo.length > 0) {
-// 			cb(null, customerInfo[0]);
-// 		} else {
-// 			throw new Error('Cannot find customer infomation !');
-// 		}
-// 	} catch (error) {
-// 		next(error);
-// 	}
-// };
-
-exports.editCustomer = async (data) => {
+exports.editCustomer = async (data, redisKey) => {
 	let customerId = new mongoose.Types.ObjectId(`${data.customerId}`);
 
 	const customerInfo = await Entity.CustomersEntity.findById(customerId);
@@ -69,10 +16,11 @@ exports.editCustomer = async (data) => {
 
 	const updatedCustomer = await customerInfo.save();
 
+	await redis.set(redisKey, `SUCCESS:${updatedCustomer}`, 'EX', process.env.REDIS_EXP_SEC);
 	return updatedCustomer;
 };
 
-exports.addCustomer = async (data) => {
+exports.addCustomer = async (data, redisKey) => {
 	const roomId = new mongoose.Types.ObjectId(data.roomId);
 
 	const newCustomerInfo = {
@@ -80,7 +28,7 @@ exports.addCustomer = async (data) => {
 		fullName: data.fullName,
 		gender: data.gender,
 		isContractOwner: data?.isContractOwner ?? false,
-		birthday: data.birthday,
+		birthdate: data.birthdate,
 		permanentAddress: data.permanentAddress,
 		phone: data.phone,
 		cccd: data.cccd,
@@ -92,13 +40,16 @@ exports.addCustomer = async (data) => {
 
 	const customer = await Entity.CustomersEntity.create(newCustomerInfo);
 
-	return {
+	const result = {
 		_id: customer._id,
 		fullName: customer.fullName,
 		avatar: customer.avatar,
 		phone: customer.phone,
 		roomId: customer.room,
 	};
+	await redis.set(redisKey, `SUCCESS:${result}`, 'EX', process.env.REDIS_EXP_SEC);
+
+	return result;
 };
 
 exports.setCustomerStatus = async (customerId, status) => {

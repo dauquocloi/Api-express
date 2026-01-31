@@ -62,7 +62,6 @@ exports.generateCheckoutCost = asyncHandler(async (req, res) => {
 	const result = await UseCase.generateCheckoutCost(
 		req.params.roomId,
 		req.body.buildingId,
-		req.body.contractId,
 		req.user._id,
 		req.body.feeIndexValues,
 		req.body.feesOther,
@@ -89,6 +88,18 @@ exports.getDebtsAndReceiptUnpaid = asyncHandler(async (req, res) => {
 exports.getRoomFeesAndDebts = asyncHandler(async (req, res) => {
 	console.log('log of data from getRoomFeesAndDebts: ', req.params);
 	const result = await UseCase.getRoomFeesAndDebts(req.params.roomId, req.user._id);
+	return new SuccessResponse('Success', result).send(res);
+});
+
+exports.getRoomHistories = asyncHandler(async (req, res) => {
+	console.log('log of data from getRoomHistories: ', req.params);
+	const result = await UseCase.getRoomHistories(req.params.roomId);
+	return new SuccessResponse('Success', result).send(res);
+});
+
+exports.getRoomHistoryDetail = asyncHandler(async (req, res) => {
+	console.log('log of data from getRoomHistoryDetail: ', req.params);
+	const result = await UseCase.getRoomHistoryDetail(req.params.roomHistoryId);
 	return new SuccessResponse('Success', result).send(res);
 });
 

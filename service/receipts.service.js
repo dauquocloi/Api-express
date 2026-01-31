@@ -3,12 +3,14 @@ const Entity = require('../models');
 const generatePaymentContent = require('../utils/generatePaymentContent');
 const { calculateReceiptStatusAfterModified } = require('./receipts.helper');
 const Pipelines = require('./aggregates');
-const { receiptStatus } = require('../constants/receipt');
+const { receiptStatus, receiptTypes } = require('../constants/receipt');
 const { getInvoiceStatus } = require('./invoices.helper');
 
 exports.findById = (receiptId) => {
 	return Entity.ReceiptsEntity.findById(receiptId);
 };
+
+// exports.findByRoomIds = (roomIds) => Entity.ReceiptsEntity.find({ room: { $in: roomIds } });
 
 exports.closeAndSetDetucted = async (receiptIds, detuctedType, detuctedId, session) => {
 	const result = await Entity.ReceiptsEntity.updateMany(
@@ -36,9 +38,11 @@ exports.createReceipt = async (
 		currentPeriod,
 
 		receiptContent,
+		receiptContentDetail = null,
 		receiptType,
 		initialStatus,
 		date,
+		contract = null,
 	},
 	session,
 ) => {
@@ -49,6 +53,7 @@ exports.createReceipt = async (
 			{
 				room: roomObjectId,
 				receiptContent: receiptContent,
+				receiptContentDetail: receiptContentDetail,
 				amount: Number(receiptAmount),
 				paidAmount: 0,
 				carriedOverPaidAmount: 0,
@@ -62,6 +67,7 @@ exports.createReceipt = async (
 				receiptCode,
 				paymentContent,
 				date: date ?? new Date(),
+				contract,
 			},
 		],
 		{ session },
@@ -239,5 +245,107 @@ exports.findReceiptInfoByPaymentContent = async (paymentContent, session) => {
 	const [result] = await Entity.ReceiptsEntity.aggregate(Pipelines.receipts.getReceiptByPaymentContent(normalizedPaymentContent)).session(session);
 	console.log('log of result: ', result);
 	if (!result) return null;
+	return result;
+};
+
+exports.importReceiptsDeposit = async (receiptData, session) => {
+	const receiptArray = await Promise.all(
+		receiptData.map(async (data) => {
+			const paymentContent = await generatePaymentContent(process.env.PAYMENT_CONTENT_LENGTH);
+			const receiptCode = await generatePaymentContent(process.env.INVOICE_CODE_LENGTH);
+
+			const createdAt = new Date(data.date);
+			const amount = Number(data.amount);
+			const paidAmount = Number(data.paidAmount);
+
+			return {
+				room: data.room,
+				amount,
+				paidAmount,
+				receiptType: receiptTypes.DEPOSIT,
+				status: amount === paidAmount ? receiptStatus['PAID'] : receiptStatus['PARTIAL'],
+				paymentContent,
+				receiptCode,
+				month: data.month,
+				year: data.year,
+				receiptContent: `Hóa đơn đặt cọc phòng ${data.roomIndex}`,
+				carriedOverPaidAmount: paidAmount,
+				createdAt,
+				updatedAt: createdAt,
+			};
+		}),
+	);
+
+	const result = await Entity.ReceiptsEntity.insertMany(receiptArray, {
+		session,
+		timestamps: false,
+		ordered: true,
+	});
+
+	return result;
+};
+
+exports.closeAllReceipts = async (receiptIds, session) => {
+	const result = await Entity.ReceiptsEntity.updateMany(
+		{ _id: { $in: receiptIds } },
+		{
+			$set: { locked: true },
+			$inc: { version: 1 },
+		},
+		{ session },
+	);
+	return result;
+};
+
+exports.updateReceiptsCarriedOverPaidAmount = async (carriedOverMap, session) => {
+	console.log('log of carriedOverMap: ', carriedOverMap);
+	console.log('log of carriedOverMap enties: ', carriedOverMap.entries());
+	const bulkOps = [];
+	for (const [receiptId, carriedOverPaidAmount] of carriedOverMap.entries()) {
+		bulkOps.push({
+			updateOne: {
+				filter: { _id: receiptId },
+				update: {
+					$set: { carriedOverPaidAmount },
+					$inc: { version: 1 },
+				},
+			},
+		});
+	}
+	const result = await Entity.ReceiptsEntity.bulkWrite(bulkOps, { session });
+	return result;
+};
+
+exports.updateReceiptPaidStatusWithVersion = async ({ receiptId, paidAmount, version, receiptStatus }, session) => {
+	const result = await Entity.ReceiptsEntity.updateOne(
+		{
+			_id: receiptId,
+			version: version,
+		},
+		{
+			$set: {
+				paidAmount,
+				status: receiptStatus,
+			},
+			$inc: { version: 1 },
+		},
+		{ session },
+	);
+	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
+	return result;
+};
+
+exports.removeDetuctedInfo = async (receiptId, session) => {
+	const result = await Entity.ReceiptsEntity.updateOne(
+		{
+			_id: receiptId,
+		},
+		{
+			$set: { detuctedInfo: null },
+			$inc: { version: 1 },
+		},
+		{ session },
+	);
+	if (result.matchedCount === 0) throw new NotFoundError('Hóa đơn không tồn tại !');
 	return result;
 };

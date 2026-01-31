@@ -10,6 +10,20 @@ const Pipelines = require('../service/aggregates');
 const { BadRequestError, NotFoundError, InternalError, NoDataError, InvalidInputError } = require('../AppError');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const getFileUrl = require('../utils/getFileUrl');
+const { receiptStatus, receiptTypes: RECEIPT_TYPES } = require('../constants/receipt');
+const { debtStatus } = require('../constants/debts');
+const { calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
+const { invoiceStatus } = require('../constants/invoices');
+const {
+	isMissingInvoice,
+	formatPeriodicExpenditurePayload,
+	handleReceiptSettlement,
+	generateDebtFromReceipts,
+	generateDebtFromInvoices,
+	existTransactionUnConfirmed,
+} = require('./buildings.util');
+const { depositRefundStatus } = require('../constants/deposits');
+const { checkoutCostStatus } = require('../constants/checkoutCosts');
 
 //  get all buildings by managername
 exports.getAll = async (userId) => {
@@ -59,6 +73,27 @@ exports.getCheckoutCosts = async (buildingId, month, year) => {
 	return result;
 };
 
+// exports.getStatistics = async (buildingId, month, year) => {
+// 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+
+// 	if (!month || !year) {
+// 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
+// 		month = currentPeriod.currentMonth;
+// 		year = currentPeriod.currentYear;
+// 	} else {
+// 		Number(month);
+// 		Number(year);
+// 	}
+
+// 	const statistics = await Entity.BuildingsEntity.aggregate(Pipelines.statistics.getStatisticsPipeline(buildingObjectId, month, year));
+
+// 	if (statistics.length == 0) {
+// 		throw new NoDataError(`Không có dữ liệu thống kê cho kỳ ${month}, ${year}`);
+// 	}
+
+// 	return { statistics: statistics[0].recentStatistics };
+// };
+
 exports.getStatistics = async (buildingId, month, year) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
@@ -71,13 +106,9 @@ exports.getStatistics = async (buildingId, month, year) => {
 		Number(year);
 	}
 
-	const statistics = await Entity.BuildingsEntity.aggregate(Pipelines.statistics.getStatisticsPipeline(buildingObjectId, month, year));
+	const statistics = await Services.statistics.getStatistics(buildingObjectId, month, year);
 
-	if (statistics.length == 0) {
-		throw new NoDataError(`Không có dữ liệu thống kê cho kỳ ${month}, ${year}`);
-	}
-
-	return { statistics: statistics[0].recentStatistics };
+	return statistics;
 };
 
 // owner only
@@ -110,7 +141,7 @@ exports.getStatisticGeneral = async (buildingId, year) => {
 
 	const statistics = await Services.buildings.getStatisticGeneral(buildingObjectId, year);
 
-	if (!statistics || statistics.length === 0) throw new NotFoundError('Dữ liệu khởi tạo không tồn tại');
+	if (!statistics || statistics.length === 0) return [];
 
 	return statistics;
 };
@@ -120,4 +151,90 @@ exports.getDepositTermFile = async (buildingId) => {
 	if (!building) throw NotFoundError('Dữ liệu không tồn tại');
 	const depositTermFileUrl = await getFileUrl(building.depositTermUrl);
 	return { depositTermFileUrl: depositTermFileUrl };
+};
+
+exports.prepareFinanceSettlement = async (buildingId, userId) => {
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+	const currentPeriod = await getCurrentPeriod(buildingObjectId);
+
+	const { depositRefundsUnpaid, checkoutCostsUnpaid, invoicesUnpaid, receiptsUnpaid } = await Services.buildings.getPrepareFinanceSettlementData(
+		buildingObjectId,
+		currentPeriod.currentMonth,
+		currentPeriod.currentYear,
+	);
+	return { depositRefundsUnpaid, checkoutCostsUnpaid, invoicesUnpaid, receiptsUnpaid };
+};
+
+exports.financeSettlement = async (buildingId, userId) => {
+	let result;
+	let session;
+	try {
+		const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+		await Services.rooms.lockAllRoomsForSettlement(buildingId, userId, session);
+		const building = await Services.buildings.findById(buildingId).lean().exec();
+		if (!building) throw new BadRequestError('Tòa nhà không tồn tại');
+
+		session = await mongoose.startSession();
+		await session.withTransaction(async () => {
+			const currentPeriod = await getCurrentPeriod(buildingId);
+			const { currentMonth, currentYear } = currentPeriod;
+
+			const settlementData = await Services.buildings.getFinanceSettlementData(buildingObjectId, currentMonth, currentYear, session);
+			const { receipts, invoices, expenditures, periodicExpenditures, incidentalRevenues, rooms } = settlementData;
+
+			const isInvoiceMissing = isMissingInvoice(rooms, invoices);
+			if (isInvoiceMissing) throw new BadRequestError('Mọi hóa đơn tiền phòng phải được gửi trước khi chốt sổ !');
+
+			const getAllTransactions = await Services.transactions.getAllTransactionsInPeriod(buildingObjectId, currentMonth, currentYear, session);
+			const existTransactionUnConfirmedInPeriod = existTransactionUnConfirmed(getAllTransactions);
+			if (existTransactionUnConfirmedInPeriod === true) {
+				throw new BadRequestError('Tồn tại giao dịch chưa xác nhận. Vui lòng xác nhận mọi giao dịch trước khi quyết toán.');
+			}
+
+			const { receiptUpdatingIds, receiptCarriedOverPaidAmountMap } = handleReceiptSettlement(receipts, currentMonth, currentYear);
+			const receiptDebts = generateDebtFromReceipts(receipts, currentMonth, currentYear);
+			const { debts: invoiceDebts, invoiceUpdatingIds } = generateDebtFromInvoices(invoices, currentMonth, currentYear);
+
+			const generateDebtsPayload = [...receiptDebts, ...invoiceDebts];
+			await Services.debts.generateDebts(generateDebtsPayload, session);
+			await Services.invoices.closeAllInvoices(invoiceUpdatingIds, session);
+			await Services.receipts.closeAllReceipts(receiptUpdatingIds, session);
+
+			const result = await Services.receipts.updateReceiptsCarriedOverPaidAmount(receiptCarriedOverPaidAmountMap, session);
+			console.log('result: ', result);
+
+			const periodicExpendituresPayload = formatPeriodicExpenditurePayload(periodicExpenditures, currentMonth, currentYear, buildingId, userId);
+			await Services.expenditures.generateExpenditures(periodicExpendituresPayload, session);
+			await Services.expenditures.lockAllExpenditures(buildingId, currentMonth, currentYear, session);
+			if (incidentalRevenues.length > 0) await Services.revenues.lockAllIncidentalRevenues(buildingId, currentMonth, currentYear, session);
+
+			const getStatistics = await Services.statistics.getStatistics(buildingObjectId, currentMonth, currentYear, session);
+			const currentStatistics = getStatistics[getStatistics.statistics.length - 1];
+
+			await Services.statistics.createStatistics({
+				month: currentMonth === 12 ? 1 : currentMonth + 1,
+				year: currentMonth === 12 ? currentYear + 1 : currentYear,
+				building: buildingId,
+				revenue: currentStatistics.revenue,
+				revenueComparisonRate: currentStatistics.revenueComparisonRate,
+			});
+
+			// throw new BadRequestError('Stop here for testing');
+			return true;
+		});
+
+		return;
+	} catch (error) {
+		throw error;
+	} finally {
+		if (session) session.endSession();
+	}
+};
+
+exports.getContractTermUrl = async (buildingId) => {
+	const currentBuilding = await Services.buildings.findById(buildingId).lean().exec();
+	if (!currentBuilding) throw new BadRequestError('Tòa nhà không tồn tại');
+	if (!currentBuilding.contractPdfUrl) throw new NotFoundError('Tòa nhà chưa khởi tạo điều khoản hợp đồng !');
+	const contractTermFileUrl = await getFileUrl(currentBuilding.contractPdfUrl);
+	return { contractTermFileUrl: contractTermFileUrl };
 };

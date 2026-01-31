@@ -53,7 +53,7 @@ const getAllCustomers = (buildingId, status) => {
 							phone: 1,
 							isContractOwner: 1,
 							gender: 1,
-							birthday: 1,
+							birthdate: 1,
 							permanentAddress: 1,
 							cccd: 1,
 							cccdIssueDate: 1,

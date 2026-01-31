@@ -4,30 +4,41 @@ var Entity = require('../models');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const Pipelines = require('../service/aggregates');
 const { BadRequestError, NotFoundError } = require('../AppError');
+const Services = require('../service');
 
 exports.getExpenditures = async (buildingId, month, year) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
-	var status;
 
 	const currentPeriod = await getCurrentPeriod(buildingObjectId);
 	const { currentMonth, currentYear } = currentPeriod;
 	if (!month || !year) {
 		month = currentMonth;
 		year = currentYear;
-		status = 'unlock';
+
+		const expenditures = await Services.expenditures.getExpendituresStatusUnLocked(buildingObjectId, month, year);
+		const { incidentalExpenditures, periodicExpenditures } = expenditures;
+
+		return { incidentalExpenditures, periodicExpenditures, period: { month: month, year: year }, status: 'unlock' };
 	} else {
 		month = parseInt(month);
 		year = parseInt(year);
+
 		if (month == currentMonth && year == currentYear) {
-			status = 'unlock';
-		} else status = 'lock';
+			const expenditures = await Services.expenditures.getExpendituresStatusUnLocked(buildingObjectId, month, year);
+
+			const { incidentalExpenditures, periodicExpenditures } = expenditures;
+			return { incidentalExpenditures, periodicExpenditures, period: { month: month, year: year }, status: 'unlock' };
+		} else {
+			const expenditureLocked = await Services.expenditures.getExpendituresStatusLocked(buildingObjectId, month, year);
+			const { expenditures } = expenditureLocked;
+			if (expenditures.length === 0)
+				return { period: { month: month, year: year }, status: 'lock', incidentalExpenditures: [], periodicExpenditures: [] };
+
+			let incidentalExpenditures = expenditures.filter((expenditure) => expenditure.type === 'incidental');
+			let periodicExpenditures = expenditures.filter((expenditure) => expenditure.type === 'periodic');
+			return { incidentalExpenditures, periodicExpenditures, period: { month: month, year: year }, status: 'lock' };
+		}
 	}
-
-	const expenditures = await Entity.BuildingsEntity.aggregate(Pipelines.expenditures.getExpenditures(buildingObjectId, month, year));
-
-	const { incidentalExpenditures, periodicExpenditures } = expenditures[0];
-
-	return { incidentalExpenditures, periodicExpenditures, period: { month: month, year: year }, status: 'unlock' };
 };
 
 exports.createExpenditure = async (data) => {

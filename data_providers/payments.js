@@ -3,7 +3,7 @@ var Entity = require('../models');
 const { AppError, BadRequestError, InternalError } = require('../AppError');
 const { errorCodes } = require('../constants/errorCodes');
 const Services = require('../service');
-const { receiptStatus } = require('../constants/receipt');
+const { receiptStatus, receiptTypes: RECEIPT_TYPES } = require('../constants/receipt');
 const { calculateReceiptStatusAfterModified } = require('../service/receipts.helper');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const { invoiceStatus } = require('../constants/invoices');
@@ -12,6 +12,8 @@ const { NotiPaymentJob } = require('../jobs/Notifications');
 const { getTransactionManager } = require('../instance');
 const { TRANS_STATUS } = require('../constants/transactions');
 const { billType: BILL_TYPE } = require('../constants/bills');
+const { checkoutCostStatus: CHECKOUT_COST_STATUS, receiptToCheckoutCostStatusMap } = require('../constants/checkoutCosts');
+const { receiptToDepositRefundStatusMap } = require('../constants/deposits');
 
 exports.handleSepayIPN = (data) => {
 	let session;
@@ -81,7 +83,10 @@ exports.weebhookPayment = async (sepayData) => {
 
 			const findInvoice = await Services.invoices.findInvoiceInfoByPaymentContent(sepayData.content, session);
 			if (findInvoice) {
-				const { _id, paidAmount, total, status, buildingId, invoiceContent, buildingName, management, room } = findInvoice;
+				if (!findInvoice.paymentInfo || findInvoice.paymentInfo === null) {
+					return 'Success'; // tell Sepay it Oke but not recornited paymentInfo
+				}
+				const { _id, paidAmount, total, status, buildingId, invoiceContent, buildingName, management, room, paymentInfo } = findInvoice;
 
 				if (status === invoiceStatus['PAID']) throw new BadRequestError('Hóa đơn đã được thanh toán !');
 				const transaction = getTransactionManager();
@@ -108,11 +113,11 @@ exports.weebhookPayment = async (sepayData) => {
 
 				const currentPeriod = await getCurrentPeriod(buildingId);
 
-				const transactionGenerated = await Services.transactions.generateTransferTransaction(
+				const transactionGenerated = await Services.transactions.generateTransferTransactionBySepay(
 					{
-						bankAccountId: bankAccount._id,
+						bankAccountId: paymentInfo._id,
 						transactionDate: new Date(sepayData.transactionDate),
-						accountNumber: bankAccount.accountNumber,
+						accountNumber: paymentInfo.accountNumber,
 						paymentCode: sepayData.code,
 						content: sepayData.content,
 						referenceCode: sepayData.referenceCode,
@@ -164,7 +169,9 @@ exports.weebhookPayment = async (sepayData) => {
 			const findReceipt = await Services.receipts.findReceiptInfoByPaymentContent(sepayData.content, session);
 			console.log('log of findReceipt: ', findReceipt);
 			if (findReceipt) {
-				const { paidAmount, receiptContent, amount, _id, status, buildingId, management, room, buildingName } = findReceipt;
+				if (!findReceipt.paymentInfo || findReceipt.paymentInfo === null) return 'Success';
+				const { paidAmount, receiptContent, amount, _id, status, buildingId, management, room, buildingName, receiptType, paymentInfo } =
+					findReceipt;
 				if (status === receiptStatus['PAID']) throw new BadRequestError('Hóa đơn đã được thanh toán !');
 
 				const transaction = getTransactionManager();
@@ -192,11 +199,11 @@ exports.weebhookPayment = async (sepayData) => {
 
 				const currentPeriod = await getCurrentPeriod(buildingId);
 
-				const transactionGenerated = await Services.transactions.generateTransferTransaction(
+				const transactionGenerated = await Services.transactions.generateTransferTransactionBySepay(
 					{
-						bankAccountId: bankAccount._id,
+						bankAccountId: paymentInfo._id,
 						transactionDate: new Date(sepayData.transactionDate),
-						accountNumber: bankAccount.accountNumber,
+						accountNumber: paymentInfo.accountNumber,
 						paymentCode: sepayData.code,
 						content: sepayData.content,
 						referenceCode: sepayData.referenceCode,
@@ -211,6 +218,18 @@ exports.weebhookPayment = async (sepayData) => {
 					session,
 				);
 
+				if (receiptType === RECEIPT_TYPES['CHECKOUT']) {
+					let newCheckoutCostStatus;
+
+					newCheckoutCostStatus = receiptToCheckoutCostStatusMap[getNewReceiptStatus];
+					await Services.checkoutCosts.updateCheckoutCostPaymentStatusByReceiptId(_id, newCheckoutCostStatus, session);
+				} else if (receiptType === RECEIPT_TYPES['DEPOSIT']) {
+					let newDepositRefundStatus;
+					newDepositRefundStatus = receiptToDepositRefundStatusMap[getNewReceiptStatus];
+					await Services.depositRefunds.updateDepositRefundStatusByReceiptId(_id, newDepositRefundStatus, session);
+				}
+
+				//=====NOTIFICATION======//
 				const listManagementIds = management
 					.map((m) => {
 						if (m.role === ROLES['OWNER'] || m.role === ROLES['MANAGER']) return m.user;

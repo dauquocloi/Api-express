@@ -37,4 +37,76 @@ const getTransactionsByUserId = (userObjectId) => {
 	];
 };
 
-module.exports = { getTransactionsByUserId };
+const getAllTransactionsInPeriod = (buildingObjectId, currentMonth, currentYear) => {
+	return [
+		{
+			$match: {
+				_id: buildingObjectId,
+			},
+		},
+		{
+			$lookup: {
+				from: 'rooms',
+				localField: '_id',
+				foreignField: 'building',
+				as: 'rooms',
+			},
+		},
+		{
+			$lookup: {
+				from: 'invoices',
+				localField: 'rooms._id',
+				foreignField: 'room',
+				pipeline: [
+					{
+						$match: {
+							month: currentMonth,
+							year: currentYear,
+							status: {
+								$in: ['paid', 'partial', 'unpaid'],
+							},
+						},
+					},
+					{
+						$lookup: {
+							from: 'transactions',
+							localField: '_id',
+							foreignField: 'receipt',
+							as: 'transactions',
+						},
+					},
+				],
+				as: 'invoices',
+			},
+		},
+		{
+			$lookup: {
+				from: 'receipts',
+				localField: 'rooms._id',
+				foreignField: 'room',
+				pipeline: [
+					{
+						$match: {
+							month: currentMonth,
+							year: currentYear,
+							status: {
+								$in: ['paid', 'partial', 'unpaid'],
+							},
+						},
+					},
+					{
+						$lookup: {
+							from: 'transactions',
+							localField: '_id',
+							foreignField: 'receipt',
+							as: 'transactions',
+						},
+					},
+				],
+				as: 'receipts',
+			},
+		},
+	];
+};
+
+module.exports = { getTransactionsByUserId, getAllTransactionsInPeriod };

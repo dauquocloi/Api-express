@@ -11,6 +11,7 @@ const { calculateTotalCheckoutCostAmount } = require('../service/checkoutCost/ch
 const { receiptStatus, receiptTypes } = require('../constants/receipt');
 const { feeUnit } = require('../constants/fees');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
+const { sourceType } = require('../constants/debts');
 
 exports.getRoom = async (roomId) => {
 	const roomObjectId = new mongoose.Types.ObjectId(roomId);
@@ -141,28 +142,27 @@ exports.modifyRent = async (roomId, rentModify) => {
 	}
 };
 
-exports.generateCheckoutCost = async (roomId, buildingId, contractId, creatorId, feeIndexValues, feesOther, stayDays, roomVersion) => {
+exports.generateCheckoutCost = async (roomId, buildingId, creatorId, feeIndexValues, feesOther, stayDays, roomVersion) => {
 	let session;
 	let newCheckoutCost;
-	let now = new Date();
 	try {
 		session = await mongoose.startSession();
 		await session.withTransaction(async () => {
 			const roomObjectId = new mongoose.Types.ObjectId(roomId);
-			await Services.rooms.assertRoomWritable({ roomId, userId: creatorId, session });
+			const currentRoom = await Services.rooms.assertRoomWritable({ roomId, userId: creatorId, session });
 
 			const currentPeriod = await getCurrentPeriod(buildingId);
-			const contractOwner = await Services.customers.getContractOwner(roomObjectId, session);
-			const roomFees = await Services.fees.getRoomFeesAndDebts(roomObjectId, session);
-			const { feeInfo } = roomFees;
+			const contractOwner = await Services.customers
+				.findIsContractOwnerByRoomId(roomObjectId)
+				.session(session)
+				.populate('contract')
+				.lean()
+				.exec();
+			if (!contractOwner) throw new NotFoundError(`Phòng không tồn tại chủ hợp đồng !`);
+			if (!contractOwner.contract._id) throw new NotFoundError('Phòng không tồn tại hợp động !');
 
-			const roomFeeIndexIds = feeInfo.map((fee) => (fee.unit === feeUnit['INDEX'] ? fee._id.toString() : null)).filter(Boolean);
-			console.log('log of roomFeeIndexIds: ', roomFeeIndexIds);
-
-			if (roomFeeIndexIds.length > 0) {
-				validateFeeIndexMatch(roomFeeIndexIds, feeIndexValues);
-			}
-			const roomFeeIndex = feeInfo.filter((f) => f.unit === feeUnit['INDEX']);
+			// const roomFees = await Services.fees.getRoomFeesAndDebts(roomObjectId, session);
+			// const { feeInfo } = roomFees;
 
 			const debtsAndReceiptUnpaid = await Services.debts.getDebtsAndReceiptUnpaid(
 				roomObjectId,
@@ -170,12 +170,19 @@ exports.generateCheckoutCost = async (roomId, buildingId, contractId, creatorId,
 				currentPeriod.currentYear,
 				session,
 			);
+			const { fees, receiptDeposit } = debtsAndReceiptUnpaid;
+			const roomFeeIndexIds = fees.map((fee) => (fee.unit === feeUnit['INDEX'] ? fee._id.toString() : null)).filter(Boolean);
+
+			if (roomFeeIndexIds.length > 0) {
+				validateFeeIndexMatch(roomFeeIndexIds, feeIndexValues);
+			}
+			const roomFeeIndex = fees.filter((f) => f.unit === feeUnit['INDEX']);
 
 			let formatRoomFees;
 			if (debtsAndReceiptUnpaid.invoiceUnpaid !== null) {
 				formatRoomFees = generateInvoiceFees(roomFeeIndex, 0, stayDays, feeIndexValues, false);
 			} else {
-				formatRoomFees = generateInvoiceFees(feeInfo, roomFees._id.rent, stayDays, feeIndexValues, true);
+				formatRoomFees = generateInvoiceFees(fees, contractOwner.contract.rent, stayDays, feeIndexValues, true);
 			}
 
 			console.log('log of formatRoomFees: ', formatRoomFees);
@@ -200,6 +207,7 @@ exports.generateCheckoutCost = async (roomId, buildingId, contractId, creatorId,
 
 						receiptType: receiptTypes['CHECKOUT'],
 						initialStatus: receiptStatus['UNPAID'],
+						contract: contractOwner.contract._id,
 					},
 
 					session,
@@ -211,7 +219,7 @@ exports.generateCheckoutCost = async (roomId, buildingId, contractId, creatorId,
 			newCheckoutCost = await Services.checkoutCosts.generateCheckoutCost(
 				{
 					roomId: roomId,
-					contractId: contractId,
+					contractId: contractOwner.contract._id,
 					buildingId: buildingId,
 					creatorId: creatorId,
 
@@ -227,11 +235,11 @@ exports.generateCheckoutCost = async (roomId, buildingId, contractId, creatorId,
 				session,
 			);
 
-			// await Entity.RoomsEntity.findOneAndUpdate({ _id: newCheckoutCost.roomId }, { $set: { roomState: 0 } }, { session });
-			// await Entity.ContractsEntity.findOneAndUpdate({ _id: newCheckoutCost.contractId }, { $set: { status: 'expired' } }, { session });
-
-			if (newCheckoutCost.debts.length > 0) {
-				await Services.debts.closeDebts(roomObjectId, session);
+			if (Array.isArray(newCheckoutCost.debts) && newCheckoutCost.debts?.length > 0) {
+				await Services.debts.closeAndSetSourceInfo(
+					{ roomId: roomId, sourceId: newCheckoutCost._id, sourceType: sourceType['CHECKOUT_COST'] },
+					session,
+				);
 			}
 			if (newCheckoutCost.invoiceUnpaid !== null) {
 				await Services.invoices.closeAndSetDetucedInvoice(
@@ -248,9 +256,30 @@ exports.generateCheckoutCost = async (roomId, buildingId, contractId, creatorId,
 			if (roomFeeIndexIds.length > 0) {
 				await Services.fees.updateFeeIndexValues(roomFeeIndexIds, feeIndexValues, session);
 			}
+			await Services.rooms.generateRoomHistory(
+				{
+					roomId: roomId,
+					contractId: contractOwner.contract._id,
+					contractCode: contractOwner.contract.contractCode,
+					contractSignDate: contractOwner.contract.contractSignDate,
+					contractEndDate: contractOwner.contract.contractEndDate,
+					depositAmount: receiptDeposit.paidAmount,
+					checkoutDate: Date.now(),
+					checkoutType: 'checkoutEarly',
+					checkoutCostId: newCheckoutCost._id,
+					depositRefundId: null,
+					interiors: currentRoom.interior,
+					fees: fees,
+					rent: contractOwner.contract.rent,
+				},
+				session,
+			);
+			// await Services.rooms.bumpRoomVersion(roomObjectId, roomVersion, session);
+			// await Services.rooms.unLockedRoom(roomObjectId, session);
+			await Services.rooms.completeChangeRoomState({ roomId, roomVersion }, session);
+			await Services.contracts.expiredContract(contractOwner.contract._id, session);
 
-			await Services.rooms.bumpRoomVersion(roomObjectId, roomVersion, session);
-			await Services.rooms.unLockedRoom(roomObjectId, session);
+			return 'Success';
 		});
 		return newCheckoutCost;
 	} catch (error) {
@@ -286,6 +315,18 @@ exports.getRoomFeesAndDebts = async (roomId, userId) => {
 	} finally {
 		if (session) session.endSession();
 	}
+};
+
+exports.getRoomHistories = async (roomId) => {
+	const roomObjectId = new mongoose.Types.ObjectId(roomId);
+	const result = await Services.rooms.getRoomHistories(roomObjectId);
+	return result;
+};
+
+exports.getRoomHistoryDetail = async (roomHistoryId) => {
+	const roomHistoryObjectId = new mongoose.Types.ObjectId(roomHistoryId);
+	const result = await Services.rooms.getRoomHistoryDetail(roomHistoryObjectId);
+	return result;
 };
 
 //================================ UN REFACTED =====================================//

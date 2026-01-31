@@ -1,4 +1,4 @@
-var DataProvider = require('../../data_providers/admin/room');
+var DataProvider = require('../../data_providers/admin/rooms');
 
 exports.addManyRooms = (data, cb, next) => {
 	DataProvider.addManyRooms(

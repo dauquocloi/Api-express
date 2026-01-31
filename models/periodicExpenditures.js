@@ -18,6 +18,10 @@ const PeriodicExpendituresSchema = new Schema(
 			type: Schema.Types.ObjectId,
 			ref: 'buildings',
 		},
+		version: {
+			type: Number,
+			default: 1,
+		},
 	},
 	{
 		versionKey: false,

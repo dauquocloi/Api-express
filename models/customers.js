@@ -17,7 +17,7 @@ const CustomersSchema = new Schema(
 			type: Boolean,
 			default: false,
 		},
-		birthday: Date,
+		birthdate: Date,
 		permanentAddress: String,
 		phone: String,
 
@@ -45,7 +45,7 @@ const CustomersSchema = new Schema(
 		},
 		room: {
 			type: Schema.Types.ObjectId,
-			ref: 'rooms',
+			ref: 'RoomsEntity',
 			required: true,
 		},
 		// user: {
@@ -69,12 +69,12 @@ const CustomersSchema = new Schema(
 			accountNumber: { type: String },
 			accountOwnerName: { type: String },
 		},
-		contract: { type: Schema.Types.ObjectId, ref: 'contracts' },
+		contract: { type: Schema.Types.ObjectId, ref: 'ContractsEntity' },
 	},
 	{
-		versionKey: false,
 		collation: { locale: 'vi' },
 		autoIndex: true, //just for dev
+		timestamps: true,
 	},
 );
 

@@ -31,6 +31,16 @@ module.exports = {
 		amount: Joi.number().min(0).required(),
 		date: Joi.date().required(),
 		idempotencyKey: Joi.string().required(),
+		version: Joi.number().integer().min(1).required(),
+		buildingId: JoiObjectId().required(),
+	}),
+	checkout: Joi.object().keys({
+		amount: Joi.number().min(0).required(),
+		date: Joi.date().required(),
+		idempotencyKey: Joi.string().required(),
+		version: Joi.number().integer().min(1).required(),
+		buildingId: JoiObjectId().required(),
+		paymentMethod: Joi.string().valid('transfer', 'cash').required(),
 	}),
 	deleteInvoice: Joi.object().keys({
 		roomVersion: Joi.number().integer().min(1).required(),

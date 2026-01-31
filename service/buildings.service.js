@@ -1,4 +1,4 @@
-const { NotFoundError } = require('../AppError');
+const { NotFoundError, BadRequestError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
 
@@ -12,6 +12,20 @@ const findUserInBuilding = async (userId, buildingId) => {
 
 const getAllByManagementId = async (userId) => {
 	return await Entity.BuildingsEntity.find({ 'management.user': userId }).lean().exec();
+};
+
+const getOwnerInfo = (buildingId) => {
+	return Entity.BuildingsEntity.findOne(
+		{
+			_id: buildingId,
+		},
+		{
+			management: { $elemMatch: { role: 'owner' } },
+			buildingName: 1,
+			_id: 1,
+			buildingAddress: 1,
+		},
+	);
 };
 
 const getAllBills = async (buildingId, month, year) => {
@@ -55,6 +69,128 @@ const getStatisticGeneral = async (buildingObjectId, year) => {
 	return await Entity.StatisticsEntity.aggregate(Pipelines.buildings.getStatisticGeneral(buildingObjectId, year));
 };
 
+const importBuilding = async (
+	{ buildingSortName, buildingAddress, roomQuantity, invoiceNotes, contractDocxUrl, contractPdfUrl, depositTermUrl, management },
+	session,
+) => {
+	const [result] = await Entity.BuildingsEntity.create(
+		[
+			{
+				buildingName: buildingSortName,
+				buildingAddress,
+				roomQuantity,
+				invoiceNotes,
+
+				management,
+				contractDocxUrl,
+				contractPdfUrl,
+				depositTermUrl,
+			},
+		],
+		{ session },
+	);
+	return result.toObject();
+};
+
+const getFinanceSettlementData = async (buildingObjectId, currentMonth, currentYear, session) => {
+	const [result] = await Entity.BuildingsEntity.aggregate(
+		Pipelines.buildings.getFinanceSettlementData(buildingObjectId, currentMonth, currentYear),
+	).session(session);
+	if (!result) throw new BadRequestError('Id tòa nhà không tồn tại');
+	return result;
+};
+
+const addManagement = async (userId, buildingIds, role, session) => {
+	const result = await Entity.BuildingsEntity.updateMany(
+		{ _id: { $in: buildingIds } },
+		{ $push: { management: { user: userId, role } } },
+		{ session },
+	);
+	if (result.matchedCount === 0 || result.matchedCount !== buildingIds.length) throw new NotFoundError('Id tòa nhà không tồn tại');
+	return result;
+};
+
+const pullManagementNotMatchBuilding = async (buildingObjectIds, userId, session) => {
+	const result = await Entity.BuildingsEntity.updateMany(
+		{
+			_id: { $nin: buildingObjectIds },
+			'management.user': userId,
+		},
+		{
+			$pull: {
+				management: { user: userId },
+			},
+		},
+		{ session },
+	);
+
+	return result;
+};
+
+const findAndModifyManagement = async (buildingObjectIds, userObjectId, role, session) => {
+	const result = await Entity.BuildingsEntity.updateMany(
+		{
+			_id: { $in: buildingObjectIds },
+		},
+		[
+			{
+				$set: {
+					management: {
+						$concatArrays: [
+							// 1. Giữ lại toàn bộ management KHÔNG PHẢI user này
+							{
+								$filter: {
+									input: '$management',
+									as: 'm',
+									cond: { $ne: ['$$m.user', userObjectId] },
+								},
+							},
+							// 2. Thêm lại user với role mới (CHỈ 1 BẢN GHI)
+							[
+								{
+									user: userObjectId,
+									role: role,
+								},
+							],
+						],
+					},
+				},
+			},
+		],
+		{ session, updatePipeline: true },
+	);
+
+	if (result.matchedCount !== buildingObjectIds.length) {
+		throw new NotFoundError('Có building không tồn tại');
+	}
+
+	return result;
+};
+
+const getPrepareFinanceSettlementData = async (buildingObjectId, currentMonth, currentYear) => {
+	const [result] = await Entity.BuildingsEntity.aggregate(
+		Pipelines.buildings.getPrepareFinanceSettlementData(buildingObjectId, currentMonth, currentYear),
+	);
+	if (!result || !result._id) throw new NotFoundError('Id tòa nhà không tồn tại');
+	return result;
+};
+
+const importPaymentInfo = async (buildingId, bankAccountId) => {
+	const result = await Entity.BuildingsEntity.updateOne(
+		{
+			_id: buildingId,
+		},
+		{
+			$set: {
+				paymentInfo: bankAccountId,
+			},
+			$inc: { version: 1 },
+		},
+	);
+	if (result.matchedCount === 0) throw new NotFoundError('Tòa nhà không tồn tại');
+	return result;
+};
+
 module.exports = {
 	getAllByManagementId,
 	getAllBills,
@@ -63,4 +199,12 @@ module.exports = {
 	findById,
 	findByManagementId,
 	findUserInBuilding,
+	importBuilding,
+	getFinanceSettlementData,
+	addManagement,
+	pullManagementNotMatchBuilding,
+	findAndModifyManagement,
+	getPrepareFinanceSettlementData,
+	getOwnerInfo,
+	importPaymentInfo,
 };

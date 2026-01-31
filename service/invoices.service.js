@@ -128,7 +128,8 @@ exports.modifyInvoice = async ({ total, fee, status, stayDays, invoiceId, versio
 };
 
 exports.getInvoiceInfoByInvoiceCode = async (invoiceCode) => {
-	const [invoiceInfo] = await Entity.InvoicesEntity.aggregate(Pipelines.invoices.getInvoiceInfoByInvoiceCode(invoiceCode));
+	const normalizedInvoiceCode = invoiceCode.toString().trim().replace(/\s+/g, '').toUpperCase();
+	const [invoiceInfo] = await Entity.InvoicesEntity.aggregate(Pipelines.invoices.getInvoiceInfoByInvoiceCode(normalizedInvoiceCode));
 	return invoiceInfo;
 };
 
@@ -174,4 +175,37 @@ exports.updateInvoicePaidStatus = async ({ invoiceId, paidAmount, invoiceStatus 
 	);
 	if (!result) return null;
 	return result;
+};
+
+exports.updateInvoicePaidStatusWithVersion = async ({ invoiceId, paidAmount, invoiceStatus, version }, session) => {
+	const result = await Entity.InvoicesEntity.findOneAndUpdate(
+		{ _id: invoiceId, version: version },
+		{
+			$set: { paidAmount, status: invoiceStatus },
+			$inc: { version: 1 },
+		},
+		{ session },
+	);
+	if (!result) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
+	return result;
+};
+
+exports.closeAllInvoices = async (invoiceIds, session) => {
+	const result = await Entity.InvoicesEntity.updateMany(
+		{ _id: { $in: invoiceIds } },
+		{ $set: { locked: true }, $inc: { version: 1 } },
+		{ session },
+	);
+	return result;
+};
+
+exports.removeDetuctedInfo = async (invoiceId, session) => {
+	const result = await Entity.InvoicesEntity.updateOne({ _id: invoiceId }, { $set: { detuctedInfo: null }, $inc: { version: 1 } }, { session });
+	if (result.matchedCount === 0) throw new NotFoundError('Hóa đơn không tồn tại !');
+	return result;
+};
+
+exports.getCashCollectorInfo = async (invoiceObjectId) => {
+	const [cashCollectorInfo] = await Entity.InvoicesEntity.aggregate(Pipelines.invoices.getCashCollectorInfo(invoiceObjectId));
+	return cashCollectorInfo;
 };

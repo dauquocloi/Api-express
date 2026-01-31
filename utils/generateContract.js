@@ -1,37 +1,94 @@
-// const fs = require('fs');
-// const path = require('path');
-// const PizZip = require('pizzip');
-// const Docxtemplater = require('docxtemplater');
-// const convertDocxToPdf = require('./convertDocxToPdf');
-// const Entity = require('../models');
-// const withSignedUrl = require('./withSignedUrls');
-// const uploadFile = require('./uploadFile');
-// const expressionParser = require('docxtemplater/expressions.js');
-// const getOriginalFile = require('./getOriginalFile');
+const fs = require('fs');
+const path = require('path');
+const util = require('util');
+const { exec } = require('child_process');
+const PizZip = require('pizzip');
+const Docxtemplater = require('docxtemplater');
 
-// async function generatePdfContract(data, buildingObjectId) {
-// 	const templatePath = await Entity.BuildingsEntity.findOne({ _id: buildingObjectId }, { contractDocxUrl: 1 });
-// 	if (!templatePath || !templatePath.contractDocxUrl) throw new Error(`Tòa nhà với id ${buildingObjectId} không tồn tại`);
-// 	const contractDocxBuffer = await getOriginalFile(templatePath?.contractDocxUrl);
-// 	const zip = new PizZip(contractDocxBuffer);
-// 	const doc = new Docxtemplater(zip, {
-// 		paragraphLoop: true,
-// 		linebreaks: true,
-// 		parser: expressionParser,
-// 	});
+const Services = require('../service');
+const expressionParser = require('docxtemplater/expressions.js');
+const getOriginalFile = require('./getOriginalFile');
+const uploadFile = require('./uploadFile');
+const moment = require('moment');
 
-// 	try {
-// 		doc.render(data);
-// 		const docxBuffer = doc.getZip().generate({ type: 'nodebuffer' });
-// 		const pdfContract = await convertDocxToPdf(docxBuffer);
-// 		console.log('log of pdfContract after generateContract: ', pdfContract);
-// 		const uploadPdfContract = await uploadFile(pdfContract);
+const execPromise = util.promisify(exec);
 
-// 		return uploadPdfContract;
-// 	} catch (error) {
-// 		console.error('Lỗi trong quá trình ghi dữ liệu hợp đồng:', error.message);
-// 		throw error;
-// 	}
-// }
+async function convertDocxToPdfCLI(docxBuffer) {
+	const tempDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'contract-'));
+	const inputPath = path.join(tempDir, 'input.docx');
+	const outputPath = path.join(tempDir, 'input.pdf');
 
-// module.exports = generatePdfContract;
+	try {
+		fs.writeFileSync(inputPath, docxBuffer);
+
+		const command = `soffice --headless --convert-to pdf "${inputPath}" --outdir "${tempDir}"`;
+		await execPromise(command, {
+			timeout: 15000,
+			maxBuffer: 10 * 1024 * 1024,
+		});
+
+		if (!fs.existsSync(outputPath)) {
+			throw new Error('File PDF không được tạo bởi LibreOffice');
+		}
+
+		const pdfBuffer = fs.readFileSync(outputPath);
+		return pdfBuffer;
+	} finally {
+		fs.rmSync(tempDir, { recursive: true, force: true });
+	}
+}
+
+async function generatePdfContract(data, buildingObjectId) {
+	try {
+		// 1. Lấy đường dẫn template từ database
+		const templatePath = await Services.buildings.findById(buildingObjectId).select('contractDocxUrl').lean().exec();
+
+		if (!templatePath || !templatePath.contractDocxUrl) {
+			throw new Error(`Tòa nhà với id ${buildingObjectId} không tồn tại hoặc thiếu template`);
+		}
+
+		// 2. Tải file template DOCX
+		const contractDocxBuffer = await getOriginalFile(templatePath.contractDocxUrl);
+
+		// 3. Render dữ liệu vào template
+		const zip = new PizZip(contractDocxBuffer);
+		const doc = new Docxtemplater(zip, {
+			paragraphLoop: true,
+			linebreaks: true,
+			parser: expressionParser,
+			nullGetter: () => '',
+		});
+
+		doc.render(data);
+
+		// 4. Tạo DOCX buffer sau khi render
+		const docxBuffer = doc.getZip().generate({
+			type: 'nodebuffer',
+			compression: 'DEFLATE',
+		});
+
+		// 5. Convert DOCX sang PDF
+		const pdfBuffer = await convertDocxToPdfCLI(docxBuffer);
+
+		//6. upload s3
+		const originalName = `hop-dong-${moment().format('YYYYMMDD-HHmmss')}.pdf`;
+
+		const fileObject = {
+			buffer: pdfBuffer,
+			mimetype: 'application/pdf',
+			originalname: originalName,
+		};
+		const uploadResult = await uploadFile(fileObject);
+		return uploadResult;
+	} catch (error) {
+		// Xử lý lỗi từ docxtemplater
+		if (error.properties && error.properties.errors) {
+			const firstError = error.properties.errors[0];
+			throw new Error(`Template error: ${firstError.message} tại field ${firstError.name}`);
+		}
+
+		throw new Error(`Tạo PDF hợp đồng thất bại: ${error.message}`);
+	}
+}
+
+module.exports = generatePdfContract;

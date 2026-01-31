@@ -8,4 +8,9 @@ const buildingPermissions = {
 	MANAGER_EDIT_CONTRACT: 'managerEditContract',
 };
 
-module.exports = { buildingPermissions };
+const paymentConfirmationMode = {
+	AUTO: 'auto',
+	MANUAL: 'manual',
+};
+
+module.exports = { buildingPermissions, paymentConfirmationMode };

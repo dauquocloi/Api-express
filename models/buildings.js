@@ -1,7 +1,7 @@
-var mongoose = require('mongoose');
-const Roles = require('../constants/userRoles');
-require('mongoose-double')(mongoose);
+const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const Roles = require('../constants/userRoles');
+const { paymentConfirmationMode } = require('../constants/buildings');
 
 const PermissionsSchema = new Schema(
 	{
@@ -17,8 +17,13 @@ const PermissionsSchema = new Schema(
 );
 
 // Create a Mongoose Schema
-var BuildingsSchema = new Schema(
+const BuildingsSchema = new Schema(
 	{
+		paymentConfirmationMode: {
+			type: String,
+			enum: Object.values(paymentConfirmationMode),
+			default: paymentConfirmationMode['AUTO'],
+		},
 		buildingName: {
 			type: String,
 			required: true,
@@ -40,19 +45,8 @@ var BuildingsSchema = new Schema(
 		},
 		images: {
 			type: [String],
-			validate: {
-				validator: function (v) {
-					return /^https?:\/\/.*\.(jpg|jpeg|png|gif|webp|svg)$/.test(v);
-				},
-				message: 'Invalid image URL',
-			},
 		},
 
-		bank: {
-			type: Schema.Types.ObjectId,
-			ref: 'BanksEntity',
-			default: null,
-		},
 		contractDocxUrl: { type: String },
 		contractPdfUrl: { type: String },
 		depositTermUrl: { type: String },
@@ -65,7 +59,8 @@ var BuildingsSchema = new Schema(
 			},
 		],
 		invoiceNotes: { type: String, default: '' },
-		settings: { PermissionsSchema },
+		settings: PermissionsSchema,
+		paymentInfo: { type: Schema.Types.ObjectId, ref: 'BankAccountsEntity' },
 		version: { type: Number, default: 1 },
 	},
 	{
@@ -75,13 +70,4 @@ var BuildingsSchema = new Schema(
 	},
 );
 
-// BuildingsSchema.post('find', async (docs, next) => {
-// 	try {
-// 		if (docs?.contractDocxUrl) {
-
-// 		}
-// 	}
-// })
-
-// Register the room schema
 exports.BuildingsEntity = mongoose.model('BuildingsEntity', BuildingsSchema, 'buildings');

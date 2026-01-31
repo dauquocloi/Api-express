@@ -20,7 +20,7 @@ module.exports = {
 		cccdIssueDate: Joi.date().required(),
 		cccdIssueAt: Joi.string().required(),
 		permanentAddress: Joi.string().required(),
-		birthday: Joi.date().required(),
+		birthdate: Joi.date().required(),
 		gender: Joi.string().required(),
 	}),
 	modifyCustomer: Joi.object().keys({
@@ -30,7 +30,7 @@ module.exports = {
 		cccdIssueDate: Joi.date().optional(),
 		cccdIssueAt: Joi.string().optional(),
 		permanentAddress: Joi.string().optional(),
-		birthday: Joi.date().required(),
+		birthdate: Joi.date().required(),
 		gender: Joi.string().required(),
 		isContractOwner: Joi.boolean().optional(),
 	}),

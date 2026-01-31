@@ -1,7 +1,5 @@
 var mongoose = require('mongoose');
-// const { any } = require('underscore');
 const Schema = mongoose.Schema;
-const Entity = require('./index');
 const { receiptTypes, receiptStatus } = require('../constants/receipt');
 
 const ReceiptsSchema = new Schema(
@@ -38,8 +36,6 @@ const ReceiptsSchema = new Schema(
 			type: Boolean,
 			default: false,
 		},
-		// terminated: "Bỏ cọc => ghi nhận thu",
-		// cancelled: "Hủy => ko ghi nhận thu, ghi nhận giao dịch"
 		status: { type: String, enum: Object.values(receiptStatus), default: 'unpaid' },
 		amount: {
 			type: Number,
@@ -98,12 +94,18 @@ const ReceiptsSchema = new Schema(
 			detuctedType: { type: String, enum: ['depositRefund', 'terminateContractEarly'] },
 			detuctedId: { type: Schema.Types.ObjectId },
 		},
+		contract: {
+			type: Schema.Types.ObjectId,
+			ref: 'ContractsEntity',
+		},
+		creater: { type: Schema.Types.ObjectId, ref: 'UsersEntity' },
 		version: {
 			type: Number,
 			default: 1,
 		},
 	},
 	{
+		versionKey: false,
 		timestamps: true,
 	},
 );

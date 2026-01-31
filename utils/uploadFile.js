@@ -1,8 +1,9 @@
 const generateRandomFileName = require('./randomFileName');
 const optimizedImage = require('./optimizeImage');
-const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 const uploadFile = async (filePath) => {
+	console.log('log of filePath in uploadFile util: ', filePath);
 	try {
 		const s3 = new S3Client({
 			credentials: {
@@ -16,9 +17,9 @@ const uploadFile = async (filePath) => {
 		let fileBuffer;
 
 		if (filePath.mimetype?.startsWith('image/')) {
-			fileBuffer = await optimizedImage(filePath.buffer); // tối ưu ảnh
+			fileBuffer = await optimizedImage(filePath.buffer); // giảm kích thước và độ nét
 		} else {
-			fileBuffer = filePath.buffer; // giữ nguyên file gốc (vd: PDF)
+			fileBuffer = filePath.buffer;
 		}
 
 		const params = {

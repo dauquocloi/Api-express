@@ -54,6 +54,6 @@ exports.testSocket = asyncHandler(async (req, res) => {
 exports.weebhookPayment = asyncHandler(async (req, res) => {
 	const sepayData = req.body;
 	console.log('log of weebhookPayment', sepayData);
-	const result = await UseCase.weebhookPayment(sepayData);
+	await UseCase.weebhookPayment(sepayData);
 	return res.status(200).send({ success: true, errorCode: 0, message: 'succesfull' });
 });

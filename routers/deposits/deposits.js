@@ -12,7 +12,7 @@ exports.getDeposits = asyncHandler(async (req, res) => {
 exports.createDeposit = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('log of data from createDeposit: ', data);
-	const result = await UseCase.createDeposit(data);
+	const result = await UseCase.createDeposit(data, req.redisKey);
 	return new SuccessResponse('Success', result).send(res);
 });
 
@@ -26,7 +26,7 @@ exports.getDepositDetail = asyncHandler(async (req, res) => {
 exports.modifyDeposit = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('this is log of modifyDeposit: ', data);
-	await UseCase.modifyDeposit(data);
+	await UseCase.modifyDeposit(data, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

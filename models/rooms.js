@@ -1,4 +1,4 @@
-var mongoose = require('mongoose');
+const mongoose = require('mongoose');
 const Entity = require('./index');
 const Schema = mongoose.Schema;
 const getFileUrl = require('../utils/getFileUrl');
@@ -21,8 +21,9 @@ const InteriorsSchema = new Schema({
 
 const RoomsSchema = new Schema({
 	roomIndex: {
-		type: Number,
+		type: String,
 		required: true,
+		trim: true,
 	},
 	roomPrice: Number,
 	roomDeposit: Number,
@@ -54,10 +55,6 @@ const RoomsSchema = new Schema({
 		ref: 'BuildingsEntity',
 	},
 
-	// payment: {
-	// 	type: Schema.Types.ObjectId,
-	// 	ref: 'PaymentsEntity',
-	// },
 	interior: [InteriorsSchema],
 
 	roomImage: {
@@ -71,7 +68,7 @@ const RoomsSchema = new Schema({
 	},
 	version: { type: Number, default: 1, required: true },
 	writeLock: {
-		ownerId: { type: Schema.Types.ObjectId, ref: 'users' },
+		ownerId: { type: Schema.Types.ObjectId, ref: 'UsersEntity' },
 		locked: { type: Boolean, default: false },
 		expAt: { type: Date },
 		reason: { type: String, default: '' },

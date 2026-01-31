@@ -1,8 +1,17 @@
+const { NotFoundError } = require('../AppError');
 const { depositRefundStatus } = require('../constants/deposits');
 const Entity = require('../models');
 
 const findById = (depositRefundId) => {
 	return Entity.DepositRefundsEntity.findById(depositRefundId);
+};
+
+const findByInvoiceUnpaidId = (invoiceUnpaidId) => {
+	return Entity.DepositRefundsEntity.findOne({ invoiceUnpaid: invoiceUnpaidId });
+};
+
+const findByReceiptsUnpaid = (receiptId) => {
+	return Entity.DepositRefundsEntity.findOne({ receiptsUnapid: receiptId });
 };
 
 const createDepositRefund = async (
@@ -56,4 +65,29 @@ const getDepositRefundByContractId = async (contractId, session) => {
 	}).session(session);
 };
 
-module.exports = { createDepositRefund, getDepositRefundByContractId, findById };
+const findByBuildingId = (buildingId, month, year) => {
+	return Entity.DepositRefundsEntity.find({ building: buildingId, month, year });
+};
+
+const updateDepositRefundStatusByReceiptId = async (receiptId, status, session) => {
+	const result = await Entity.DepositRefundsEntity.updateOne(
+		{ depositReceipt: receiptId },
+		{
+			$set: { status: status },
+			$inc: { version: 1 },
+		},
+		{ new: true, session },
+	);
+	if (result.matchedCount === 0) throw new NotFoundError('Dữ liệu phiếu cọc không tồn tại!');
+	return result;
+};
+
+module.exports = {
+	createDepositRefund,
+	getDepositRefundByContractId,
+	findById,
+	findByBuildingId,
+	updateDepositRefundStatusByReceiptId,
+	findByInvoiceUnpaidId,
+	findByReceiptsUnpaid,
+};

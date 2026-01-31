@@ -11,7 +11,7 @@ const DebtsSchema = new Schema(
 		},
 		room: {
 			type: Schema.Types.ObjectId,
-			ref: 'rooms',
+			ref: 'RoomsEntity',
 		},
 		period: {
 			month: { type: Number },

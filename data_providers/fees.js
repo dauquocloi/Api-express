@@ -3,9 +3,10 @@ const Entity = require('../models');
 const listFeeInitial = require('../utils/getListFeeInital');
 const { feeUnit } = require('../constants/fees');
 const Services = require('../service');
+const redis = require('../config/redisClient');
 const { NotFoundError, InternalError, InvalidInputError, ConflictError } = require('../AppError');
 
-exports.addFee = async (roomId, feeKey, feeAmount, lastIndex) => {
+exports.addFee = async (roomId, feeKey, feeAmount, lastIndex, redisKey) => {
 	let roomObjectId = new mongoose.Types.ObjectId(roomId);
 
 	let findFee = listFeeInitial.find((fee) => fee.feeKey === feeKey);
@@ -26,11 +27,13 @@ exports.addFee = async (roomId, feeKey, feeAmount, lastIndex) => {
 		room: roomObjectId,
 	};
 
-	if (findFee.unit === 'index') {
-		newFeeInfo.lastIndex = Number(lastIndex);
+	if (findFee.unit === feeUnit['INDEX']) {
+		newFeeInfo.lastIndex = Number(lastIndex) || 0;
 	}
 	console.log('log of new Fee', newFeeInfo);
 	const feeCreated = await Entity.FeesEntity.create(newFeeInfo);
+
+	await redis.set(redisKey, `SUCCESS:${JSON.stringify(feeCreated)}`, 'EX', process.env.REDIS_EXP_SEC);
 	return feeCreated;
 };
 
@@ -66,7 +69,7 @@ exports.deleteFee = async (feeId, userId, roomId) => {
 	}
 };
 
-exports.editFee = async (feeId, roomId, userId, feeAmount, lastIndex, version) => {
+exports.editFee = async (feeId, roomId, userId, feeAmount, lastIndex, version, redisKey) => {
 	let session;
 	try {
 		session = await mongoose.startSession();
@@ -86,10 +89,27 @@ exports.editFee = async (feeId, roomId, userId, feeAmount, lastIndex, version) =
 			await Services.rooms.bumpRoomVersionBlind(roomId, null);
 			return;
 		});
+
+		await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
 		return 'Success';
 	} catch (error) {
+		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
 		throw error;
 	} finally {
 		if (session) session.endSession();
 	}
+};
+
+exports.getFeeIndexHistory = async (feeId) => {
+	const feeIndexHistory = await Services.fees
+		.getFeeIndexHistoryByFeeId(feeId)
+		.select('lastIndex lastUpdated lastEditor room feeKey fee')
+		.populate({ path: 'lastEditor', select: 'fullName _id' })
+		.lean()
+		.exec();
+	if (!feeIndexHistory) {
+		throw new NotFoundError('Dữ liệu không tồn tại');
+	}
+
+	return feeIndexHistory;
 };

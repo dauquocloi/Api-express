@@ -89,6 +89,8 @@ const getInvoicePaymentStatus = (buildingId, month, year) => {
 							collector: {
 								$ifNull: ['$$trans.collector', null],
 							},
+							ownerConfirmed: '$$trans.ownerConfirmed',
+							createdBy: '$$trans.createdBy',
 						},
 					},
 				},
@@ -155,8 +157,8 @@ const getInvoicesSendingStatus = (buildingId, currentMonth, currentYear) => {
 				from: 'invoices',
 				let: {
 					roomObjectId: '$roomInfo._id',
-					month: 5,
-					year: 2025,
+					month: currentMonth,
+					year: currentYear,
 				},
 				pipeline: [
 					{
@@ -227,7 +229,7 @@ const getInvoicesSendingStatus = (buildingId, currentMonth, currentYear) => {
 								},
 								then: true,
 							},
-							// 2️⃣ createdAt không thuộc tháng hiện tại và stayDays < 30 => false
+							// 2️ createdAt không thuộc tháng hiện tại và stayDays < 30 => false
 							{
 								case: {
 									$anyElementTrue: {
@@ -491,6 +493,9 @@ const getInvoiceDetail = (invoiceId) => {
 								transactionId: '$transactionInfo.transactionId',
 								accountNumber: '$transactionInfo.accountNumber',
 								gateway: '$transactionInfo.gateway',
+								ownerConfirmed: '$transactionInfo.ownerConfirmed',
+								confirmedDate: '$transactionInfo.confirmedDate',
+								createdBy: '$transactionInfo.createdBy',
 							},
 							'$$REMOVE',
 						],
@@ -505,7 +510,7 @@ const getInvoiceInfoByInvoiceCode = (invoiceCode) => {
 	return [
 		{
 			$match: {
-				invoiceCode: { $regex: new RegExp(`^${invoiceCode}$`, 'i') },
+				invoiceCode: invoiceCode,
 			},
 		},
 		{
@@ -526,33 +531,54 @@ const getInvoiceInfoByInvoiceCode = (invoiceCode) => {
 			},
 		},
 		{
-			$addFields: {
-				buildingId: {
-					$getField: {
-						field: 'building',
-						input: {
-							$arrayElemAt: ['$roomInfo', 0],
-						},
-					},
-				},
+			$lookup: {
+				from: 'buildings',
+				localField: 'roomInfo.building',
+				foreignField: '_id',
+				as: 'building',
 			},
 		},
+
 		{
 			$lookup: {
-				from: 'banks',
-				let: {
-					buildingObjectId: '$buildingId',
-				},
+				from: 'bankAccounts',
+				localField: 'building.paymentInfo',
+				foreignField: '_id',
 				pipeline: [
 					{
-						$match: {
-							$expr: {
-								$in: ['$$buildingObjectId', '$building'],
-							},
+						$lookup: {
+							from: 'banks',
+							localField: 'bank',
+							foreignField: '_id',
+							pipeline: [
+								{
+									$project: {
+										_id: 0,
+										bin: 0,
+									},
+								},
+							],
+							as: 'bank',
 						},
 					},
 				],
 				as: 'transferInfo',
+			},
+		},
+		{
+			$lookup: {
+				from: 'users',
+				localField: 'creater',
+				foreignField: '_id',
+				pipeline: [
+					{
+						$project: {
+							_id: 0,
+							fullName: 1,
+						},
+					},
+				],
+				as: 'creater',
 			},
 		},
 		{
@@ -572,6 +598,14 @@ const getInvoiceInfoByInvoiceCode = (invoiceCode) => {
 				invoiceCode: 1,
 				note: 1,
 				createdAt: 1,
+				creater: {
+					$ifNull: [
+						{
+							$first: '$creater',
+						},
+						null,
+					],
+				},
 				roomIndex: {
 					$getField: {
 						field: 'roomIndex',
@@ -581,7 +615,25 @@ const getInvoiceInfoByInvoiceCode = (invoiceCode) => {
 					},
 				},
 				transferInfo: {
-					$arrayElemAt: ['$transferInfo', 0],
+					$ifNull: [
+						{
+							$first: {
+								$map: {
+									input: '$transferInfo',
+									as: 'trans',
+									in: {
+										_id: '$$trans._id',
+										accountNumber: '$$trans.accountNumber',
+										accountName: '$$trans.accountName',
+										bank: {
+											$arrayElemAt: ['$$trans.bank', 0],
+										},
+									},
+								},
+							},
+						},
+						null,
+					],
 				},
 			},
 		},
@@ -617,6 +669,14 @@ const findInvoiceInfoByPaymentContent = (paymentContent) => {
 			},
 		},
 		{
+			$lookup: {
+				from: 'bankAccounts',
+				localField: 'building.paymentInfo',
+				foreignField: '_id',
+				as: 'paymentInfo',
+			},
+		},
+		{
 			$addFields: {
 				buildingId: {
 					$first: '$building._id',
@@ -626,6 +686,14 @@ const findInvoiceInfoByPaymentContent = (paymentContent) => {
 				},
 				buildingName: {
 					$first: '$building.buildingName',
+				},
+				paymentInfo: {
+					$ifNull: [
+						{
+							$first: '$paymentInfo',
+						},
+						null,
+					],
 				},
 			},
 		},
@@ -646,6 +714,112 @@ const findInvoiceInfoByPaymentContent = (paymentContent) => {
 				buildingId: 1,
 				management: 1,
 				buildingName: 1,
+				paymentInfo: 1,
+			},
+		},
+	];
+};
+
+const getCashCollectorInfo = (invoiceObjectId) => {
+	return [
+		{
+			$match: {
+				_id: invoiceObjectId,
+			},
+		},
+		{
+			$lookup: {
+				from: 'rooms',
+				localField: 'room',
+				foreignField: '_id',
+				as: 'room',
+			},
+		},
+		{
+			$unwind: {
+				path: '$room',
+			},
+		},
+		{
+			$lookup: {
+				from: 'buildings',
+				localField: 'room.building',
+				foreignField: '_id',
+				as: 'building',
+			},
+		},
+		{
+			$addFields:
+				/**
+				 * newField: The new field name.
+				 * expression: The new field expression.
+				 */
+				{
+					building: {
+						$first: '$building',
+					},
+				},
+		},
+		{
+			$lookup: {
+				from: 'users',
+				let: {
+					management: '$building.management',
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$in: [
+									'$_id',
+									{
+										$map: {
+											input: {
+												$filter: {
+													input: '$$management',
+													as: 'm',
+													cond: {
+														$eq: ['$$m.role', 'owner'],
+													},
+												},
+											},
+											as: 'owner',
+											in: '$$owner.user',
+										},
+									},
+								],
+							},
+						},
+					},
+					{
+						$project: {
+							_id: 1,
+							expoPushToken: 1,
+							fullName: 1,
+							role: 1,
+							notificationSetting: 1,
+						},
+					},
+				],
+				as: 'receiver',
+			},
+		},
+		{
+			$project: {
+				_id: 1,
+				status: 1,
+				invoiceContent: 1,
+				room: {
+					_id: '$room._id',
+					roomIndex: '$room.roomIndex',
+				},
+				building: {
+					_id: '$building._id',
+					buildingName: '$building.buildingName',
+				},
+				receiver: {
+					$first: '$receiver',
+				},
 			},
 		},
 	];
@@ -657,4 +831,5 @@ module.exports = {
 	getInvoiceDetail,
 	getInvoiceInfoByInvoiceCode,
 	findInvoiceInfoByPaymentContent,
+	getCashCollectorInfo,
 };

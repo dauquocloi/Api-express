@@ -9,6 +9,7 @@ const sourceType = {
 	INVOICE: 'invoice', // Hóa đơn tiền nhà //
 	RECEIPT: 'receipt', // Hóa đơn thu tiền //
 	PENDING: 'pending', // Chưa thêm vào hóa đơn nào //
+	CHECKOUT_COST: 'checkoutCost', // Hóa đơn trả phòng bỏ cọc //
 };
 
 module.exports = { debtStatus, sourceType };

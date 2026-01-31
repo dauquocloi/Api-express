@@ -12,4 +12,11 @@ const depositRefundStatus = {
 	TERMINATED: 'terminated',
 };
 
-module.exports = { depositStatus, depositRefundStatus };
+const receiptToDepositRefundStatusMap = {
+	unpaid: 'pending',
+	paid: 'paid',
+	partial: 'partial',
+	terminated: 'terminated',
+};
+
+module.exports = { depositStatus, depositRefundStatus, receiptToDepositRefundStatusMap };

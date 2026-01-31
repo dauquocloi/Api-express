@@ -43,8 +43,8 @@ module.exports = {
 	}),
 	getAllDeposits: Joi.object().keys({
 		buildingId: JoiObjectId().required(),
-		month: Joi.string().optional(),
-		year: Joi.string().optional(),
+		month: Joi.string().allow('', null).optional(),
+		year: Joi.string().allow('', null).optional(),
 	}),
 	createDeposit: Joi.object().keys({
 		room: roomDepositSchema.required(),

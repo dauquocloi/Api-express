@@ -27,7 +27,6 @@ const io = new Server(server, {
 	},
 });
 
-// ✅ Initialize TransactionManager
 const { transactionManager } = initializeInstances(io);
 console.log('✅ TransactionManager initialized');
 
@@ -96,7 +95,7 @@ app.use(errorHandler);
 
 // ========== START SERVER ==========
 server.listen(port, () => {
-	console.log(`🚀 Server listening on port ${port}`);
+	console.log(`Server listening on port ${port}`);
 });
 
 module.exports = { io, transactionManager };

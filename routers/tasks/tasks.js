@@ -13,7 +13,7 @@ exports.getTasks = asyncHandler(async (req, res) => {
 	console.log('log of data from getTasks: ', req.query);
 	const result = await UseCase.getTasks(
 		req.user._id,
-		Number(req.query.page) ?? 1,
+		Number(req?.query?.page) || 1,
 		req.query?.data?.search ?? null,
 		req.query?.data?.startDate ?? null,
 		req.query?.data?.endDate ?? null,

@@ -3,6 +3,8 @@ const asyncHandler = require('../../utils/asyncHandler');
 const { generateQrCode } = require('../../utils/generateQrCode');
 const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 exports.getInvoicesPaymentStatus = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.query };
 	console.log('log of data from getInvoicesPaymentStatus: ', data);
@@ -27,7 +29,7 @@ exports.getInvoiceDetail = asyncHandler(async (req, res) => {
 exports.modifyInvoice = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('log of data from modifyInvoice: ', data);
-	await UseCase.modifyInvoice(data.invoiceId, data.feeIndexValues, data.stayDays, data.version, req.user._id);
+	await UseCase.modifyInvoice(data.invoiceId, data.feeIndexValues, data.stayDays, data.version, req.user._id, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
@@ -39,8 +41,16 @@ exports.deleteInvoice = asyncHandler(async (req, res) => {
 });
 
 exports.collectCashMoney = asyncHandler(async (req, res) => {
-	const data = { ...req.params, ...req.body, ...req.user };
-	await UseCase.collectCashMoney(data);
+	const data = { ...req.params, ...req.body, ...req.user, redisKey: req.redisKey };
+	await UseCase.collectCashMoney(data.invoiceId, data.buildingId, data.date, data.amount, data._id, data.version, data.redisKey);
+	return new SuccessMsgResponse('Success').send(res);
+});
+
+exports.checkout = asyncHandler(async (req, res) => {
+	const data = { ...req.params, ...req.body, redisKey: req.redisKey };
+	const collectorInfo = { _id: req.user._id, role: req.user.role };
+	await UseCase.checkout(data.invoiceId, data.buildingId, data.date, data.amount, collectorInfo, data.version, data.redisKey, data.paymentMethod);
+	// await sleep(5000);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

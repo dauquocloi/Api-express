@@ -53,6 +53,12 @@ class SuccessMsgResponse extends ApiResponse {
 	}
 }
 
+class ProcessingResponse extends ApiResponse {
+	constructor(message = 'Request is still processing. Try again shortly.') {
+		super(errorCodes.processing, message, responseStatus.PROCESSING);
+	}
+}
+
 class FailureMsgResponse extends ApiResponse {
 	constructor(message = 'Failure') {
 		super(errorCodes.failure, message, responseStatus.SUCCESS);
@@ -83,6 +89,12 @@ class InternalServerErrorResponse extends ApiResponse {
 	}
 }
 
+class ToManyRequestResponse extends ApiResponse {
+	constructor(message = 'Too Many Request') {
+		super(errorCodes.tooManyRequest, message, responseStatus.TOO_MANY_REQUEST);
+	}
+}
+
 module.exports = {
 	AccessTokenErrorResponse,
 	AuthFailureResponse,
@@ -95,4 +107,6 @@ module.exports = {
 	InvalidInputResponse,
 	InternalServerErrorResponse,
 	NotFoundResponse,
+	ToManyRequestResponse,
+	ProcessingResponse,
 };

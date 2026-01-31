@@ -5,6 +5,8 @@ const getLastName = require('../utils/getLastName');
 const { notificationTypes: notiTypes } = require('../constants/notifications');
 const { Expo } = require('expo-server-sdk');
 const { transfromBillStatus } = require('../constants/bills');
+const Roles = require('../constants/userRoles');
+const dayjs = require('dayjs');
 
 exports.getNotifications = async (receiverObjectId, pages, limit) => {
 	const notifications = await Entity.NotisEntity.aggregate(Pipelines.notifications.getNotifications(receiverObjectId, pages, limit));
@@ -66,10 +68,11 @@ exports.createManagerCollectCashNotification = async ({
 	amount,
 	collectorName,
 }) => {
+	const transformBillStatus = transfromBillStatus[billStatus];
 	const collectCashDataFormat = {
 		roomIndex: roomIndex,
 		buildingName: buildingName,
-		billStatus: billStatus,
+		billStatus: transformBillStatus,
 		billContent: billContent,
 		amount: amount, // Số tiền nhân viên thu
 		collector: collectorName,
@@ -131,6 +134,63 @@ exports.createPaymentNotification = async ({
 	return result.toObject();
 };
 
+exports.createContractExpiNotification = async ({ roomId, roomIndex, buildingName, contractEndDate, receiverIds }) => {
+	const formattedDate = dayjs(contractEndDate).format('DD/MM/YYYY');
+	const createNotiForm = NotiForm(notiTypes['CONTRACT_EXPIRE'], {
+		roomIndex,
+		buildingName,
+		contractEndDate: formattedDate,
+	});
+
+	const result = await Entity.NotisEntity.create({
+		type: notiTypes['TRANSACTION'],
+		title: createNotiForm.title,
+		content: createNotiForm.content,
+		receivers: receiverIds,
+		isRead: false,
+		metaData: {
+			roomId: roomId,
+		},
+	});
+
+	return result.toObject();
+};
+
+exports.createTransactionDeclinedNotification = async ({
+	roomIndex,
+	billContent,
+	billType,
+	billId,
+	transactionAmount,
+	reason,
+	buildingName,
+	creatorName,
+	receiverIds,
+}) => {
+	const createNotiForm = NotiForm(notiTypes['TRANSACTION_DECLINED'], {
+		roomIndex,
+		billContent,
+		reason,
+		buildingName,
+		creatorName,
+		transactionAmount,
+	});
+
+	const result = await Entity.NotisEntity.create({
+		type: notiTypes['TRANSACTION_DECLINED'],
+		title: createNotiForm.title,
+		content: createNotiForm.content,
+		receivers: receiverIds,
+		isRead: false,
+		metaData: {
+			billType: billType,
+			billId: billId,
+		},
+	});
+
+	return result.toObject();
+};
+
 exports.sendNotification = async (notiType, data) => {
 	console.log('log of data from sendNotification: ', data);
 	const { expoPushTokens = [], title, content, metaData } = data;
@@ -174,4 +234,16 @@ exports.sendNotification = async (notiType, data) => {
 			error: error.message,
 		};
 	}
+};
+
+exports.createNotificationSetting = async (userId, session) => {
+	const [result] = await Entity.NotiSettingsEntity.create(
+		[
+			{
+				user: userId,
+			},
+		],
+		{ session },
+	);
+	return result.toObject();
 };

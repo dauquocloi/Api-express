@@ -5,37 +5,99 @@ const Receipts = require('./receipts');
 const authentication = require('../../auth/authentication');
 const authorization = require('../../auth/authorization');
 const ROLES = require('../../constants/userRoles');
-const checkIdempotency = require('../../middleware/idempotency');
+const checkResourceAccess = require('../../auth/checkResourceAccess');
+const { checkIdempotency } = require('../../middleware/idempotency');
+const RESOURCE = 'receipts';
 
 const router = express.Router();
-
+//======================//
 router.use(authentication);
+//======================//
 
-router.get('/', validator(schema.getAllReceipts, ValidateSource.QUERY), Receipts.getListReceiptPaymentStatus);
+router.get(
+	'/',
+	authorization(ROLES['MANAGER'], ROLES['OWNER'], ROLES['STAFF']),
+	validator(schema.getAllReceipts, ValidateSource.QUERY),
+	Receipts.getListReceiptPaymentStatus,
+);
 
-router.get('/:receiptId', validator(schema.id, ValidateSource.PARAM), Receipts.getReceiptDetail);
+router.get(
+	'/:receiptId',
+	authorization(ROLES['MANAGER'], ROLES['OWNER'], ROLES['STAFF']),
+	validator(schema.id, ValidateSource.PARAM),
+	checkResourceAccess(RESOURCE),
+	Receipts.getReceiptDetail,
+);
 
-router.post('/', validator(schema.createReceipt, ValidateSource.BODY), Receipts.createReceipt);
+router.post(
+	'/',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	validator(schema.createReceipt, ValidateSource.BODY),
+	checkIdempotency,
+	Receipts.createReceipt,
+);
 
-router.post('/deposit-receipt', validator(schema.createDepositReceipt, ValidateSource.BODY), Receipts.createDepositReceipt);
+router.post(
+	'/deposit-receipt',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	checkIdempotency,
+	validator(schema.createDepositReceipt, ValidateSource.BODY),
+	Receipts.createDepositReceipt,
+);
 
-router.get('/:receiptId/deposit', validator(schema.id, ValidateSource.PARAM), Receipts.getDepositReceiptDetail);
+router.get(
+	'/:receiptId/deposit',
+	authorization(ROLES['MANAGER'], ROLES['OWNER']),
+	validator(schema.id, ValidateSource.PARAM),
+	checkResourceAccess(RESOURCE),
+	Receipts.getDepositReceiptDetail,
+);
 
-router.patch('/:receiptId', validator(schema.id, ValidateSource.PARAM), validator(schema.modifyReceipt, ValidateSource.BODY), Receipts.modifyReceipt);
+router.patch(
+	'/:receiptId',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	checkIdempotency,
+	validator(schema.id, ValidateSource.PARAM),
+	validator(schema.modifyReceipt, ValidateSource.BODY),
+	checkResourceAccess(RESOURCE),
+	Receipts.modifyReceipt,
+);
 
 router.post(
 	'/:receiptId/collect-cash',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	checkIdempotency,
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.collectCash, ValidateSource.BODY),
+	checkResourceAccess(RESOURCE),
 	Receipts.collectCashMoney,
 );
+
+router.post(
+	'/:receiptId/checkout',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	checkIdempotency,
+	validator(schema.id, ValidateSource.PARAM),
+	validator(schema.checkout, ValidateSource.BODY),
+	checkResourceAccess(RESOURCE),
+
+	Receipts.checkout,
+);
+
 router.delete(
 	'/:receiptId',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.deleteReceipt, ValidateSource.BODY),
+	checkResourceAccess(RESOURCE),
 	Receipts.deleteReceipt,
 );
-router.post('/debt-receipt', validator(schema.createReceipt, ValidateSource.BODY), Receipts.createDebtsReceipt);
+router.post(
+	'/debt-receipt',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	checkIdempotency,
+	validator(schema.createReceipt, ValidateSource.BODY),
+	Receipts.createDebtsReceipt,
+);
 
 module.exports = router;

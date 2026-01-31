@@ -41,21 +41,22 @@ exports.generateDepositRefund = asyncHandler(async (req, res) => {
 		feeIndexValues: data.feeIndexValues,
 		feesOther: data.feesOther,
 		userId: req.user._id,
+		redisKey: req.redisKey,
 	});
-	return new SuccessMsgResponse('Success').send(res);
+	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.modifyDepositRefund = asyncHandler(async (req, res) => {
 	let data = { ...req.body, ...req.params };
 	console.log('log of modifyDepositRefund data:', data);
-	await UseCase.modifyDepositRefund(data);
+	await UseCase.modifyDepositRefund(data, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
 exports.confirmDepositRefund = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.user };
 	console.log('log of data from submitDepositRefund: ', data);
-	const result = await UseCase.confirmDepositRefund(data.depositRefundId, data._id);
+	const result = await UseCase.confirmDepositRefund(data.depositRefundId, req.user._id, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

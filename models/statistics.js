@@ -6,7 +6,7 @@ require('mongoose-double')(mongoose);
 const Schema = mongoose.Schema;
 // Create a Mongoose Schema
 
-let RoomStatisticsSchema = new Schema({
+const RoomStatisticsSchema = new Schema({
 	totalRoom: {
 		type: Number,
 		min: 0,
@@ -21,16 +21,14 @@ let RoomStatisticsSchema = new Schema({
 	},
 	occupancyRate: {
 		type: Number,
-		required: true,
 		min: 0,
 		max: 100,
 	},
 	occupancyComparisonRate: {
 		type: Number,
-		min: 0,
-		max: 100,
+		default: null,
 	},
-	occupancyComparisonTrend: { type: String, enum: ['increase', 'decrease', 'stable'], required: true },
+	// occupancyComparisonTrend: { type: String, enum: ['increase', 'decrease', 'stable'], required: true },
 });
 
 const VehicleStatisticSchema = new Schema({
@@ -40,14 +38,12 @@ const VehicleStatisticSchema = new Schema({
 	},
 	vehicleComparisonRate: {
 		type: Number,
-		min: 0,
-		max: 100,
 	},
-	vehicleComparisonTrend: { type: String, enum: ['increase', 'decrease', 'stable'], required: true },
+	// vehicleComparisonTrend: { type: String, enum: ['increase', 'decrease', 'stable'], required: true },
 });
 
 const CustomerStatisticsSchema = new Schema({
-	temporaryResidentTotalTotal: {
+	temporaryResidentTotal: {
 		type: Number,
 		min: 0,
 	},
@@ -57,10 +53,8 @@ const CustomerStatisticsSchema = new Schema({
 	},
 	customerComparisonRate: {
 		type: Number,
-		min: 0,
-		max: 100,
 	},
-	customerComparisonTrend: { type: String, enum: ['increase', 'decrease', 'stable'], required: true },
+	// customerComparisonTrend: { type: String, enum: ['increase', 'decrease', 'stable'], required: true },
 });
 
 let StatisticsSchema = new Schema(
@@ -69,13 +63,12 @@ let StatisticsSchema = new Schema(
 			type: String,
 			enum: {
 				values: ['lock', 'unLock'],
-				message: '{VALUE} is not a valid invoice type',
 			},
 			required: true,
 		},
 		building: {
 			type: Schema.Types.ObjectId,
-			ref: 'buildings',
+			ref: 'BuildingsEntity',
 		},
 		month: {
 			type: Number,
@@ -96,20 +89,20 @@ let StatisticsSchema = new Schema(
 			},
 		}, // Năm
 		revenue: {
-			type: Schema.Types.ObjectId,
-			ref: 'revenue',
+			type: Number,
+			required: true,
 		},
 		revenueComparisonRate: {
 			type: Number,
-			required: true,
+			default: null,
 		},
 		expenditure: {
-			type: Schema.Types.ObjectId,
-			ref: 'expenditures',
+			type: Number,
+			required: true,
 		},
 		expenditureComparitionRate: {
 			type: Number,
-			required: true,
+			default: null,
 		},
 		profit: {
 			type: Number,
@@ -117,12 +110,12 @@ let StatisticsSchema = new Schema(
 		},
 		profitComparisonRate: {
 			type: Number,
-			min: 0,
+			default: null,
 		},
-		profitComparisonTrend: { type: String, enum: ['increase', 'decrease', 'stable'], required: true },
-		room: { RoomStatisticsSchema },
-		vehicle: { VehicleStatisticSchema },
-		customer: { CustomerStatisticsSchema },
+		// profitComparisonTrend: { type: String, enum: ['increase', 'decrease', 'stable'] },
+		room: RoomStatisticsSchema,
+		vehicle: VehicleStatisticSchema,
+		customer: CustomerStatisticsSchema,
 	},
 
 	{

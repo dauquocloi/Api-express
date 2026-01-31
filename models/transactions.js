@@ -1,5 +1,6 @@
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { CREATED_BY, OWNER_CONFIRMED_STATUS } = require('../constants/transactions');
 
 // Create  Mongoose Schema
 const TransactionsSchema = new mongoose.Schema(
@@ -16,10 +17,18 @@ const TransactionsSchema = new mongoose.Schema(
 		referenceCode: { type: String, required: false }, // Mã tham chiếu giao dịch
 		// accumulated: { type: Number, required: true }, // Số dư tích lũy (chưa hỗ trợ)
 		transactionId: { type: String, required: false, unique: true }, // ID giao dịch (from bank)
-		idempotencyKey: { type: String, required: true, unique: true }, // ID request
+		idempotencyKey: { type: String, required: false, unique: true }, // ID request
 		paymentMethod: { type: String, enum: ['transfer', 'cash'], required: true }, // Loại thanh toán
 
 		isTransactionDetected: { type: Boolean, default: false },
+		createdBy: { type: String, enum: Object.values(CREATED_BY), required: true },
+		ownerConfirmed: { type: String, enum: Object.values(OWNER_CONFIRMED_STATUS), default: OWNER_CONFIRMED_STATUS['PENDING'] },
+		confirmedDate: { type: Date },
+		collector: {
+			type: Schema.Types.ObjectId,
+			ref: 'UsersEntity',
+			default: null,
+		},
 		invoice: {
 			type: Schema.Types.ObjectId,
 			ref: 'InvoicesEntity',
@@ -40,11 +49,6 @@ const TransactionsSchema = new mongoose.Schema(
 		year: {
 			type: Number,
 			required: false,
-			default: null,
-		},
-		collector: {
-			type: Schema.Types.ObjectId,
-			ref: 'UsersEntity',
 			default: null,
 		},
 	},

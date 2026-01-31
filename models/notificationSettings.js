@@ -1,49 +1,49 @@
-const { required } = require('joi');
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const ROLES = require('../constants/userRoles');
 
 const NotificationSettingsSchema = new Schema(
 	{
-		user: { type: Schema.Types.ObjectId, ref: 'users' },
+		user: { type: Schema.Types.ObjectId, ref: 'UsersEntity' },
 		paymentReceived: {
 			// 1. Khách thanh toán hoặc có giao dịch
 			enabled: { type: Boolean, default: true },
-			allowedRoles: { type: [String], default: ['owner', 'manager'], required: true, enum: ['owner', 'manager'] },
+			allowedRoles: { type: [String], default: [ROLES['MANAGER'], ROLES['OWNER']], required: true, enum: [ROLES['MANAGER'], ROLES['OWNER']] },
 		},
 		staffTaskCompleted: {
 			// 2. Nhân viên hoàn thành công việc
 			enabled: { type: Boolean, default: true },
-			allowedRoles: { type: [String], default: ['owner'], required: true, enum: ['owner'] },
+			allowedRoles: { type: [String], default: [ROLES['OWNER']], required: true, enum: [ROLES['OWNER']] },
 		},
 		roomCheckout: {
 			// 3. Phòng trả phòng
 			enabled: { type: Boolean, default: true },
-			allowedRoles: { type: [String], default: ['owner', 'manager'], required: true, enum: ['owner', 'manager'] },
+			allowedRoles: { type: [String], default: [ROLES['OWNER'], ROLES['MANAGER']], required: true, enum: [ROLES['OWNER'], ROLES['MANAGER']] },
 		},
 		roomCheckoutEarly: {
 			// 4. Phòng bỏ cọc
 			enabled: { type: Boolean, default: true },
-			allowedRoles: { type: [String], default: ['owner'], required: true, enum: ['owner'] },
+			allowedRoles: { type: [String], default: [ROLES['OWNER']], required: true, enum: [ROLES['OWNER']] },
 		},
 		cashCollected: {
 			// 5. Nhân viên thu tiền mặt -> CHỈ OWNER
 			enabled: { type: Boolean, default: true },
-			allowedRoles: { type: [String], default: ['owner'], required: true, enum: ['owner'] },
+			allowedRoles: { type: [String], default: [ROLES['OWNER']], required: true, enum: [ROLES['OWNER']] },
 		},
 		assignedTask: {
 			// 6. Nhận thông báo khi được giao việc
 			enabled: { type: Boolean, default: true },
-			allowedRoles: { type: [String], default: ['manager'], required: true, enum: ['manager'] },
+			allowedRoles: { type: [String], default: [ROLES['MANAGER']], required: true, enum: [ROLES['MANAGER']] },
 		},
 		contractExpiring: {
 			// 7. Phòng sắp hết hạn hợp đồng
 			enabled: { type: Boolean, default: true },
-			allowedRoles: { type: [String], default: ['owner'], required: true, enum: ['owner'] },
+			allowedRoles: { type: [String], default: [ROLES['OWNER']], required: true, enum: [ROLES['OWNER']] },
 		},
 		roomDeposited: {
 			// 8. Phòng được đặt cọc
 			enabled: { type: Boolean, default: true },
-			allowedRoles: { type: [String], default: ['owner', 'manager'], required: true, enum: ['owner', 'manager'] },
+			allowedRoles: { type: [String], default: [ROLES['OWNER'], ROLES['MANAGER']], required: true, enum: [ROLES['OWNER'], ROLES['MANAGER']] },
 		},
 	},
 	{
@@ -51,4 +51,4 @@ const NotificationSettingsSchema = new Schema(
 	},
 );
 
-exports.NotificationSettingsSchema = mongoose.model('NotificationSettingsSchema', NotificationSettingsSchema, 'notificationSettings');
+exports.NotificationSettingsEntity = mongoose.model('NotificationSettingsEntity', NotificationSettingsSchema, 'notificationSettings');

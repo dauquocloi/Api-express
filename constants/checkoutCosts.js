@@ -1,7 +1,15 @@
 const checkoutCostStatus = {
 	PAID: 'paid',
+	PARTIAL: 'partial',
 	PENDING: 'pending',
 	TERMINATED: 'terminated',
 };
 
-module.exports = { checkoutCostStatus };
+const receiptToCheckoutCostStatusMap = {
+	unpaid: 'pending',
+	paid: 'paid',
+	partial: 'partial',
+	terminated: 'terminated',
+};
+
+module.exports = { checkoutCostStatus, receiptToCheckoutCostStatusMap };

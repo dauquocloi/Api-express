@@ -104,6 +104,8 @@ const getReceiptPaymentStatus = (buildingId, month, year) => {
 										_id: '$$t._id',
 										paymentMethod: '$$t.paymentMethod',
 										collector: '$$t.collector',
+										ownerConfirmed: '$$t.ownerConfirmed',
+										createdBy: '$$t.createdBy',
 									},
 								},
 							},
@@ -248,6 +250,9 @@ const getReceiptDetail = (receiptObjectId) => {
 								transactionId: '$transactions.transactionId',
 								accountNumber: '$transactions.accountNumber',
 								gateway: '$transactions.gateway',
+								ownerConfirmed: '$transactions.ownerConfirmed',
+								confirmedDate: '$transactions.confirmedDate',
+								createdBy: '$transactions.createdBy',
 							},
 							'$$REMOVE',
 						],
@@ -439,33 +444,53 @@ const getReceiptInfoByReceiptCode = (receiptCode) => {
 			},
 		},
 		{
-			$addFields: {
-				buildingId: {
-					$getField: {
-						field: 'building',
-						input: {
-							$arrayElemAt: ['$roomInfo', 0],
-						},
-					},
-				},
+			$lookup: {
+				from: 'buildings',
+				localField: 'roomInfo.building',
+				foreignField: '_id',
+				as: 'building',
 			},
 		},
 		{
 			$lookup: {
-				from: 'banks',
-				let: {
-					buildingObjectId: '$buildingId',
-				},
+				from: 'bankAccounts',
+				localField: 'building.paymentInfo',
+				foreignField: '_id',
 				pipeline: [
 					{
-						$match: {
-							$expr: {
-								$in: ['$$buildingObjectId', '$building'],
-							},
+						$lookup: {
+							from: 'banks',
+							localField: 'bank',
+							foreignField: '_id',
+							pipeline: [
+								{
+									$project: {
+										_id: 0,
+										bin: 0,
+									},
+								},
+							],
+							as: 'bank',
 						},
 					},
 				],
 				as: 'transferInfo',
+			},
+		},
+		{
+			$lookup: {
+				from: 'users',
+				localField: 'creater',
+				foreignField: '_id',
+				pipeline: [
+					{
+						$project: {
+							_id: 0,
+							fullName: 1,
+						},
+					},
+				],
+				as: 'creater',
 			},
 		},
 		{
@@ -479,11 +504,17 @@ const getReceiptInfoByReceiptCode = (receiptCode) => {
 				room: 1,
 				receiptContent: 1,
 				paidAmount: 1,
-
 				paymentContent: 1,
 				payer: 1,
 				invoiceCode: 1,
-
+				creater: {
+					$ifNull: [
+						{
+							$first: '$creater',
+						},
+						null,
+					],
+				},
 				roomIndex: {
 					$getField: {
 						field: 'roomIndex',
@@ -493,7 +524,25 @@ const getReceiptInfoByReceiptCode = (receiptCode) => {
 					},
 				},
 				transferInfo: {
-					$arrayElemAt: ['$transferInfo', 0],
+					$ifNull: [
+						{
+							$first: {
+								$map: {
+									input: '$transferInfo',
+									as: 'trans',
+									in: {
+										_id: '$$trans._id',
+										accountNumber: '$$trans.accountNumber',
+										accountName: '$$trans.accountName',
+										bank: {
+											$arrayElemAt: ['$$trans.bank', 0],
+										},
+									},
+								},
+							},
+						},
+						null,
+					],
 				},
 			},
 		},
@@ -577,6 +626,7 @@ const getCashCollectorInfo = (receiptObjectId) => {
 							expoPushToken: 1,
 							fullName: 1,
 							role: 1,
+							notificationSetting: 1,
 						},
 					},
 				],
@@ -584,27 +634,22 @@ const getCashCollectorInfo = (receiptObjectId) => {
 			},
 		},
 		{
-			$project:
-				/**
-				 * specifications: The fields to
-				 *   include or exclude.
-				 */
-				{
-					_id: 1,
-					status: 1,
-					receiptContent: 1,
-					room: {
-						_id: '$room._id',
-						roomIndex: '$room.roomIndex',
-					},
-					building: {
-						_id: '$building._id',
-						buildingName: '$building.buildingName',
-					},
-					receiver: {
-						$first: '$receiver',
-					},
+			$project: {
+				_id: 1,
+				status: 1,
+				receiptContent: 1,
+				room: {
+					_id: '$room._id',
+					roomIndex: '$room.roomIndex',
 				},
+				building: {
+					_id: '$building._id',
+					buildingName: '$building.buildingName',
+				},
+				receiver: {
+					$first: '$receiver',
+				},
+			},
 		},
 	];
 };
@@ -638,6 +683,14 @@ const getReceiptByPaymentContent = (paymentContent) => {
 			},
 		},
 		{
+			$lookup: {
+				from: 'bankAccounts',
+				localField: 'building.paymentInfo',
+				foreignField: '_id',
+				as: 'paymentInfo',
+			},
+		},
+		{
 			$addFields: {
 				buildingId: {
 					$first: '$building._id',
@@ -647,6 +700,14 @@ const getReceiptByPaymentContent = (paymentContent) => {
 				},
 				buildingName: {
 					$first: '$building.buildingName',
+				},
+				paymentInfo: {
+					$ifNull: [
+						{
+							$first: '$paymentInfo',
+						},
+						null,
+					],
 				},
 			},
 		},
@@ -667,6 +728,7 @@ const getReceiptByPaymentContent = (paymentContent) => {
 				buildingId: 1,
 				management: 1,
 				buildingName: 1,
+				paymentInfo: 1,
 			},
 		},
 	];

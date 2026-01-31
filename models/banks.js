@@ -1,8 +1,4 @@
-const { required } = require('joi');
-var mongoose = require('mongoose');
-// (Schema = mongoose.Schema), (ObjectId = Schema.ObjectId);
-require('mongoose-double')(mongoose);
-
+const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const BanksSchema = new Schema({
@@ -39,16 +35,6 @@ const BanksSchema = new Schema({
 		trim: true,
 	},
 	active: { type: String, enum: ['1', '0'], default: '0' }, // trạng thái ngân hàng được xác nhận hay chưa ?
-	owner: {
-		type: String,
-		required: true,
-	},
-	building: [
-		{
-			type: Schema.Types.ObjectId,
-			ref: 'BuildingsEnity',
-		},
-	],
 });
 
 exports.BanksEntity = mongoose.model('BanksEntity', BanksSchema, 'banks');

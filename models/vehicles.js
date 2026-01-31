@@ -18,7 +18,8 @@ const VehiclesSchema = new Schema({
 	},
 	owner: {
 		type: Schema.Types.ObjectId,
-		ref: 'customers',
+		ref: 'CustomersEntity',
+		required: true,
 	},
 	image: {
 		type: String,
@@ -32,7 +33,11 @@ const VehiclesSchema = new Schema({
 		type: String,
 		enum: Object.values(vehicleStatus),
 		required: true,
-		default: 'active', // 0: Đã dọn đi, 1: đang gửi, 2: tạm ngưng gửi
+		default: 'active',
+	},
+	contract: {
+		type: Schema.Types.ObjectId,
+		ref: 'ContractsEntity',
 	},
 });
 

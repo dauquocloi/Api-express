@@ -91,10 +91,10 @@ exports.getAll = asyncHandler(async (req, res) => {
 // 	);
 // };
 
-exports.modifyUserInfo = asyncHandler(async (req, res) => {
+exports.modifyManagementInfo = asyncHandler(async (req, res) => {
 	let data = { ...req.body, ...req.params };
 	console.log('log of data from modifyUserInfo: ', data);
-	await UseCase.modifyUserInfo(data);
+	await UseCase.modifyManagementInfo(req.body, req.params.userId, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
@@ -119,17 +119,17 @@ exports.getListSelectionManagements = asyncHandler(async (req, res) => {
 	return new SuccessResponse('Success', result).send(res);
 });
 
-exports.createManager = asyncHandler(async (req, res) => {
-	let data = { ...req.body, ...req.params };
-	console.log('log of data from createManager: ', data);
-	await UseCase.createManager(data);
+exports.createManagement = asyncHandler(async (req, res) => {
+	let data = req.body;
+	console.log('log of data from createManagement: ', data);
+	await UseCase.create(data, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
 exports.modifyUserPermission = asyncHandler(async (req, res) => {
 	let data = { ...req.body, ...req.params };
 	console.log('log of data from modifyUserPermission: ', data);
-	await UseCase.modifyUserPermission(data.userId, data.newPermission);
+	await UseCase.modifyUserPermission(data.userId, data.newPermission, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
@@ -143,6 +143,13 @@ exports.checkManagerCollectedCash = asyncHandler(async (req, res) => {
 exports.changeUserBuildingManagement = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('log of data from changeUserBuildingManagement: ', data);
-	await UseCase.changeUserBuildingManagement(data);
+	await UseCase.changeUserBuildingManagement(data, req.redisKey);
+	return new SuccessMsgResponse('Success').send(res);
+});
+
+exports.addDevice = asyncHandler(async (req, res) => {
+	let data = { ...req.params, ...req.body };
+	console.log('log of data from addDevice: ', data);
+	await UseCase.addDevice(req.user._id, data.deviceId, data.platform, data.expoPushToken, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });

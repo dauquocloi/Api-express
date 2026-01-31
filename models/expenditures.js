@@ -5,6 +5,10 @@ const Schema = mongoose.Schema;
 // Create a Mongoose Schema
 const ExpendituresSchema = new Schema(
 	{
+		locked: {
+			type: Boolean,
+			default: false,
+		},
 		month: {
 			type: Number,
 			required: true,
@@ -26,9 +30,8 @@ const ExpendituresSchema = new Schema(
 		content: {
 			type: String,
 			required: true,
-			maxLength: 200,
 		},
-		amount: { type: Number, min: 0, default: 0 }, // Tổng tiền đã chi trong tháng
+		amount: { type: Number, min: 0 }, // Tổng tiền đã chi trong tháng
 		type: {
 			type: String,
 			enum: ['periodic', 'incidental'],
@@ -40,13 +43,17 @@ const ExpendituresSchema = new Schema(
 		},
 		building: {
 			type: Schema.Types.ObjectId,
-			ref: 'buildings',
+			ref: 'BuildingsEntity',
 		},
 		spender: {
 			type: Schema.Types.ObjectId,
-			ref: 'users',
+			ref: 'UsersEntity',
 			required: false,
 			default: null,
+		},
+		version: {
+			type: Number,
+			default: 1,
 		},
 	},
 	{

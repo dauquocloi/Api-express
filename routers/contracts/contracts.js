@@ -16,6 +16,7 @@ exports.prepareGenerateContract = asyncHandler(async (req, res) => {
 		data.contractPeriod,
 		data.note,
 		data.stayDays,
+		req.redisKey,
 	);
 	return new SuccessResponse('Success', result).send(res);
 });
@@ -23,7 +24,7 @@ exports.prepareGenerateContract = asyncHandler(async (req, res) => {
 exports.generateContract = asyncHandler(async (req, res) => {
 	let data = req.body;
 	console.log('log of data from create: ', data);
-	await UseCase.generateContract(data.contractDraftId);
+	await UseCase.generateContract(data.contractDraftId, req.user._id, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
@@ -44,14 +45,29 @@ exports.setExpectedMoveOutDate = asyncHandler(async (req, res) => {
 exports.cancelIsEarlyTermination = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.body };
 	console.log('log of data from cancelIsEarlyTermination: ', data);
-	await UseCase.cancelIsEarlyTermination(data.contractId, data.roomId);
+	await UseCase.cancelIsEarlyTermination(data.contractId, data.roomId, req.redisKey);
 	return SuccessMsgResponse('Success').send(res);
 });
 
 exports.terminateContractUnRefund = asyncHandler(async (req, res) => {
 	const data = req.params;
 	console.log('log of data from terminateContractUnRefund: ', data);
-	await UseCase.terminateContractUnRefund(data.contractId);
+	await UseCase.terminateContractUnRefund(data.contractId, req.redisKey);
+	return SuccessMsgResponse('Success').send(res);
+});
+
+exports.getContractPdfUrlByCustomerPhone = asyncHandler(async (req, res) => {
+	const data = req.query;
+	console.log('log of data from getContractPdfUrlByCustomerPhone: ', data);
+	const result = await UseCase.getContractPdfUrlByCustomerPhone(data.phone);
+	console.log('log of result from getContractPdfUrlByCustomerPhone: ', result);
+	return new SuccessResponse('Success', result).send(res);
+});
+
+exports.contractExtention = asyncHandler(async (req, res) => {
+	const data = { ...req.params, ...req.body };
+	console.log('log of data from contractExtention: ', data);
+	await UseCase.contractExtention(data.contractId, data.extentionDate, data.newRent, data.newDepositAmount, data.version, req.redisKey);
 	return SuccessMsgResponse('Success').send(res);
 });
 

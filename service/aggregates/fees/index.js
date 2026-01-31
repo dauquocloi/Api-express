@@ -52,8 +52,8 @@ const getRoomFeesAndDebts = (roomObjectId) => {
 		{
 			$lookup: {
 				from: 'customers',
-				localField: '_id',
-				foreignField: 'room',
+				localField: 'contractInfo._id',
+				foreignField: 'contract',
 				as: 'customerInfo',
 				let: {
 					shouldLookup: '$shouldLookupPerson',
@@ -88,8 +88,8 @@ const getRoomFeesAndDebts = (roomObjectId) => {
 		{
 			$lookup: {
 				from: 'vehicles',
-				localField: '_id',
-				foreignField: 'room',
+				localField: 'contractInfo._id',
+				foreignField: 'contract',
 				as: 'vehicleInfo',
 				let: {
 					shouldLookup: '$shouldLookupVehicle',
@@ -104,7 +104,7 @@ const getRoomFeesAndDebts = (roomObjectId) => {
 									},
 									{
 										$not: {
-											$in: ['$status', [0, 2]],
+											$in: ['$status', ['terminated', 'suspended']],
 										},
 									},
 								],

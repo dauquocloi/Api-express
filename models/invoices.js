@@ -1,14 +1,13 @@
 var mongoose = require('mongoose');
-// const { any } = require('underscore');
 const Schema = mongoose.Schema;
-const Entity = require('./index');
 const { invoiceStatus } = require('../constants/invoices');
+const { feeUnit } = require('../constants/fees');
 
 const FeeInvoiceSchema = new Schema({
 	feeName: String,
 	amount: Number,
 	unit: {
-		enum: ['person', 'index', 'vehicle', 'room'],
+		enum: Object.values(feeUnit),
 		type: String,
 		required: true,
 	},
@@ -82,7 +81,7 @@ const InvoicesSchema = new Schema(
 			min: 0,
 			default: 0,
 		},
-		status: { type: String, enum: Object.values(invoiceStatus), default: 'unpaid' },
+		status: { type: String, enum: Object.values(invoiceStatus), default: invoiceStatus['UNPAID'] },
 		invoiceType: { type: String, enum: ['firstInvoice', 'rental'], default: 'rental' },
 		// Dành cho hoàn cọc => Khách không thể lấy tt thanh toán trên hệ thống web-view
 		isDepositing: { type: Boolean, default: false },
@@ -121,12 +120,13 @@ const InvoicesSchema = new Schema(
 		// creator stupid
 		creater: {
 			type: Schema.Types.ObjectId,
-			ref: 'users',
+			ref: 'UsersEntity',
 		},
 		invoiceContent: {
 			type: String,
 			trim: true,
 		},
+		contract: { type: Schema.Types.ObjectId, ref: 'ContractsEntity' },
 		version: {
 			type: Number,
 			default: 1,

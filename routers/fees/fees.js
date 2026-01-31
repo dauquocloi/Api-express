@@ -7,7 +7,7 @@ exports.addFee = asyncHandler(async (req, res, next) => {
 	const roomId = req.params.roomId;
 	const feeKey = req.body.feeKey.toString();
 	const feeAmount = Number(req.body.feeAmount);
-	const result = await UseCase.addFee(roomId, feeKey, feeAmount);
+	const result = await UseCase.addFee(roomId, feeKey, feeAmount, req.redisKey);
 	return new SuccessResponse('Success', result).send(res);
 });
 
@@ -29,6 +29,7 @@ exports.editFee = asyncHandler(async (req, res) => {
 		Number(data.feeAmount),
 		data.lastIndex,
 		data.version,
+		req.redisKey,
 	);
 	return new SuccessMsgResponse('Success').send(res);
 });
@@ -37,3 +38,10 @@ exports.getFeeInitial = (req, res) => {
 	const FeeInitial = listFeeInitial;
 	return new SuccessResponse('Success', FeeInitial).send(res);
 };
+
+exports.getFeeIndexHistory = asyncHandler(async (req, res) => {
+	const result = await UseCase.getFeeIndexHistory(req.params.feeId);
+	setTimeout(() => {
+		return new SuccessResponse('Success', result).send(res);
+	}, 1000);
+});

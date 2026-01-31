@@ -3,6 +3,7 @@ const Entity = require('../models');
 const { NotiForm } = require('../utils/NotiForm');
 const Services = require('../service');
 const { NotFoundError } = require('../AppError');
+const Roles = require('../constants/userRoles');
 
 const getLastName = (fullName) => {
 	if (!fullName || typeof fullName !== 'string') return '';
@@ -177,13 +178,13 @@ exports.getNotifications = async (receiverId, page) => {
 	return { notis: listNoti, isListEnd };
 };
 
-exports.getNotiSettings = async (userId) => {
+exports.getNotiSettings = async (userId, role) => {
 	let responseData = {};
 	const notiSettings = await Entity.NotiSettingsEntity.findOne({ user: userId }, { _id: 0, user: 0 });
 	if (!notiSettings) throw new NotFoundError('Không tìm thấy tài khoản!');
 	responseData.notiSettings = notiSettings;
 
-	if (data.role === 'owner') {
+	if (role === Roles['OWNER']) {
 		const buildingSettings = await Entity.BuildingsEntity.find({ 'management.user': userId }, { settings: 1 });
 		if (!buildingSettings || buildingSettings.length === 0) throw new NotFoundError('Tòa nhà không tồn tại trong hệ thống');
 		responseData.buildingSettings = buildingSettings.map((b) => b.settings);

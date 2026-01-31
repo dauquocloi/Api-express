@@ -1,8 +1,5 @@
-const { date, required } = require('joi');
 var mongoose = require('mongoose');
 const getFileUrl = require('../utils/getFileUrl');
-// (Schema = mongoose.Schema), (ObjectId = Schema.ObjectId);
-require('mongoose-double')(mongoose);
 
 const Schema = mongoose.Schema;
 
@@ -12,8 +9,8 @@ const TasksSchema = new Schema(
 		taskContent: { type: String, required: true },
 		detail: { type: String },
 		executionDate: { type: Date, default: Date.now },
-		performers: { type: [Schema.Types.ObjectId], ref: 'users', required: true },
-		managements: { type: [Schema.Types.ObjectId], ref: 'users', required: true },
+		performers: { type: [Schema.Types.ObjectId], ref: 'UsersEntity', required: true },
+		managements: { type: [Schema.Types.ObjectId], ref: 'UsersEntity', required: true },
 		images: { type: [String] },
 	},
 

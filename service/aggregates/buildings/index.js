@@ -155,4 +155,405 @@ const getStatisticGeneral = (buildingObjectId, year) => {
 	];
 };
 
-module.exports = { getAllBillsPipeline, getStatisticGeneral };
+const getPrepareFinanceSettlementData = (buildingObjectId, currentMonth, currentYear) => {
+	return [
+		{
+			$match: {
+				_id: buildingObjectId,
+			},
+		},
+		{
+			$lookup: {
+				from: 'rooms',
+				localField: '_id',
+				foreignField: 'building',
+				as: 'rooms',
+			},
+		},
+		{
+			$lookup: {
+				from: 'receipts',
+				let: {
+					roomIds: {
+						$map: {
+							input: '$rooms',
+							as: 'r',
+							in: '$$r._id',
+						},
+					},
+					currentMonth: currentMonth,
+					currentYear: currentYear,
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$in: ['$room', '$$roomIds'],
+									},
+									{
+										$eq: ['$month', '$$currentMonth'],
+									},
+									{
+										$eq: ['$year', '$$currentYear'],
+									},
+									{
+										$eq: ['$status', 'unpaid'],
+									},
+									{ $eq: ['$locked', false] },
+								],
+							},
+						},
+					},
+				],
+				as: 'receiptsUnpaid',
+			},
+		},
+		{
+			$lookup: {
+				from: 'invoices',
+				let: {
+					roomIds: {
+						$map: {
+							input: '$rooms',
+							as: 'r',
+							in: '$$r._id',
+						},
+					},
+					currentMonth: currentMonth,
+					currentYear: currentYear,
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$in: ['$room', '$$roomIds'],
+									},
+									{
+										$eq: ['$month', '$$currentMonth'],
+									},
+									{
+										$eq: ['$year', '$$currentYear'],
+									},
+									{
+										$eq: ['$status', 'unpaid'],
+									},
+									{ $eq: ['$locked', false] },
+								],
+							},
+						},
+					},
+				],
+				as: 'invoicesUnpaid',
+			},
+		},
+		{
+			$lookup: {
+				from: 'depositRefunds',
+				let: {
+					roomIds: {
+						$map: {
+							input: '$rooms',
+							as: 'r',
+							in: '$$r._id',
+						},
+					},
+					currentMonth: currentMonth,
+					currentYear: currentYear,
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$in: ['$room', '$$roomIds'],
+									},
+									{
+										$eq: ['$month', '$$currentMonth'],
+									},
+									{
+										$eq: ['$year', '$$currentYear'],
+									},
+									{
+										$eq: ['$status', 'pending'],
+									},
+								],
+							},
+						},
+					},
+				],
+				as: 'depositRefundsUnpaid',
+			},
+		},
+		{
+			$lookup: {
+				from: 'checkoutCosts',
+				let: {
+					roomIds: {
+						$map: {
+							input: '$rooms',
+							as: 'r',
+							in: '$$r._id',
+						},
+					},
+					currentMonth: currentMonth,
+					currentYear: currentYear,
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$in: ['$roomId', '$$roomIds'],
+									},
+									{
+										$eq: ['$month', '$$currentMonth'],
+									},
+									{
+										$eq: ['$year', '$$currentYear'],
+									},
+									{
+										$eq: ['$status', 'pending'],
+									},
+								],
+							},
+						},
+					},
+				],
+				as: 'checkoutCostsUnpaid',
+			},
+		},
+		{
+			$set: {
+				depositRefundsUnpaid: {
+					$map: {
+						input: '$depositRefundsUnpaid',
+						as: 'refund',
+						in: {
+							$mergeObjects: [
+								'$$refund',
+								{
+									roomInfo: {
+										$let: {
+											vars: {
+												foundRoom: {
+													$arrayElemAt: [
+														{
+															$filter: {
+																input: '$rooms',
+																as: 'room',
+																cond: { $eq: ['$$room._id', '$$refund.room'] },
+															},
+														},
+														0,
+													],
+												},
+											},
+											in: {
+												_id: '$$foundRoom._id',
+												roomIndex: '$$foundRoom.roomIndex',
+											},
+										},
+									},
+								},
+							],
+						},
+					},
+				},
+			},
+		},
+	];
+};
+
+const getFinanceSettlementData = (buildingObjectId, currentMonth, currentYear) => {
+	return [
+		{
+			$match: {
+				_id: buildingObjectId,
+			},
+		},
+		{
+			$lookup: {
+				from: 'rooms',
+				localField: '_id',
+				foreignField: 'building',
+				as: 'rooms',
+			},
+		},
+		{
+			$lookup: {
+				from: 'invoices',
+				let: {
+					roomIds: {
+						$map: {
+							input: '$rooms',
+							as: 'r',
+							in: '$$r._id',
+						},
+					},
+					currentMonth: currentMonth,
+					currentYear: currentYear,
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$in: ['$room', '$$roomIds'],
+									},
+									{
+										$eq: ['$month', '$$currentMonth'],
+									},
+									{
+										$eq: ['$year', '$$currentYear'],
+									},
+									{
+										$not: {
+											$in: ['$status', ['terminated', 'pending']],
+										},
+									},
+									{
+										$ne: ['$locked', true],
+									},
+								],
+							},
+						},
+					},
+				],
+				as: 'invoices',
+			},
+		},
+
+		{
+			$lookup: {
+				from: 'receipts',
+				let: {
+					roomIds: {
+						$map: {
+							input: '$rooms',
+							as: 'r',
+							in: '$$r._id',
+						},
+					},
+					currentMonth: currentMonth,
+					currentYear: currentYear,
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$in: ['$room', '$$roomIds'],
+									},
+									{
+										$eq: ['$month', '$$currentMonth'],
+									},
+									{
+										$eq: ['$year', '$$currentYear'],
+									},
+									{
+										$not: {
+											$in: ['$status', ['terminated', 'pending']],
+										},
+									},
+									{
+										$ne: ['$locked', true],
+									},
+								],
+							},
+						},
+					},
+				],
+				as: 'receipts',
+			},
+		},
+		{
+			$lookup: {
+				from: 'incidentalRevenues',
+				let: {
+					buildingId: '$_id',
+					currentMonth: currentMonth,
+					currentYear: currentYear,
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$eq: ['$building', '$$buildingId'],
+									},
+									{
+										$eq: ['$month', '$$currentYear'],
+									},
+									{
+										$eq: ['$year', '$$currentYear'],
+									},
+								],
+							},
+						},
+					},
+				],
+				as: 'incidentalRevenues',
+			},
+		},
+		{
+			$lookup: {
+				from: 'expenditures',
+				let: {
+					buildingId: '$_id',
+					currentMonth: currentMonth,
+					currentYear: currentYear,
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$eq: ['$building', '$$buildingId'],
+									},
+									{
+										$eq: ['$month', '$$currentYear'],
+									},
+									{
+										$eq: ['$year', '$$currentYear'],
+									},
+								],
+							},
+						},
+					},
+				],
+				as: 'expenditures',
+			},
+		},
+		{
+			$lookup: {
+				from: 'periodicExpenditures',
+				localField: '_id',
+				foreignField: 'building',
+				as: 'periodicExpenditures',
+			},
+		},
+		{
+			$project: {
+				_id: 1,
+				rooms: 1,
+				invoices: 1,
+				receipts: 1,
+				incidentalRevenues: 1,
+				expenditures: 1,
+				periodicExpenditures: 1,
+			},
+		},
+	];
+};
+
+module.exports = { getAllBillsPipeline, getStatisticGeneral, getFinanceSettlementData, getPrepareFinanceSettlementData };

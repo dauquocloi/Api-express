@@ -10,99 +10,150 @@ const getAllManagements = (userObjectId) => {
 				from: 'buildings',
 				localField: '_id',
 				foreignField: 'management.user',
+				pipeline: [
+					{
+						$project: {
+							_id: 1,
+							management: 1,
+							buildingName: 1,
+							buildingAddress: 1,
+						},
+					},
+				],
 				as: 'buildingInfo',
 			},
 		},
 		{
-			$unwind: {
-				path: '$buildingInfo',
-				preserveNullAndEmptyArrays: true,
+			$addFields: {
+				managementMappings: {
+					$reduce: {
+						input: '$buildingInfo',
+						initialValue: [],
+						in: {
+							$concatArrays: [
+								'$$value',
+								{
+									$map: {
+										input: {
+											$filter: {
+												input: '$$this.management',
+												as: 'm',
+												cond: {
+													$in: ['$$m.role', ['manager', 'staff']],
+												},
+											},
+										},
+										as: 'm',
+										in: {
+											userId: '$$m.user',
+											buildingName: '$$this.buildingName',
+										},
+									},
+								},
+							],
+						},
+					},
+				},
 			},
 		},
 		{
-			$unwind: {
-				path: '$buildingInfo.management',
-				preserveNullAndEmptyArrays: true,
+			$addFields: {
+				managementGrouped: {
+					$map: {
+						input: {
+							$setUnion: [
+								[],
+								{
+									$map: {
+										input: '$managementMappings',
+										as: 'm',
+										in: '$$m.userId',
+									},
+								},
+							],
+						},
+						as: 'userId',
+						in: {
+							userId: '$$userId',
+							buildingManagement: {
+								$map: {
+									input: {
+										$filter: {
+											input: '$managementMappings',
+											as: 'm',
+											cond: {
+												$eq: ['$$m.userId', '$$userId'],
+											},
+										},
+									},
+									as: 'bm',
+									in: '$$bm.buildingName',
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 		{
 			$lookup: {
 				from: 'users',
 				let: {
-					managements: '$buildingInfo.management',
+					managers: '$managementGrouped',
 				},
 				pipeline: [
 					{
 						$match: {
 							$expr: {
-								$and: [
+								$in: [
+									'$_id',
 									{
-										$in: ['$role', ['manager', 'staff']],
-									},
-									{
-										$eq: ['$$managements.user', '$_id'],
+										$map: {
+											input: '$$managers',
+											as: 'm',
+											in: '$$m.userId',
+										},
 									},
 								],
 							},
 						},
 					},
+					{
+						$addFields: {
+							buildingManagement: {
+								$let: {
+									vars: {
+										matched: {
+											$first: {
+												$filter: {
+													input: '$$managers',
+													as: 'm',
+													cond: {
+														$eq: ['$$m.userId', '$_id'],
+													},
+												},
+											},
+										},
+									},
+									in: '$$matched.buildingManagement',
+								},
+							},
+						},
+					},
+					{
+						$project: {
+							password: 0,
+							username: 0,
+						},
+					},
 				],
-				as: 'managerInfo',
-			},
-		},
-		{
-			$unwind: {
-				path: '$managerInfo',
+				as: 'managements',
 			},
 		},
 		{
 			$project: {
 				_id: 1,
-				phone: 1,
-				fullName: 1,
-				role: 1,
-				buildingName: '$buildingInfo.buildingName',
-				managerInfo: 1,
-			},
-		},
-		{
-			$group: {
-				_id: {
-					ownerId: '$_id',
-					_id: '$managerInfo._id',
-					avatar: '$managerInfo.avatar',
-					expoPushToken: '$managerInfo.expoPushToken',
-					phone: '$managerInfo.phone',
-					role: '$managerInfo.role',
-					birthdate: '$managerInfo.birthdate',
-					cccd: '$managerInfo.cccd',
-					cccdIssueDate: '$managerInfo.cccdIssueDate',
-					fullName: '$managerInfo.fullName',
-					permanentAddress: '$managerInfo.permanentAddress',
-				},
-				buildingManagement: {
-					$push: '$buildingName',
-				},
-			},
-		},
-		{
-			$group: {
-				_id: '$_id.ownerId',
-				managerInfo: {
-					$push: {
-						_id: '$_id._id',
-						avatar: '$_id.avatar',
-						expoPushToken: '$_id.expoPushToken',
-						phone: '$_id.phone',
-						role: '$_id.role',
-						birthdate: '$_id.birthdate',
-						cccd: '$_id.cccd',
-						cccdIssueDate: '$_id.cccdIssueDate',
-						fullName: '$_id.fullName',
-						permanentAddress: '$_id.permanentAddress',
-						buildingManagement: '$buildingManagement',
-					},
-				},
+				managements: 1,
 			},
 		},
 	];

@@ -53,4 +53,38 @@ const getExpenditures = (buildingId, month, year) => {
 	];
 };
 
-module.exports = { getExpenditures };
+const getExpendituresStatusLocked = (buildingObjectId, month, year) => {
+	return [
+		{
+			$match: {
+				_id: buildingObjectId,
+			},
+		},
+		{
+			$lookup: {
+				from: 'expenditures',
+				localField: '_id',
+				foreignField: 'building',
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$eq: ['$month', month],
+									},
+									{
+										$eq: ['$year', year],
+									},
+								],
+							},
+						},
+					},
+				],
+				as: 'expenditures',
+			},
+		},
+	];
+};
+
+module.exports = { getExpenditures, getExpendituresStatusLocked };

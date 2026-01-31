@@ -18,10 +18,9 @@ const checkResourceAccess = (resourceType, permissionKey = null) => {
 		if (!buildingId) throw new NotFoundError('Dữ liệu không tồn tại');
 
 		// Owner && Admin full quyền
-		if (user.role === ROLES[`OWNER`] || user.role === ROLES[`ADMIN`]) return next();
+		if (user.role === ROLES[`ADMIN`]) return next();
 
 		const buildingUser = await Services.buildings.findUserInBuilding(user._id, buildingId);
-
 		if (!buildingUser) {
 			throw new ForbiddenError('Bạn không có quyền truy cập tài nguyên này');
 		}

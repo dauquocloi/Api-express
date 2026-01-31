@@ -29,6 +29,9 @@ module.exports = {
 	cancelTerminateEarly: Joi.object().keys({
 		roomId: JoiObjectId().required(),
 	}),
+	customerGetContractPdfUrl: Joi.object().keys({
+		phone: Joi.string().required(),
+	}),
 	createContract: Joi.object().keys({
 		contractDraftId: JoiObjectId().required(),
 		// roomId: JoiObjectId().required(),
@@ -112,6 +115,12 @@ module.exports = {
 			contractSignDate: Joi.date().required(),
 			contractEndDate: Joi.date().required(),
 			contractTerm: Joi.string().optional(),
+		}),
+		contractExtention: Joi.object().keys({
+			newRent: Joi.number().min(0).required(),
+			newDepositAmount: Joi.number().min(0).required(),
+			extentionDate: Joi.date().required(),
+			version: Joi.number().integer().min(1).required(),
 		}),
 	}),
 };

@@ -5,6 +5,7 @@ const getFileUrl = require('../utils/getFileUrl');
 const Services = require('../service');
 var Entity = require('../models');
 const { NotFoundError } = require('../AppError');
+const redis = require('../config/redisClient');
 
 exports.getAll = async (buildingId, status) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -12,10 +13,10 @@ exports.getAll = async (buildingId, status) => {
 	return vehicles;
 };
 
-exports.editVehicle = async (data) => {
-	let vehicleRecent = await Entity.VehiclesEntity.findById(data.vehiclesId);
-	if (!vehicleRecent) {
-		throw new NotFoundError('Xe không tồn tại');
+exports.editVehicle = async (data, redisKey) => {
+	const curentVehicle = await Services.vehicles.findById(data.vehicleId);
+	if (!curentVehicle) {
+		throw new NotFoundError('Dữ liệu không tồn tại');
 	}
 	let vehicleImage;
 	if (data.vehicleImage != undefined) {
@@ -31,12 +32,14 @@ exports.editVehicle = async (data) => {
 		image: vehicleImage,
 		status: data.status,
 	};
-	Object.assign(vehicleRecent, vehicle);
+	Object.assign(curentVehicle, vehicle);
 	const updatedVehicle = await vehicleRecent.save();
+
+	await redis.set(redisKey, `SUCCESS:${JSON.stringify(updatedVehicle)}`, 'EX', process.env.REDIS_EXP_SEC);
 	return updatedVehicle;
 };
 
-exports.addVehicle = async (data) => {
+exports.addVehicle = async (data, redisKey) => {
 	let customerObjectId = new mongoose.Types.ObjectId(`${data.customerId}`);
 	let roomObjectId = new mongoose.Types.ObjectId(`${data.roomId}`);
 
@@ -56,6 +59,7 @@ exports.addVehicle = async (data) => {
 	};
 
 	let vehicleCreated = await Services.vehicles.createVehicle(vehicle);
+	await redis.set(redisKey, `SUCCESS:${JSON.stringify(vehicleCreated)}`, 'EX', process.env.REDIS_EXP_SEC);
 	return vehicleCreated;
 };
 

@@ -13,11 +13,11 @@ const feesIndexSchema = new Schema({
 
 const DepositRefundsSchema = new Schema(
 	{
-		room: { type: Schema.Types.ObjectId, ref: 'rooms' },
-		building: { type: Schema.Types.ObjectId, ref: 'buildings' },
-		contract: { type: Schema.Types.ObjectId, ref: 'contracts' },
+		room: { type: Schema.Types.ObjectId, ref: 'RoomsEntity' },
+		building: { type: Schema.Types.ObjectId, ref: 'BuildingsEntity' },
+		contract: { type: Schema.Types.ObjectId, ref: 'ContractsEntity' },
 		// isRefundedDeposit: { type: Boolean, default: false },
-		status: { type: String, enum: Object.values(depositRefundStatus), default: 'pending' },
+		status: { type: String, enum: Object.values(depositRefundStatus), default: depositRefundStatus['PENDING'] },
 		feesIndex: [feesIndexSchema],
 		feesOther: [
 			{
@@ -26,15 +26,15 @@ const DepositRefundsSchema = new Schema(
 				amount: { type: Number },
 			},
 		],
-		depositReceipt: { type: Schema.Types.ObjectId, ref: 'receipts' },
-		receiptsUnpaid: { type: [Schema.Types.ObjectId], ref: 'receipts' },
-		invoiceUnpaid: { type: Schema.Types.ObjectId, ref: 'invoices' },
-		debts: { type: [Schema.Types.ObjectId], ref: 'debts' },
+		depositReceipt: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity' },
+		receiptsUnpaid: { type: [Schema.Types.ObjectId], ref: 'ReceiptsEntity' },
+		invoiceUnpaid: { type: Schema.Types.ObjectId, ref: 'InvoicesEntity' },
+		debts: { type: [Schema.Types.ObjectId], ref: 'DebtsEntity' },
 		depositRefundAmount: { type: Number, required: true },
 		customerApproved: { type: Boolean, default: false },
-		creator: { type: Schema.Types.ObjectId, ref: 'users' },
+		creator: { type: Schema.Types.ObjectId, ref: 'UsersEntity' },
 		image: { type: String, default: '' },
-		contractOwner: { type: Schema.Types.ObjectId, ref: 'customers' },
+		contractOwner: { type: Schema.Types.ObjectId, ref: 'CustomersEntity' },
 		month: {
 			type: Number,
 			min: [1, 'month must be at least 1'],

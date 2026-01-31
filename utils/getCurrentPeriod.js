@@ -1,7 +1,5 @@
 const Entity = require('../models');
-const MongoConnect = require('../utils/MongoConnect');
-const mongoose = require('mongoose');
-const { AppError, NoDataError } = require('./../AppError');
+const { NoDataError } = require('./../AppError');
 
 // very important !!!
 const currentPeriod = async (buildingId) => {

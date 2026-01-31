@@ -12,14 +12,14 @@ exports.getAll = asyncHandler(async (req, res) => {
 exports.editVehicle = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.body };
 	console.log('log of data from editVehicle: ', data);
-	await UseCase.editVehicle(data);
+	await UseCase.editVehicle(data, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
 exports.addVehicle = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.body, ...req.file };
 	console.log('log of data from addVehicle: ', data);
-	await UseCase.addVehicle(data);
+	await UseCase.addVehicle(data, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

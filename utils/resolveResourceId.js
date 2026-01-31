@@ -1,7 +1,7 @@
 const { RESOURCE_ID_MAP } = require('../constants/resources');
 const { InternalError, BadRequestError } = require('../AppError');
 
-function resolveResourceId(req, resourceType) {
+function resolveResourceId(req, resourceType, ValidateSource = 'params') {
 	const paramKey = RESOURCE_ID_MAP[resourceType];
 
 	if (!paramKey) {

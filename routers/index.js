@@ -28,10 +28,12 @@
 
 // Refactory 10/12/2025
 const Login = require('./access/login');
+const Logout = require('./access/logout');
 const Buildings = require('./buildings');
-const Bills = require('./bills');
+
 const Customers = require('./customers');
 const Contracts = require('./contracts');
+const Clients = require('./clients');
 const Expenditures = require('./expenditures');
 const Fees = require('./fees');
 const Rooms = require('./rooms');
@@ -47,44 +49,20 @@ const Tasks = require('./tasks');
 const CheckoutCosts = require('./checkoutCosts');
 const IncidentalRevenues = require('./incidentalRevenues');
 const Payments = require('./payments');
+const Admintations = require('./admin');
+const Transactions = require('./transactions');
 
 const express = require('express');
 const router = express.Router();
 
 //middleware
-const verifyToken = require('../middleware/verifyToken');
 const idempotency = require('..//middleware/idempotency');
-
-// Route với nhiều middleware
-const firstMiddleware = (req, res, next) => {
-	const { ten } = req.body;
-	if (ten != 'loi') {
-		console.log('khong phai loi');
-	} else {
-		console.log('Loi day');
-	}
-	next();
-};
+const apiLimiter = require('../middleware/rateLimit');
 
 {
 	/* Router of API 
 exports.routerApi = (app) => {
 	// default
-	app.get('/', (req, res) => {
-		return res.send(`
-    		<!DOCTYPE html>
-    			<html lang="vi">
-					<head>
-						<meta charset="UTF-8" />
-						<meta name="zalo-platform-site-verification" content="O-JXEx_tCsPMqULFa_rZJ6hOnNM6hX8kCZ4q" />
-						<title>API Express Server</title>
-					</head>
-					<body>
-						<h1>Welcome to API Express Server!</h1>
-					</body>
-   				 </html>
-  `);
-	});
 
 	// app.post('/send-notification', Notification.sendNotification);
 
@@ -391,9 +369,33 @@ exports.routerApi = (app) => {
 */
 }
 
+router.get('/', (req, res) => {
+	return res.send(`
+    		<!DOCTYPE html>
+    			<html lang="vi">
+					<head>
+						<meta charset="UTF-8" />
+						<meta name="zalo-platform-site-verification" content="O-JXEx_tCsPMqULFa_rZJ6hOnNM6hX8kCZ4q" />
+						<title>API Express Server</title>
+					</head>
+					<body>
+						<h1>Welcome to API Express Server!</h1>
+					</body>
+   				</html>
+  `);
+});
+
 router.use('/login', Login);
+router.use('/api/v1/webhooks/sepay', Payments);
+
+//=========LIMITER==========//
+router.use('', apiLimiter);
+//=========LIMITER==========//
+
+router.use('/admin', Admintations);
+router.use('/logout', Logout);
 router.use('/buildings', Buildings);
-router.use('/contracts', Contracts);
+router.use('/api/v1/contracts', Contracts);
 router.use('/checkoutCosts', CheckoutCosts);
 router.use('/deposits', Deposits);
 router.use('/depositRefunds', DepositRefunds);
@@ -409,7 +411,7 @@ router.use('/incidentalRevenues', IncidentalRevenues);
 router.use('/users', Users);
 router.use('/vehicles', Vehicles);
 router.use('/tasks', Tasks);
-router.use('/api/v1/bills', Bills);
-router.use('/api/v1/webhooks/sepay', Payments);
+router.use('/api/v1/clients', Clients);
+router.use('/api/v1/transactions', Transactions);
 
 module.exports = router;

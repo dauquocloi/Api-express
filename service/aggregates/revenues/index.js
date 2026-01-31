@@ -40,6 +40,11 @@ const getAllRevenues = (buildingId, month, year) => {
 									{
 										$eq: ['$year', '$$year'],
 									},
+									{
+										$not: {
+											$in: ['$status', ['terminated', 'pending']],
+										},
+									},
 								],
 							},
 						},
@@ -69,9 +74,6 @@ const getAllRevenues = (buildingId, month, year) => {
 										$and: [
 											{
 												$eq: ['$room', '$$roomId'],
-											},
-											{
-												$eq: ['$isActive', true],
 											},
 											{
 												$lt: ['$carriedOverPaidAmount', '$amount'],
@@ -128,91 +130,82 @@ const getAllRevenues = (buildingId, month, year) => {
 			},
 		},
 		{
-			$project:
-				/**
-				 * specifications: The fields to
-				 *   include or exclude.
-				 */
-
-				{
-					_id: 1,
-					buildingName: 1,
-					roomInfo: {
-						_id: '$rooms._id',
-						roomIndex: '$rooms.roomIndex',
-						roomState: '$rooms.roomState',
-					},
-					invoiceInfo: {
-						$map: {
-							input: '$invoiceInfo',
-							as: 'invoiceInfo',
-							in: {
-								_id: '$$invoiceInfo._id',
-								total: '$$invoiceInfo.total',
-								paidAmount: '$$invoiceInfo.paidAmount',
-								status: '$$invoiceInfo.status',
-								fee: '$$invoiceInfo.fee',
-								debts: '$$invoiceInfo.debts',
-							},
+			$project: {
+				_id: 1,
+				buildingName: 1,
+				roomInfo: {
+					_id: '$rooms._id',
+					roomIndex: '$rooms.roomIndex',
+					roomState: '$rooms.roomState',
+				},
+				invoiceInfo: {
+					$map: {
+						input: '$invoiceInfo',
+						as: 'invoiceInfo',
+						in: {
+							_id: '$$invoiceInfo._id',
+							total: '$$invoiceInfo.total',
+							paidAmount: '$$invoiceInfo.paidAmount',
+							status: '$$invoiceInfo.status',
+							fee: '$$invoiceInfo.fee',
+							debts: '$$invoiceInfo.debts',
+							detuctedInfo: '$$invoiceInfo.detuctedInfo',
 						},
 					},
-					receiptInfo: {
-						$map: {
-							input: '$receiptInfo',
-							as: 'r',
-							in: {
-								_id: '$$r._id',
-								amount: '$$r.amount',
-								status: '$$r.status',
-								receiptContent: '$$r.receiptContent',
-								receiptContentDetail: '$$r.receiptContentDetail',
-								receiptType: '$$r.receiptType',
-								paidAmount: '$$r.paidAmount',
-								transactionReceipt: {
-									$map: {
-										input: {
-											$filter: {
-												input: '$transactionReceipt',
-												as: 'tr',
-												cond: {
-													$eq: ['$$tr.receipt', '$$r._id'],
-												},
+				},
+				receiptInfo: {
+					$map: {
+						input: '$receiptInfo',
+						as: 'r',
+						in: {
+							_id: '$$r._id',
+							amount: '$$r.amount',
+							status: '$$r.status',
+							receiptContent: '$$r.receiptContent',
+							receiptContentDetail: '$$r.receiptContentDetail',
+							receiptType: '$$r.receiptType',
+							paidAmount: '$$r.paidAmount',
+							carriedOverPaidAmount: '$$r.carriedOverPaidAmount',
+							transactionReceipt: {
+								$map: {
+									input: {
+										$filter: {
+											input: '$transactionReceipt',
+											as: 'tr',
+											cond: {
+												$eq: ['$$tr.receipt', '$$r._id'],
 											},
 										},
-										as: 'tr',
-										in: {
-											_id: '$$tr._id',
-											amount: '$$tr.amount',
-											receipt: '$$tr.receipt',
-											month: '$$tr.month',
-											year: '$$tr.year',
-											paymentMethod: '$$tr.paymentMethod',
-										},
+									},
+									as: 'tr',
+									in: {
+										_id: '$$tr._id',
+										amount: '$$tr.amount',
+										receipt: '$$tr.receipt',
+										month: '$$tr.month',
+										year: '$$tr.year',
+										paymentMethod: '$$tr.paymentMethod',
 									},
 								},
 							},
 						},
 					},
 				},
+			},
 		},
 		{
-			$group:
-				/**
-				 * _id: The id of the group.
-				 * fieldN: The first field name.
-				 */
-				{
-					_id: '$_id',
-					revenues: {
-						$push: {
-							roomId: '$roomInfo._id',
-							roomIndex: '$roomInfo.roomIndex',
-							roomState: '$roomInfo.roomState',
-							invoiceInfo: '$invoiceInfo',
-							receiptInfo: '$receiptInfo',
-						},
+			$group: {
+				_id: '$_id',
+				revenues: {
+					$push: {
+						roomId: '$roomInfo._id',
+						roomIndex: '$roomInfo.roomIndex',
+						roomState: '$roomInfo.roomState',
+						invoiceInfo: '$invoiceInfo',
+						receiptInfo: '$receiptInfo',
 					},
 				},
+			},
 		},
 		{
 			$lookup: {
@@ -244,12 +237,7 @@ const getAllRevenues = (buildingId, month, year) => {
 				as: 'otherRevenues',
 			},
 		},
-		{
-			$unwind: {
-				path: '$otherRevenues',
-				preserveNullAndEmptyArrays: true,
-			},
-		},
+
 		{
 			$lookup: {
 				from: 'users',
@@ -267,24 +255,44 @@ const getAllRevenues = (buildingId, month, year) => {
 			},
 		},
 		{
-			$group: {
-				_id: '$_id',
-				revenues: {
-					$first: '$revenues',
-				},
+			$addFields: {
 				otherRevenues: {
-					$push: {
-						$mergeObjects: [
-							'$otherRevenues',
-							{
-								collector: {
-									$arrayElemAt: ['$collector', 0],
+					$map: {
+						input: '$otherRevenues',
+						as: 'or',
+						in: {
+							$mergeObjects: [
+								'$$or',
+								{
+									collector: {
+										$first: {
+											$filter: {
+												input: '$collector',
+												as: 'c',
+												cond: {
+													$eq: ['$$c._id', '$$or.collector'],
+												},
+											},
+										},
+									},
 								},
-							},
-						],
+							],
+						},
 					},
 				},
 			},
+		},
+		{
+			$project:
+				/**
+				 * specifications: The fields to
+				 *   include or exclude.
+				 */
+				{
+					_id: 1,
+					revenues: 1,
+					otherRevenues: 1,
+				},
 		},
 	];
 };

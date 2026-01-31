@@ -5,6 +5,8 @@ const Tasks = require('./tasks');
 const authentication = require('../../auth/authentication');
 const { parseFormDataFields } = require('../../utils/parseMultipartBody');
 const upload = require('../../middleware/multer');
+const authorization = require('../../auth/authorization');
+const ROLES = require('../../constants/userRoles');
 
 const router = express.Router();
 
@@ -25,6 +27,6 @@ router.patch(
 	Tasks.modifyTask,
 );
 
-router.delete('/:taskId', validator(schema.id, ValidateSource.PARAM), Tasks.deleteTask);
+router.delete('/:taskId', authorization(ROLES['MANAGER'], ROLES['OWNER']), validator(schema.id, ValidateSource.PARAM), Tasks.deleteTask);
 
 module.exports = router;

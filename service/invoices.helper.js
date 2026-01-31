@@ -22,7 +22,7 @@ const generateInvoiceFees = (listFeeOfRoom, rentAmount, stayDays, feeIndexValues
 			case feeUnit['PERSON']:
 			case feeUnit['VEHICLE']:
 				let quantity;
-				if (mode === 'create') fee.unit === 'vehicle' ? fee.vehicleInfo?.length : fee.customerInfo?.length;
+				if (mode === 'create') fee.unit === feeUnit['VEHICLE'] ? (quantity = fee.vehicleInfo?.length) : (quantity = fee.customerInfo?.length);
 				else quantity = fee.quantity;
 
 				return {
@@ -38,7 +38,7 @@ const generateInvoiceFees = (listFeeOfRoom, rentAmount, stayDays, feeIndexValues
 					feeAmount: Number(fee.feeAmount),
 					feeName: fee.feeName,
 					unit: fee.unit,
-					quantity: Number(fee.quantity),
+					quantity: 1,
 					feeKey: fee.feeKey,
 					amount: calculateFeeUnitQuantityAmount(fee.feeAmount, 1, stayDays),
 				};

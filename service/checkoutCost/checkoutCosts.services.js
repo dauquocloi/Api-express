@@ -106,4 +106,40 @@ const terminateCheckoutCost = async (checkoutCostId, version, session) => {
 	return result;
 };
 
-module.exports = { generateCheckoutCost, getCheckoutCostDetail, getCheckoutCosts, findById, modifyCheckoutCost, terminateCheckoutCost };
+const findByBuildingId = (buildingId, month, year) => {
+	return Entity.CheckoutCostsEntity.find({ building: buildingId, month, year });
+};
+
+const updateCheckoutCostPaymentStatusByReceiptId = async (receiptId, newStatus, session) => {
+	const result = await Entity.CheckoutCostsEntity.updateOne(
+		{ checkoutCostReceipt: receiptId },
+		{
+			$set: { status: newStatus },
+			$inc: { version: 1 },
+		},
+		{ session },
+	);
+	if (result.matchedCount === 0) throw new NotFoundError('Dữ liệu phí trả phòng không tồn tại !');
+	return result;
+};
+
+const findByInvoiceId = (invoiceId) => {
+	return Entity.CheckoutCostsEntity.findOne({ invoiceUnpaid: invoiceId });
+};
+
+const findByReceiptUnpaidId = (receiptId) => {
+	return Entity.CheckoutCostsEntity.findOne({ receiptsUnpaid: receiptId });
+};
+
+module.exports = {
+	generateCheckoutCost,
+	getCheckoutCostDetail,
+	getCheckoutCosts,
+	findById,
+	modifyCheckoutCost,
+	terminateCheckoutCost,
+	findByBuildingId,
+	updateCheckoutCostPaymentStatusByReceiptId,
+	findByInvoiceId,
+	findByReceiptUnpaidId,
+};

@@ -5,6 +5,7 @@ const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 const { randomUUID } = require('crypto');
 
+// not used
 async function convertDocxToPdf(docxBuffer) {
 	if (!docxBuffer || docxBuffer.length === 0) {
 		throw new Error('❌ Buffer đầu vào không được rỗng.');

@@ -1,11 +1,7 @@
-var mongoose = require('mongoose');
-const Entity = require('./index');
-const { unique } = require('underscore');
+const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const Roles = require('../constants/userRoles');
-// Create a Mongoose Schema
 
-// Create a Mongoose Schema
 const UsersSchema = new Schema(
 	{
 		username: {
@@ -48,6 +44,7 @@ const UsersSchema = new Schema(
 		},
 		cccdIssueAt: {
 			type: String,
+			trim: true,
 		},
 		role: {
 			type: String,
@@ -59,10 +56,24 @@ const UsersSchema = new Schema(
 			unique: true,
 			default: '',
 		},
-		tokens: {
-			type: [String],
-			unique: true,
-			default: '',
+		deviceId: { type: String },
+		platform: { type: String },
+
+		gender: {
+			type: String,
+			enum: ['nam', 'nữ'],
+			default: 'nam',
+		},
+		status: {
+			type: String,
+			enum: ['active', 'inactive'],
+			default: 'active',
+		},
+		notificationSetting: {
+			type: Schema.Types.ObjectId,
+			ref: 'NotificationSettingsEntity',
+			default: null,
+			// required: true,
 		},
 	},
 

@@ -56,7 +56,7 @@ exports.ZaloZnsEntity = require('./zaloZns').ZaloZnsEntity;
 
 exports.NotisEntity = require('./notifications').NotificationsEntity;
 
-exports.NotiSettingsEntity = require('./notificationSettings').NotificationSettingsSchema;
+exports.NotiSettingsEntity = require('./notificationSettings').NotificationSettingsEntity;
 
 exports.CheckoutCostsEntity = require('./checkoutCosts').CheckoutCostsEntity;
 
@@ -65,3 +65,11 @@ exports.KeyStoresEntity = require('./keyStores').KeyStoresEntity;
 exports.ContractDraftsEntity = require('./contracts.draf').ContractDraftsEntity;
 
 exports.BankAccountsEntity = require('./bankAccounts').BankAccountsEntity;
+
+exports.RoomHistoriesEntity = require('./roomHistories').RoomHistoriesEntity;
+
+exports.FeeIndexHistoryEntity = require('./feeIndexHistory').FeeIndexHistoryEntity;
+
+exports.ContractExtentionsEntity = require('./contractExtentions').ContractExtentionsEntity;
+
+exports.OtpsEntity = require('./otps').OtpsEntity;

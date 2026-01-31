@@ -1,8 +1,9 @@
 const { NotFoundError, ConflictError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
-const { ROOM_LOCK_TTL_MS, LOCK_REASON } = require('../constants/rooms');
+const { ROOM_LOCK_TTL_MS, LOCK_REASON, roomState } = require('../constants/rooms');
 const { depositStatus } = require('../constants/deposits');
+const { CUSTOMER_FROM } = require('../constants/customers');
 
 const findById = (roomId) => {
 	return Entity.RoomsEntity.findById(roomId);
@@ -137,6 +138,7 @@ const unLockedRoom = async (roomId, session) => {
 };
 
 const assertRoomWritable = async ({ roomId, userId, session = null }) => {
+	console.log('userId: ', userId);
 	const now = new Date();
 
 	const query = Entity.RoomsEntity.findById(roomId).select('writeLock');
@@ -152,7 +154,7 @@ const assertRoomWritable = async ({ roomId, userId, session = null }) => {
 		throw new ConflictError('Phòng hiện đang được quản lý cập nhật !');
 	}
 
-	return room.writeLock;
+	return room;
 };
 
 const checkRoomDeposited = async (roomId, session) => {
@@ -164,7 +166,7 @@ const checkRoomDeposited = async (roomId, session) => {
 	return false;
 };
 
-const updateRoomState = async ({ roomId, roomState }, session) => {
+const updateRoomState = async ({ roomId, roomState }, session = null) => {
 	const result = await Entity.RoomsEntity.updateOne({ _id: roomId }, { $set: { state: roomState }, $inc: { version: 1 } }, { session });
 
 	if (result.matchedCount === 0) {
@@ -178,6 +180,104 @@ const setRoomDeposited = async ({ roomId, isDeposited, session }) => {
 	const result = await Entity.RoomsEntity.updateOne({ _id: roomId }, { $set: { isDeposited: isDeposited }, $inc: { version: 1 } }, { session });
 	if (result.matchedCount === 0) throw new ConflictError('Phòng không tồn tại ');
 	return 'Success';
+};
+
+const generateRoomHistory = async (
+	{
+		roomId,
+		contractId,
+		contractCode,
+		contractSignDate,
+		contractEndDate,
+		depositAmount,
+		checkoutDate,
+		checkoutType,
+		checkoutCostId,
+		depositRefundId,
+		interiors,
+		fees,
+		rent,
+	},
+	session,
+) => {
+	const [result] = await Entity.RoomHistoriesEntity.create(
+		[
+			{
+				contract: {
+					contractId,
+					contractCode,
+					depositAmount,
+					contractSignDate,
+					contractEndDate,
+				},
+				room: roomId,
+				checkoutDate: checkoutDate,
+				customerFrom: CUSTOMER_FROM['UNKNOWN'],
+				checkoutType: checkoutType,
+				checkoutCost: checkoutCostId,
+				depositRefund: depositRefundId,
+				interiors: interiors,
+				fees: fees,
+				rent: rent,
+			},
+		],
+		{ session },
+	);
+
+	return result.toObject();
+};
+
+const completeChangeRoomState = async ({ roomId, roomVersion }, session) => {
+	const result = await Entity.RoomsEntity.updateOne(
+		{ _id: roomId, version: roomVersion },
+		{
+			$set: {
+				'writeLock.locked': false,
+				'writeLock.expAt': new Date(),
+				'writeLock.reason': '',
+				roomState: roomState['UN_HIRED'],
+			},
+			$inc: { version: 1 },
+		},
+		{ session },
+	);
+
+	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu của phòng đã bị ai đó thay đổi !');
+	return result;
+};
+
+const getRoomHistories = async (roomObjectId) => {
+	const result = await Entity.RoomHistoriesEntity.aggregate(Pipelines.rooms.getRoomHistoriesByRoomId(roomObjectId));
+	return result;
+};
+
+const getRoomHistoryDetail = async (roomHistoryObjectId) => {
+	const [result] = await Entity.RoomHistoriesEntity.aggregate(Pipelines.rooms.getRoomHistoryDetail(roomHistoryObjectId));
+	if (!result) throw new NotFoundError('Dữ liệu không tồn tại');
+	return result;
+};
+
+const importRooms = async (roomData, session) => {
+	const result = await Entity.RoomsEntity.insertMany(roomData, { session });
+	return result;
+};
+
+const lockAllRoomsForSettlement = async (buildingId, ownerId, session) => {
+	const result = await Entity.RoomsEntity.updateMany(
+		{ building: buildingId },
+		{
+			$set: {
+				'writeLock.locked': true,
+				'writeLock.ownerId': ownerId,
+				'writeLock.expAt': ROOM_LOCK_TTL_MS,
+				'writeLock.lockAt': new Date(),
+				'writeLock.reason': LOCK_REASON['SETTLEMENT'],
+			},
+			$inc: { version: 1 },
+		},
+		{ session },
+	);
+	return result;
 };
 
 module.exports = {
@@ -196,4 +296,10 @@ module.exports = {
 	checkRoomDeposited,
 	updateRoomState,
 	setRoomDeposited,
+	generateRoomHistory,
+	completeChangeRoomState,
+	getRoomHistories,
+	getRoomHistoryDetail,
+	importRooms,
+	lockAllRoomsForSettlement,
 };

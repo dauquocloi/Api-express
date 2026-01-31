@@ -5,11 +5,11 @@ const mongoose = require('mongoose');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const Pipelines = require('../service/aggregates');
 const Services = require('../service');
+const redis = require('../config/redisClient');
 const { calculateTotalDebts } = require('../service/debts.helper');
 const { calculateTotalReceipts } = require('../service/receipts.helper');
-const { calculateInvoiceUnapaidAmount } = require('../service/invoices.helper');
 const { generateInvoiceFees } = require('../service/invoices.helper');
-const { calculateTotalFeeAmount, calculateTotalFeesOther } = require('../utils/calculateFeeTotal');
+const { calculateTotalFeeAmount, calculateTotalFeesOther, calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
 const { calculateDepositRefundAmount } = require('../service/depositRefunds.helper');
 const { receiptTypes, receiptStatus } = require('../constants/receipt');
 const { invoiceStatus } = require('../constants/invoices');
@@ -57,7 +57,7 @@ exports.getModifyDepositRefundInfo = async (depositRefundId) => {
 	return depositRefund;
 };
 
-exports.confirmDepositRefund = async (depositRefundId, spenderId) => {
+exports.confirmDepositRefund = async (depositRefundId, spenderId, redisKey) => {
 	let session;
 	try {
 		const depositRefundObjectId = new mongoose.Types.ObjectId(depositRefundId);
@@ -122,16 +122,19 @@ exports.confirmDepositRefund = async (depositRefundId, spenderId) => {
 		);
 
 		await session.commitTransaction();
+
+		await redis.set(redisKey, `SUCCESS:${JSON.stringify({ depositRefundId })}`, 'EX', process.env.REDIS_EXP_SEC);
 		return 'Success';
 	} catch (error) {
 		if (session) await session.abortTransaction();
+		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
 		throw error;
 	} finally {
 		if (session) session.endSession();
 	}
 };
 
-exports.generateDepositRefund = async ({ contractId, roomVersion, feeIndexValues, feesOther, userId }) => {
+exports.generateDepositRefund = async ({ contractId, roomVersion, feeIndexValues, feesOther, userId, redisKey }) => {
 	let session;
 	let result;
 
@@ -156,33 +159,33 @@ exports.generateDepositRefund = async ({ contractId, roomVersion, feeIndexValues
 			const contractOwnerInfo = await Services.customers.getContractOwner(currentRoom._id, session);
 			if (!contractOwnerInfo) throw new NotFoundError('Phòng không tồn tại chủ hợp đồng');
 
-			let [debts, receiptsUnpaid, invoiceUnpaid] = await Promise.all([
-				Entity.DebtsEntity.find({ room: currentRoom._id, status: debtStatus['PENDING'] }, { _id: 1, content: 1, amount: 1 })
-					.session(session)
-					.lean()
-					.exec(),
-				Entity.ReceiptsEntity.find(
-					{
-						room: currentRoom._id,
-						status: {
-							$in: [receiptStatus[`UNPAID`], receiptStatus[`PARTIAL`]],
-						},
-						receiptType: { $nin: [receiptTypes[`DEPOSIT`], receiptTypes[`CHECKOUT`]] },
-						locked: false,
+			let debts = await Entity.DebtsEntity.find({ room: currentRoom._id, status: debtStatus['PENDING'] }, { _id: 1, content: 1, amount: 1 })
+				.session(session)
+				.lean()
+				.exec();
+
+			let receiptsUnpaid = await Entity.ReceiptsEntity.find(
+				{
+					room: currentRoom._id,
+					status: {
+						$in: [receiptStatus[`UNPAID`], receiptStatus[`PARTIAL`]],
 					},
-					{ _id: 1, amount: 1, paidAmount: 1 },
-				)
-					.session(session)
-					.lean()
-					.exec(),
-				Entity.InvoicesEntity.findOne(
-					{ room: currentRoom._id, status: { $in: [invoiceStatus[`UNPAID`], invoiceStatus[`PARTIAL`]] }, locked: false },
-					{ _id: 1, total: 1, paidAmount: 1 },
-				)
-					.session(session)
-					.lean()
-					.exec(),
-			]);
+					receiptType: { $nin: [receiptTypes[`DEPOSIT`], receiptTypes[`CHECKOUT`]] },
+					locked: false,
+				},
+				{ _id: 1, amount: 1, paidAmount: 1 },
+			)
+				.session(session)
+				.lean()
+				.exec();
+
+			let invoiceUnpaid = await Entity.InvoicesEntity.findOne(
+				{ room: currentRoom._id, status: { $in: [invoiceStatus[`UNPAID`], invoiceStatus[`PARTIAL`]] }, locked: false },
+				{ _id: 1, total: 1, paidAmount: 1 },
+			)
+				.session(session)
+				.lean()
+				.exec();
 			let totalDebts = 0;
 			let totalReceiptsUnpaid = 0;
 			let totalInvoiceUnpaid = 0;
@@ -192,27 +195,40 @@ exports.generateDepositRefund = async ({ contractId, roomVersion, feeIndexValues
 				// debts = debts.map((d) => d._id);
 			}
 			if (receiptsUnpaid.length > 0) {
-				totalReceiptsUnpaid = calculateTotalDebts(receiptsUnpaid);
+				totalReceiptsUnpaid = calculateTotalReceipts(receiptsUnpaid);
 				// receiptsUnpaid = receiptsUnpaid.map((r) => r._id);
 			}
 			if (invoiceUnpaid !== null) {
-				totalInvoiceUnpaid = calculateInvoiceUnapaidAmount(invoiceUnpaid.paidAmount, invoiceUnpaid.total);
+				totalInvoiceUnpaid = calculateInvoiceUnpaidAmount(invoiceUnpaid.total, invoiceUnpaid.paidAmount);
 			}
 
-			let roomFees = await Entity.FeesEntity.find({ room: currentRoom._id, unit: feeUnit['INDEX'] }).session(session).lean().exec();
+			let roomFees = await Entity.FeesEntity.find({ room: currentRoom._id }).session(session).lean().exec();
+			let roomFeeIndex = roomFees.filter((f) => f.unit === feeUnit['INDEX']);
 			let feeIndexTotalAmount = 0;
-			const formatRoomFeeIndex = generateInvoiceFees(roomFees, 0, 0, feeIndexValues, false);
+			const formatRoomFeeIndex = generateInvoiceFees(roomFeeIndex, 0, 0, feeIndexValues, false);
 
-			if (roomFees.length > 0) {
-				const roomFeeIds = roomFees.map((f) => f._id.toString());
-				validateFeeIndexMatch(roomFeeIds, feeIndexValues);
+			if (roomFeeIndex.length > 0) {
+				const roomFeeIndexIds = roomFees.map((f) => f._id.toString());
+				validateFeeIndexMatch(roomFeeIndexIds, feeIndexValues);
 
 				feeIndexTotalAmount = calculateTotalFeeAmount(formatRoomFeeIndex);
 
-				await Services.fees.updateFeeIndexValues(roomFeeIds, feeIndexValues, session);
+				await Services.fees.updateFeeIndexValues(roomFeeIndexIds, feeIndexValues, session);
 			}
 			const totalFeesOther = calculateTotalFeesOther(feesOther);
 
+			console.log(
+				'log of totalDebts: ',
+				totalDebts,
+				'log of totalReceiptsUnpaid: ',
+				totalReceiptsUnpaid,
+				'log of totalInvoiceUnpaid: ',
+				totalInvoiceUnpaid,
+				'log of totalFeesOther: ',
+				totalFeesOther,
+				'log of feeIndexTotalAmount: ',
+				feeIndexTotalAmount,
+			);
 			const depositRefundAmount = calculateDepositRefundAmount(
 				depositReceipt.paidAmount,
 				totalDebts,
@@ -245,10 +261,11 @@ exports.generateDepositRefund = async ({ contractId, roomVersion, feeIndexValues
 				await Entity.ReceiptsEntity.updateMany(
 					{
 						room: currentRoom._id,
+						contract: currentContractInfo._id,
 						status: {
 							$in: [receiptStatus[`UNPAID`], receiptStatus[`PARTIAL`]],
 						},
-						receiptType: { $nin: [receiptTypes[`DEPOSIT`], receiptTypes[`CHECKOUT`]] },
+						receiptType: { $in: [receiptTypes['INCIDENTAL'], receiptTypes['DEBTS']] },
 						locked: false,
 					},
 					{
@@ -293,17 +310,36 @@ exports.generateDepositRefund = async ({ contractId, roomVersion, feeIndexValues
 				);
 			}
 
-			await Entity.CustomersEntity.updateMany({ room: currentRoom._id }, { $set: { status: 0 } }, { session });
-			await Entity.VehiclesEntity.updateMany({ room: currentRoom._id }, { $set: { status: 0 } }, { session });
-			await Services.rooms.bumpRoomVersion(currentRoom._id, roomVersion, session);
-			await Services.rooms.unLockedRoom(currentRoom._id, session);
-
+			await Services.customers.expiredCustomers({ roomId: currentRoom._id, contractId: currentContractInfo._id }, session);
+			await Services.vehicles.expiredVehicles({ roomId: currentRoom._id, contractId: currentContractInfo._id }, session);
+			await Services.rooms.generateRoomHistory(
+				{
+					roomId: currentContractInfo.room._id,
+					contractId: currentContractInfo._id,
+					contractCode: currentContractInfo.contractCode,
+					contractSignDate: currentContractInfo.contractSignDate,
+					contractEndDate: currentContractInfo.contractEndDate,
+					depositAmount: depositReceipt.paidAmount,
+					checkoutDate: Date.now(),
+					checkoutType: 'depositRefund',
+					checkoutCostId: null,
+					depositRefundId: createdDepositRefund._id,
+					interiors: currentRoom.interior,
+					fees: roomFees,
+					rent: contractOwnerInfo.contract.rent,
+				},
+				session,
+			);
+			await Services.rooms.completeChangeRoomState({ roomId: currentRoom._id, roomVersion: roomVersion }, session);
+			await Services.contracts.expiredContract(currentContractInfo._id, session);
 			result = createdDepositRefund;
 			return result;
 		});
 
+		await redis.set(redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 		return result;
 	} catch (error) {
+		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
 		throw error;
 	} finally {
 		if (session) session.endSession();
@@ -338,7 +374,7 @@ exports.removeDebtsFromDepositRefund = async (depositRefundId) => {
 
 // Note: Khi chủ nhà sửa phiếu hoàn cọc => unLock: hóa đơn unpaid để thu tiền.
 //======= UN REFACTED =======//
-exports.modifyDepositRefund = async (data) => {
+exports.modifyDepositRefund = async (data, redisKey) => {
 	let session;
 	try {
 		const { feesOther = [], fees = [], depositRefundId } = data;
@@ -374,9 +410,12 @@ exports.modifyDepositRefund = async (data) => {
 		await currentDepositRefund.save({ session });
 		await session.commitTransaction();
 
+		await redis.set(redisKey, `SUCCESS:${JSON.stringify({ depositRefundId: currentDepositRefund._id })}`, 'EX', process.env.REDIS_EXP_SEC);
+
 		return currentDepositRefund;
 	} catch (error) {
 		if (session) await session.abortTransaction();
+		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
 		throw error;
 	} finally {
 		if (session) session.endSession();

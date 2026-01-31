@@ -6,6 +6,7 @@ const { NotFoundError, BadRequestError } = require('../AppError');
 const Pipelines = require('../service/aggregates');
 const Services = require('../service');
 const { depositStatus } = require('../constants/deposits');
+const redis = require('../config/redisClient');
 
 exports.getDeposits = async (buildingId) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -13,7 +14,7 @@ exports.getDeposits = async (buildingId) => {
 	return deposits;
 };
 
-exports.createDeposit = async (data) => {
+exports.createDeposit = async (data, redisKey) => {
 	let session;
 	let result;
 	try {
@@ -102,8 +103,11 @@ exports.createDeposit = async (data) => {
 			result = newDeposit.toObject();
 			return 'Success';
 		});
+
+		await redis.set(redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 		return result;
 	} catch (error) {
+		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
 		throw error;
 	} finally {
 		if (session) session.endSession();
@@ -119,7 +123,7 @@ exports.getDepositDetail = async (depositId) => {
 	return depositDetail;
 };
 
-exports.modifyDeposit = async (data) => {
+exports.modifyDeposit = async (data, redisKey) => {
 	let session;
 	try {
 		const depositObjectId = new mongoose.Types.ObjectId(data.depositId);
@@ -275,9 +279,12 @@ exports.modifyDeposit = async (data) => {
 			},
 		).session(session);
 		await session.commitTransaction();
+
+		await redis.set(redisKey, `SUCCESS:${JSON.stringify(data)}`, 'EX', process.env.REDIS_EXP_SEC);
 		return 'Success';
 	} catch (error) {
 		if (session) await session.abortTransaction();
+		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
 		throw error;
 	} finally {
 		if (session) session.endSession();

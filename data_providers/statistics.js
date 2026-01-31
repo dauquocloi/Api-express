@@ -3,6 +3,7 @@ const MongoConnect = require('../utils/MongoConnect');
 var Entity = require('../models');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const AppError = require('../AppError');
+const { unitPriority } = require('../constants/fees');
 
 //remove to buildings
 exports.getRevenues = async (data, cb, next) => {
@@ -311,13 +312,13 @@ exports.getRevenues = async (data, cb, next) => {
 			throw new Error(`Không tìm thấy dữ liệu doanh thu của ${data.buildingId}`);
 		}
 
-		const unitPriority = {
-			room: 1,
-			vehicle: 2,
-			person: 3,
-			index: 4,
-			other: 5,
-		};
+		// const unitPriority = {
+		// 	room: 1,
+		// 	vehicle: 2,
+		// 	person: 3,
+		// 	index: 4,
+		// 	other: 5,
+		// };
 		const { revenues, otherRevenues } = revenueInfo[0];
 
 		let totalPeriodicRevenue = 0;
@@ -623,9 +624,7 @@ exports.getRevenuesModified = async (data, cb, next) => {
 												{
 													$eq: ['$room', '$$roomId'],
 												},
-												{
-													$eq: ['$isActive', true],
-												},
+
 												{
 													$lt: ['$carriedOverPaidAmount', '$amount'],
 												},
@@ -850,13 +849,13 @@ exports.getRevenuesModified = async (data, cb, next) => {
 			throw new Error(`Dữ liệu doanh thu tháng ${month}, nằm ${year} không tồn tại`);
 		}
 
-		const unitPriority = {
-			room: 1,
-			vehicle: 2,
-			person: 3,
-			index: 4,
-			other: 5,
-		};
+		// const unitPriority = {
+		// 	room: 1,
+		// 	vehicle: 2,
+		// 	person: 3,
+		// 	index: 4,
+		// 	other: 5,
+		// };
 		const { revenues, otherRevenues } = revenueInfo[0];
 
 		// ----PERIODIC REVENUES----//

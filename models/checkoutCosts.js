@@ -1,5 +1,6 @@
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { checkoutCostStatus } = require('../constants/checkoutCosts');
 
 const feesSchema = new Schema({
 	feeName: { type: String, trim: true },
@@ -22,7 +23,7 @@ const CheckoutCostsSchema = new Schema(
 		creatorId: { type: Schema.Types.ObjectId, ref: 'UsersEntity' },
 		customerName: { type: String, trim: true },
 		debts: { type: [Schema.Types.ObjectId], ref: 'DebtsEntity' },
-		status: { type: String, enum: ['pending', 'paid', 'terminated'], default: 'pending' },
+		status: { type: String, enum: Object.values(checkoutCostStatus), default: checkoutCostStatus['PENDING'] },
 		fees: [feesSchema],
 		stayDays: { type: Number },
 		checkoutCostReceipt: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity' },
@@ -55,6 +56,16 @@ const CheckoutCostsSchema = new Schema(
 		version: { type: Number, default: 1 },
 	},
 	{ timestamps: true, versionKey: false },
+);
+
+CheckoutCostsSchema.index(
+	{ contractId: 1, roomId: 1, year: 1, month: 1, checkoutCostReceipt: 1 },
+	{
+		unique: true,
+		partialFilterExpression: {
+			contractId: { $exists: true },
+		},
+	},
 );
 
 exports.CheckoutCostsEntity = mongoose.model('CheckoutCostsEntity', CheckoutCostsSchema, 'checkoutCosts');

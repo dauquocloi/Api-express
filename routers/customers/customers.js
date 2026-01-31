@@ -12,14 +12,14 @@ exports.getAllCustomers = asyncHandler(async (req, res) => {
 exports.editCustomer = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('log of data from editCustomer: ', data);
-	await UseCase.editCustomer(data);
+	await UseCase.editCustomer(data, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
 exports.addCustomer = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('log of data from addCustomer: ', req.body);
-	await UseCase.addCustomer(data);
+	await UseCase.addCustomer(data, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

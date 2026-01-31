@@ -12,7 +12,7 @@ exports.getNotifications = asyncHandler(async (req, res) => {
 exports.getNotiSettings = asyncHandler(async (req, res) => {
 	const data = req.user;
 	console.log('log of getNotiSetting: ', data);
-	const result = await UseCase.getNotiSettings(data._id);
+	const result = await UseCase.getNotiSettings(data._id, data.role);
 	return new SuccessResponse('Success', result).send(res);
 });
 

@@ -26,5 +26,11 @@ exports.NotiForm = (type, data) => {
 				title: 'Thông báo phòng sắp hết hạn hợp đồng',
 				content: `Phòng ${data.roomIndex} | ${data.buildingName} | Sắp hết hạn hợp đồng ! | Ngày dự kiến kết thúc HĐ: ${data.contractEndDate}.`,
 			};
+		case notiType['TRANSACTION_DECLINED']:
+			return {
+				formId: 5,
+				title: `Từ chối xác nhận giao dịch`,
+				content: `Phòng ${data.roomIndex} | ${data.buildingName} | Hóa đơn: ${data.billContent} | Số tiền GD: ${data.transactionAmount} | Người lập GD: ${data.creatorName} | Lý do: "${data.reason}".`,
+			};
 	}
 };

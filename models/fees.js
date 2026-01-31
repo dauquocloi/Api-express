@@ -1,8 +1,8 @@
 var mongoose = require('mongoose');
-// const { any } = require('underscore');
 const Schema = mongoose.Schema;
-const Entity = require('./index');
-
+const { feeUnit } = require('../constants/fees');
+const initialFees = require('../utils/getListFeeInital');
+const FEE_KEYS = initialFees.map((item) => item.feeKey);
 const FeesSchema = new Schema(
 	{
 		feeName: {
@@ -15,7 +15,7 @@ const FeesSchema = new Schema(
 		},
 		unit: {
 			type: String,
-			enum: ['person', 'index', 'vehicle', 'room'],
+			enum: Object.values(feeUnit),
 			required: true,
 		},
 		lastIndex: {
@@ -29,6 +29,7 @@ const FeesSchema = new Schema(
 		},
 		feeKey: {
 			type: String,
+			enum: FEE_KEYS,
 			required: true,
 		},
 		iconPath: { type: String },
@@ -38,7 +39,6 @@ const FeesSchema = new Schema(
 			required: true,
 		},
 		version: { type: Number, default: 1 },
-		lastEditor: { type: Schema.Types.ObjectId, ref: 'users' },
 	},
 	{
 		timestamps: true,

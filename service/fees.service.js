@@ -2,10 +2,12 @@ const { NotFoundError, ConflictError, BadRequestError } = require('../AppError')
 const Entity = require('../models');
 const pipelines = require('./aggregates');
 
+exports.findById = (feeId) => Entity.FeesEntity.findById(feeId);
+
 exports.getRoomFeesAndDebts = async (roomObjectId, session) => {
 	const checkRoomState = await Entity.RoomsEntity.findById(roomObjectId).session(session).lean().exec();
 	if (!checkRoomState) throw new NotFoundError('Phòng không tồn tại');
-	if (checkRoomState.roomState !== 1) throw new BadRequestError('Trạng thái phòng đang trống');
+	if (checkRoomState.roomState === 0) throw new BadRequestError('Trạng thái phòng đang trống');
 
 	const [roomFees] = await Entity.RoomsEntity.aggregate(pipelines.fees.getRoomFeesAndDebts(roomObjectId)).session(session);
 	if (!roomFees) throw new NotFoundError('Dữ liệu không tồn tại');
@@ -173,4 +175,88 @@ exports.rollbackFeeIndexValuesByFeeKey = async (fees, roomId, session) => {
 	}
 
 	return 'Success';
+};
+
+// ================== FEE INDEX HISTORY ================== //
+exports.createFeeIndexHistory = async (listFeeIndexInitials, session) => {
+	const result = await Entity.FeeIndexHistoryEntity.insertMany(listFeeIndexInitials, { session });
+	return result;
+};
+
+exports.updateFeeIndexHistoryMany = async ({ payloads = [], editorId }, session) => {
+	if (!payloads.length) return [];
+
+	const ops = payloads.map(({ feeId, lastIndex, prevIndex }) => ({
+		updateOne: {
+			filter: { fee: feeId },
+			update: [
+				{
+					$set: {
+						prevIndex: {
+							$cond: [{ $ne: ['$prevIndex', prevIndex] }, prevIndex, '$lastIndex'],
+						},
+						lastIndex: {
+							$cond: [{ $ne: ['$prevIndex', prevIndex] }, '$lastIndex', lastIndex],
+						},
+
+						prevEditor: {
+							$cond: [{ $ne: ['$prevIndex', prevIndex] }, editorId, '$lastEditor'],
+						},
+						lastEditor: {
+							$cond: [{ $ne: ['$prevIndex', prevIndex] }, '$lastEditor', editorId],
+						},
+
+						prevUpdated: {
+							$cond: [{ $ne: ['$prevIndex', prevIndex] }, '$prevUpdated', '$lastUpdated'],
+						},
+						lastUpdated: {
+							$cond: [{ $ne: ['$prevIndex', prevIndex] }, '$lastUpdated', new Date()],
+						},
+					},
+				},
+			],
+		},
+	}));
+
+	const result = await Entity.FeeIndexHistoryEntity.bulkWrite(ops, { session });
+
+	if (result.matchedCount !== payloads.length) {
+		throw new NotFoundError('Some fee index histories not found');
+	}
+
+	return result;
+};
+
+exports.rollBackFeeIndexHistoryMany = async (feeKeys, roomId, session) => {
+	const result = await Entity.FeeIndexHistoryEntity.updateMany(
+		{
+			feeKey: { $in: feeKeys },
+			room: roomId,
+		},
+		[
+			{
+				$set: {
+					lastIndex: '$prevIndex',
+					lastEditor: '$prevEditor',
+					lastUpdated: '$prevUpdated',
+				},
+			},
+		],
+		{ session, updatePipeline: true },
+	);
+
+	if (result.matchedCount === 0) {
+		throw new NotFoundError('Fee index history not found');
+	}
+
+	return result;
+};
+
+exports.getFeeIndexHistoryByFeeId = (feeId) => {
+	return Entity.FeeIndexHistoryEntity.findOne({ fee: feeId });
+};
+
+exports.importFees = async (feesData, session) => {
+	const result = await Entity.FeesEntity.insertMany(feesData, { session });
+	return result;
 };
