@@ -12,8 +12,11 @@ module.exports = {
 	}),
 	getAllInvoices: Joi.object().keys({
 		buildingId: JoiObjectId().required(),
-		// month: Joi.string().optional(),
-		// year: Joi.string().optional(),
+		month: Joi.string().allow('', null).optional(),
+		year: Joi.string().allow('', null).optional(),
+	}),
+	getInvoiceSendingStatus: Joi.object().keys({
+		buildingId: JoiObjectId().required(),
 	}),
 	modifyInvoice: Joi.object().keys({
 		feeIndexValues: Joi.object().pattern(JoiObjectId(), indexValueSchema).required(),
@@ -37,7 +40,6 @@ module.exports = {
 	checkout: Joi.object().keys({
 		amount: Joi.number().min(0).required(),
 		date: Joi.date().required(),
-		idempotencyKey: Joi.string().required(),
 		version: Joi.number().integer().min(1).required(),
 		buildingId: JoiObjectId().required(),
 		paymentMethod: Joi.string().valid('transfer', 'cash').required(),

@@ -10,6 +10,9 @@ async function apiKeyAuth(req, res, next) {
 	const hashed = crypto.createHash('sha256').update(apiKey).digest('hex');
 
 	const key = await Services.sepays.getSepayKey({});
+	if (!key || !key.key) {
+		return res.status(500).json({ error: 'API Key not configured' });
+	}
 	if (key.key !== hashed) {
 		return res.status(403).json({ error: 'Invalid API Key' });
 	}

@@ -17,6 +17,7 @@ module.exports = {
 		accountNumber: Joi.string().required(),
 		accountName: Joi.string().required(),
 		userId: JoiObjectId().required(),
+		buildingId: JoiObjectId().required(),
 		bankId: JoiObjectId().required(),
 	}),
 

@@ -163,12 +163,13 @@ const getRoomByIdPipeline = (roomId) => {
 		{
 			$lookup: {
 				from: 'customers',
-				localField: '_id',
-				foreignField: 'room',
+				let: { contractId: '$contractInfo._id' },
 				pipeline: [
 					{
 						$match: {
-							status: { $ne: 0 },
+							$expr: {
+								$eq: ['$contract', '$$contractId'],
+							},
 						},
 					},
 				],

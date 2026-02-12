@@ -8,7 +8,7 @@ module.exports = {
 	addFee: Joi.object().keys({
 		roomId: JoiObjectId().required(),
 		feeKey: Joi.string()
-			.valid(...Object.values(listFeeInital))
+			.valid(...Object.values(listFeeInital), 'SPEC101PH')
 			.required(),
 		feeAmount: Joi.number().min(0).required(),
 		lastIndex: Joi.number().optional(),

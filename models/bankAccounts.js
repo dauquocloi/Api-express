@@ -6,6 +6,12 @@ const BankAccountsSchema = new Schema(
 		bank: {
 			type: Schema.Types.ObjectId,
 			ref: 'BanksEntity',
+			required: true,
+		},
+		building: {
+			type: Schema.Types.ObjectId,
+			ref: 'BuildingsEntity',
+			required: true,
 		},
 		status: { type: String, enum: ['active', 'inactive'], default: 'active' },
 		user: { type: Schema.Types.ObjectId, ref: 'UsersEntity', required: true },
@@ -22,5 +28,7 @@ const BankAccountsSchema = new Schema(
 		timestamps: true,
 	},
 );
+
+BankAccountsSchema.index({ building: 1 }, { unique: true });
 
 exports.BankAccountsEntity = mongoose.model('BankAccountsEntity', BankAccountsSchema, 'bankAccounts');

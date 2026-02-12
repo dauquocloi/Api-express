@@ -17,6 +17,7 @@ const RESOURCE_ID_MAP = {
 	expenditures: 'expenditureId',
 	depositRefunds: 'depositRefundId',
 	users: 'userId',
+	checkoutCosts: 'checkoutCostId',
 };
 
 module.exports = { RESOURCE_ID_MAP };

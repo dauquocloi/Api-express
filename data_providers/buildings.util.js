@@ -15,17 +15,12 @@ const formatPeriodicExpenditurePayload = (periodicExpenditures, currentMonth, cu
 		month: currentMonth,
 		year: currentYear,
 		type: 'periodic',
-		date: exp.createdAt,
+		// date: exp.createdAt,
 		building: buildingId,
 		spender: userId,
 		locked: false,
 	}));
 };
-
-// const handleReceiptDepositSettlement = () => {
-//     let receiptDepositUpdatingPayload = new Map();
-
-// }
 
 const handleReceiptSettlement = (receipts) => {
 	const receiptUpdatingIds = [];
@@ -33,11 +28,10 @@ const handleReceiptSettlement = (receipts) => {
 
 	for (const receipt of receipts) {
 		const { paidAmount, locked, receiptType } = receipt;
-
 		if (locked === true || receiptType === RECEIPT_TYPES['CHECKOUT']) continue;
-
 		if (receiptType === RECEIPT_TYPES['DEPOSIT']) {
 			receiptCarriedOverPaidAmountMap.set(receipt._id, paidAmount);
+			continue;
 		}
 
 		receiptUpdatingIds.push(receipt._id);

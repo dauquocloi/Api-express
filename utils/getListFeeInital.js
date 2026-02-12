@@ -1,5 +1,17 @@
 const listFee = [
 	{
+		feeName: 'Tiền phòng',
+		feeKey: 'SPEC100PH',
+		unit: 'room',
+		iconPath: 'm343.08-102.31 40-277.69h-185l329.61-475.77h49.23L537.31-540H757.3L392.31-102.31h-49.23Z',
+	},
+	// {
+	// 	feeName: 'Nợ',
+	// 	feeKey: 'SPEC101PH',
+	// 	unit: 'room',
+	// 	iconPath: 'm343.08-102.31 40-277.69h-185l329.61-475.77h49.23L537.31-540H757.3L392.31-102.31h-49.23Z',
+	// },
+	{
 		feeName: 'Tiền điện',
 		feeKey: 'E1221SO',
 		unit: 'index',

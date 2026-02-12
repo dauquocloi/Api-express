@@ -117,6 +117,14 @@ const resourceOwnershipPolicy = {
 			return buildingId || null;
 		},
 	},
+
+	checkoutCosts: {
+		resolveBuildingId: async (checkoutCostId) => {
+			const checkoutCost = await Services.checkoutCosts.findById(checkoutCostId).populate({ path: 'roomId', select: 'building' }).lean().exec();
+			if (!checkoutCost || !checkoutCost.roomId) return null;
+			return checkoutCost.roomId.building;
+		},
+	},
 	//notificationss,
 	//transactions,
 	//...

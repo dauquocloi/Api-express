@@ -69,6 +69,9 @@ exports.createReceipt = async (roomId, buildingId, receiptAmount, receiptContent
 			const roomObjectId = new mongoose.Types.ObjectId(roomId);
 			const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
+			const paymentInfo = await Services.bankAccounts.findByBuildingId(buildingId).session(session).lean().exec();
+			if (!paymentInfo) throw new BadRequestError('Tòa nhà chưa có thông tin thanh toán !');
+
 			await Services.rooms.assertRoomWritable({ roomId, userId, session: null });
 			const currentPeriod = await getCurrentPeriod(buildingObjectId);
 			const contractOwner = await Services.customers

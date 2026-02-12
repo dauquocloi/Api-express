@@ -7,14 +7,14 @@ const Pipelines = require('../service/aggregates');
 const { receiptTypes, receiptStatus } = require('../constants/receipt');
 const { unitPriority } = require('../constants/fees');
 const {
-	getDepositPaidInCurrentPeriod,
-	getDepositRevenueThisPeriod,
 	processInvoiceAllocation,
 	processIncidentalRevenues,
 	calculateActualTotal,
-	calculateRequiredTotal,
 	aggregateRevenueByFeeKey,
-} = require('./revnues.util');
+	allocateInvoiceFees,
+	aggregateFeesByKey,
+} = require('./revenues.util');
+const Services = require('../service');
 
 // Un Refactored !
 // exports.getRevenues = async (data) => {
@@ -323,21 +323,21 @@ exports.getRevenues = async (data) => {
 	const periodicRevenue = aggregateRevenueByFeeKey(periodicRevenueList);
 
 	// ===== PROCESS INCIDENTAL REVENUES =====
-	const { incidentalRevenue, total: totalIncidentalActual } = processIncidentalRevenues(revenues, month, year);
+	const { incidentalRevenue, total: totalIncidentalRevenue } = processIncidentalRevenues(revenues, month, year);
 
 	// ===== PROCESS OTHER REVENUES =====
 	const totalOtherRevenue = Array.isArray(otherRevenues) ? otherRevenues.reduce((sum, item) => sum + (item.amount || 0), 0) : 0;
 
 	// ===== CALCULATE TOTALS =====
 	// totalRevenue: sum of all invoice totals (required to collect)
-	const totalRevenue = totalPeriodicRequired + totalIncidentalActual + totalOtherRevenue;
+	const totalRevenue = totalPeriodicRequired + totalIncidentalRevenue + totalOtherRevenue;
 
 	// actualTotalRevenue: sum of actual paid amounts
 	const actualTotalRevenue = calculateActualTotal(periodicRevenue, incidentalRevenue, totalOtherRevenue);
 
 	console.log('DEBUG - Periodic Revenue List:', periodicRevenueList);
 	console.log('DEBUG - Total Periodic Required:', totalPeriodicRequired);
-	console.log('DEBUG - Incidental Total Actual:', totalIncidentalActual);
+	console.log('DEBUG - Incidental Total Actual:', totalIncidentalRevenue);
 	console.log('DEBUG - Other Revenue Total:', totalOtherRevenue);
 	console.log('DEBUG - Total Revenue (Required):', totalRevenue);
 	console.log('DEBUG - Actual Total Revenue (Paid):', actualTotalRevenue);
@@ -353,101 +353,51 @@ exports.getRevenues = async (data) => {
 		totals: {
 			periodicRequired: totalPeriodicRequired,
 			periodicActual: calculateActualTotal(periodicRevenue, [], 0),
-			incidentalActual: totalIncidentalActual,
+			incidentalActual: totalIncidentalRevenue,
 			otherActual: totalOtherRevenue,
 		},
 	};
 };
 
-// Un refacted
-exports.getTotalFeeRevenue = async (data) => {
-	const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
-
-	var month;
-	var year;
-	var status;
-	var feeName;
-
+exports.getTotalFeeRevenue = async (buildingId, month, year, feeKey) => {
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 	const currentPeriod = await getCurrentPeriod(buildingObjectId);
+	let status = 'lock';
+
 	const { currentMonth, currentYear } = currentPeriod;
-	if (!data.month || !data.year) {
+	if (!month || !year) {
 		month = currentMonth;
 		year = currentYear;
 		status = 'unlock';
 	} else {
-		month = parseInt(data.month);
-		year = parseInt(data.year);
+		month = parseInt(month);
+		year = parseInt(year);
 		if (month == currentMonth && year == currentYear) {
 			status = 'unlock';
-		} else status = 'lock';
-	}
-
-	const feeRevenue = await Entity.BuildingsEntity.aggregate(Pipelines.revenues.getFeeRevenueDetail(buildingObjectId, month, year));
-	if (feeRevenue.length === 0) {
-		throw new NotFoundError(`Phí với key ${data.feeKey} không tồn tại`);
-	}
-
-	const { feeRevenueInfo } = feeRevenue[0];
-	console.log('log of feeRevenueInfo: ', feeRevenueInfo);
-
-	// kiểm tra tính tồn tại của feeKey gửi về:
-	const checkExistedRoom = feeRevenueInfo.some((roomItem) =>
-		roomItem.invoice.fee.some((feeItem) => {
-			const trimmedFeeKey = feeItem.feeKey?.slice(0, -2);
-			if (trimmedFeeKey === data.feeKey) {
-				feeName = feeItem.feeName;
-				return true;
-			}
-			return false;
-		}),
-	);
-
-	if (!checkExistedRoom) throw new NotFoundError(`Phí ${data.feeKey} không tồn tại!`);
-
-	var totalFeeAmount = 0;
-	var totalActualCurrentFeePaidAmount = 0;
-	for (const roomItem of feeRevenueInfo) {
-		const { invoice, transaction } = roomItem;
-		const listFeeFormated = formatFee(invoice.fee);
-		const totalTransaction = transaction.reduce((sum, item) => sum + item.amount, 0);
-		var remaining = totalTransaction;
-
-		for (const feeItem of listFeeFormated) {
-			const actualPaid = Math.min(remaining, feeItem.amount);
-			const actualFeePaidAmount = remaining === 0 ? 0 : actualPaid;
-
-			if (feeItem.feeKey === data.feeKey) {
-				totalFeeAmount += feeItem.amount;
-				totalActualCurrentFeePaidAmount += actualFeePaidAmount;
-			}
-			remaining -= actualPaid;
 		}
 	}
+	const invoiceData = await Services.buildings.getAllInvoicesInPeriod(buildingObjectId, month, year);
 
-	const listRoomUnPaid =
-		status === 'lock'
-			? []
-			: feeRevenueInfo
-					.map((roomItem) => {
-						const { invoice } = roomItem;
-						if (invoice.status === 'unpaid' || invoice.status === 'partial') {
-							return {
-								invoiceId: invoice._id,
-								roomIndex: roomItem.roomIndex,
-								total: invoice.total,
-								status: invoice.status,
-							};
-						} else return null;
-					})
-					.filter(Boolean);
+	let listFeeRevenue = [];
+	for (const invoice of invoiceData) {
+		// Skip invalid invoices
+		if (!invoice || Object.keys(invoice).length === 0) continue;
 
-	return {
-		feeDetail: { totalFeeAmount: totalFeeAmount, totalActualFeePaidAmount: totalActualCurrentFeePaidAmount, feeName: feeName },
-		listRoomUnPaid: listRoomUnPaid,
-		period: {
-			month,
-			year,
-		},
-		status: status,
-	};
+		// Skip if no fees
+		if (!Array.isArray(invoice.fee) || invoice.fee.length === 0) continue;
+
+		// Allocate paid amount to fees and debts
+		const fees = allocateInvoiceFees(invoice, invoice.fee);
+		listFeeRevenue.push(...fees);
+
+		console.log('DEBUG - fees:', fees);
+	}
+	const grouptedFees = aggregateFeesByKey(listFeeRevenue);
+
+	console.log('DEBUG - grouptedFees:', grouptedFees);
+	const feeRevenue = grouptedFees.find((fee) => fee.feeKey === feeKey);
+	console.log('DEBUG - feeRevenue:', feeRevenue);
+	if (!feeRevenue) throw new BadRequestError('Không tìm thấy mã phí trong kỳ');
+
+	return { feeRevenue, status: status, period: { month: month, year: year } };
 };

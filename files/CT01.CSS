@@ -1,0 +1,96 @@
+/* ===== RESET ===== */
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	padding: 0;
+	background: #ccc;
+	font-family: 'Times New Roman', serif;
+	font-size: 13pt;
+	line-height: 1.4;
+}
+
+/* ===== PAGE A4 ===== */
+.page {
+	width: 210mm;
+	min-height: 297mm;
+	padding: 20mm 25mm;
+	margin: 10mm auto;
+	background: white;
+}
+
+/* ===== PRINT ===== */
+@page {
+	size: A4;
+	margin: 20mm 25mm;
+}
+
+@media print {
+	body {
+		background: none;
+	}
+	.page {
+		margin: 0;
+		box-shadow: none;
+	}
+}
+
+/* ===== TEXT ===== */
+p {
+	margin: 4px 0;
+}
+
+strong {
+	font-weight: bold;
+}
+
+.center {
+	text-align: center;
+}
+
+.right {
+	text-align: right;
+}
+
+.uppercase {
+	text-transform: uppercase;
+}
+
+/* ===== TABLE ===== */
+table {
+	width: 100%;
+	border-collapse: collapse;
+	margin-top: 6px;
+}
+
+td,
+th {
+	border: 1px solid black;
+	padding: 6px;
+	vertical-align: middle;
+	text-align: center;
+	height: 28px;
+}
+
+/* bảng thông tin nhỏ */
+.no-border td {
+	border: none;
+}
+
+/* ===== TITLE ===== */
+.form-title {
+	text-align: center;
+	font-weight: bold;
+	font-size: 16pt;
+	margin: 12px 0;
+}
+
+/* ===== SIGNATURE BLOCK ===== */
+.signature-table td {
+	border: none;
+	text-align: center;
+	vertical-align: top;
+	padding-top: 30px;
+}

@@ -29,8 +29,7 @@ router.post(
 router.get(
 	'/sending-status',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
-	validator(schema.getAllInvoices, ValidateSource.QUERY),
-	checkResourceAccess(RESOURCE),
+	validator(schema.getInvoiceSendingStatus, ValidateSource.QUERY),
 	Invoices.getInvoiceSendingStatus,
 );
 

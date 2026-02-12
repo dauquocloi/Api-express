@@ -556,4 +556,49 @@ const getFinanceSettlementData = (buildingObjectId, currentMonth, currentYear) =
 	];
 };
 
-module.exports = { getAllBillsPipeline, getStatisticGeneral, getFinanceSettlementData, getPrepareFinanceSettlementData };
+const getAllInvoicesInPeriod = (buildingObjectId, month, year) => {
+	return [
+		{
+			$match: {
+				_id: buildingObjectId,
+			},
+		},
+		{
+			$lookup: {
+				from: 'rooms',
+				localField: '_id',
+				foreignField: 'building',
+				as: 'rooms',
+			},
+		},
+		{
+			$lookup: {
+				from: 'invoices',
+				localField: 'rooms._id',
+				foreignField: 'room',
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$eq: ['$month', month],
+									},
+									{
+										$eq: ['$year', year],
+									},
+									{
+										$in: ['$status', ['paid', 'partial', 'unpaid']],
+									},
+								],
+							},
+						},
+					},
+				],
+				as: 'invoices',
+			},
+		},
+	];
+};
+
+module.exports = { getAllBillsPipeline, getStatisticGeneral, getFinanceSettlementData, getPrepareFinanceSettlementData, getAllInvoicesInPeriod };

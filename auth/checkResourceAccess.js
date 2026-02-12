@@ -16,6 +16,7 @@ const checkResourceAccess = (resourceType, permissionKey = null) => {
 
 		const buildingId = await policy.resolveBuildingId(resourceId);
 		if (!buildingId) throw new NotFoundError('Dữ liệu không tồn tại');
+		req.buildingId = buildingId;
 
 		// Owner && Admin full quyền
 		if (user.role === ROLES[`ADMIN`]) return next();

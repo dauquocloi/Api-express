@@ -169,13 +169,14 @@ exports.financeSettlement = async (buildingId, userId) => {
 	let result;
 	let session;
 	try {
-		const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
-		await Services.rooms.lockAllRoomsForSettlement(buildingId, userId, session);
-		const building = await Services.buildings.findById(buildingId).lean().exec();
-		if (!building) throw new BadRequestError('Tòa nhà không tồn tại');
-
 		session = await mongoose.startSession();
 		await session.withTransaction(async () => {
+			const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+
+			await Services.rooms.lockAllRoomsForSettlement(buildingId, userId, session);
+			const building = await Services.buildings.findById(buildingId).session().lean().exec();
+			if (!building) throw new BadRequestError('Tòa nhà không tồn tại');
+
 			const currentPeriod = await getCurrentPeriod(buildingId);
 			const { currentMonth, currentYear } = currentPeriod;
 
@@ -219,8 +220,8 @@ exports.financeSettlement = async (buildingId, userId) => {
 				revenueComparisonRate: currentStatistics.revenueComparisonRate,
 			});
 
-			// throw new BadRequestError('Stop here for testing');
-			return true;
+			throw new BadRequestError('Stop here for testing');
+			// return true;
 		});
 
 		return;

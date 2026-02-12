@@ -1,15 +1,6 @@
-const mongoose = require('mongoose');
 const Entity = require('../../models');
-const getCurrentPeriod = require('../../utils/getCurrentPeriod');
-const DebtsServices = require('../debts.service');
-const FeesServices = require('../fees.service');
-const ReceiptsServices = require('../receipts.service');
-const CustomersServices = require('../customers.service');
-const { formatRoomFees } = require('../../utils/formatRoomFees');
-const { calculateTotalCheckoutCostAmount } = require('./checkoutCosts.helper');
-const generatePaymentContent = require('../../utils/generatePaymentContent');
 const Pipelines = require('../aggregates');
-const { AppError, NotFoundError, InternalError, ConflictError } = require('../../AppError');
+const { NotFoundError, InternalError, ConflictError } = require('../../AppError');
 const { checkoutCostStatus } = require('../../constants/checkoutCosts');
 const generateCheckoutCost = async (
 	{

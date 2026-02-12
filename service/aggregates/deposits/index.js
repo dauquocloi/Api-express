@@ -18,6 +18,12 @@ const getDepositsPipeline = (buildingId, month, year) => {
 			},
 		},
 		{
+			$sort: {
+				createdAt: -1,
+				'roomInfo.roomIndex': 1,
+			},
+		},
+		{
 			$group: {
 				_id: '$building',
 				listDeposits: {

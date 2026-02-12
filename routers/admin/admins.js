@@ -44,7 +44,7 @@ exports.importPaymentInfo = asyncHandler(async (req, res) => {
 exports.createBankAccount = asyncHandler(async (req, res) => {
 	const data = req.body;
 	console.log('log of createBank', data);
-	const result = await UseCase.bankAccounts.importBankAccount(data.userId, data.accountNumber, data.accountName, data.bankId);
+	const result = await UseCase.bankAccounts.importBankAccount(data.userId, data.accountNumber, data.accountName, data.bankId, data.buildingId);
 	return new SuccessResponse('Success', result).send(res);
 });
 

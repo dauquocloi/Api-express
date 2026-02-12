@@ -1,6 +1,7 @@
 const { NotFoundError, BadRequestError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
+const Roles = require('../constants/userRoles');
 
 const findById = (buildingId) => Entity.BuildingsEntity.findById(buildingId);
 
@@ -20,7 +21,7 @@ const getOwnerInfo = (buildingId) => {
 			_id: buildingId,
 		},
 		{
-			management: { $elemMatch: { role: 'owner' } },
+			management: { $elemMatch: { role: Roles['OWNER'] } },
 			buildingName: 1,
 			_id: 1,
 			buildingAddress: 1,
@@ -191,6 +192,14 @@ const importPaymentInfo = async (buildingId, bankAccountId) => {
 	return result;
 };
 
+const getAllInvoicesInPeriod = async (buildingObjectId, month, year, session) => {
+	const [result] = await Entity.BuildingsEntity.aggregate(Pipelines.buildings.getAllInvoicesInPeriod(buildingObjectId, month, year)).session(
+		session,
+	);
+	if (!result) throw new NotFoundError('Id tòa nhà không tồn tại');
+	return result.invoices;
+};
+
 module.exports = {
 	getAllByManagementId,
 	getAllBills,
@@ -207,4 +216,5 @@ module.exports = {
 	getPrepareFinanceSettlementData,
 	getOwnerInfo,
 	importPaymentInfo,
+	getAllInvoicesInPeriod,
 };

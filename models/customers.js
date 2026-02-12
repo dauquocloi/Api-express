@@ -78,10 +78,6 @@ const CustomersSchema = new Schema(
 	},
 );
 
+CustomersSchema.index({ room: 1 }, { unique: true, partialFilterExpression: { status: { $in: [1, 2] }, isContractOwner: true } });
+
 exports.CustomersEntity = mongoose.model('CustomersEntity', CustomersSchema, 'customers');
-
-// CustomersSchema.('save', async (docs) => {
-// 	try {
-
-// 	}
-// })

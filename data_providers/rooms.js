@@ -161,9 +161,6 @@ exports.generateCheckoutCost = async (roomId, buildingId, creatorId, feeIndexVal
 			if (!contractOwner) throw new NotFoundError(`Phòng không tồn tại chủ hợp đồng !`);
 			if (!contractOwner.contract._id) throw new NotFoundError('Phòng không tồn tại hợp động !');
 
-			// const roomFees = await Services.fees.getRoomFeesAndDebts(roomObjectId, session);
-			// const { feeInfo } = roomFees;
-
 			const debtsAndReceiptUnpaid = await Services.debts.getDebtsAndReceiptUnpaid(
 				roomObjectId,
 				currentPeriod.currentMonth,
@@ -277,6 +274,7 @@ exports.generateCheckoutCost = async (roomId, buildingId, creatorId, feeIndexVal
 			// await Services.rooms.bumpRoomVersion(roomObjectId, roomVersion, session);
 			// await Services.rooms.unLockedRoom(roomObjectId, session);
 			await Services.rooms.completeChangeRoomState({ roomId, roomVersion }, session);
+			await Services.customers.expiredCustomers({ roomId: roomObjectId, contractId: contractOwner.contract._id }, session);
 			await Services.contracts.expiredContract(contractOwner.contract._id, session);
 
 			return 'Success';

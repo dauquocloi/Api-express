@@ -144,18 +144,18 @@ function processIncidentalRevenues(revenues, month, year) {
 			// Handle DEPOSIT type specially
 			if (receiptType === receiptTypes.DEPOSIT) {
 				const depositPaidInPeriod = getDepositPaidInCurrentPeriod(transactionReceipt, month, year);
+				const depositRevenue = getDepositRevenueThisPeriod(receipt);
 
 				// Only include if there's payment in current period
 				if (depositPaidInPeriod > 0) {
-					const depositRevenue = getDepositRevenueThisPeriod(receipt);
 					revenueToPush = {
 						_id,
 						receiptType: receiptTypes.DEPOSIT,
 						receiptContent: receipt.receiptContent,
 						amount: depositPaidInPeriod,
 					};
-					revenueAmount = depositRevenue;
 				}
+				revenueAmount = depositRevenue;
 			} else {
 				// For non-deposit types: only include if paid or partial
 				if (paidAmount > 0) {
@@ -165,25 +165,19 @@ function processIncidentalRevenues(revenues, month, year) {
 						receiptContent: receiptType === receiptTypes.DEBTS ? receipt?.receiptContentDetail : receipt?.receiptContent,
 						amount: paidAmount,
 					};
-					revenueAmount = paidAmount;
 				}
+				revenueAmount = amount;
 			}
 
 			// Add to list and total
 			if (revenueToPush) {
 				incidentalRevenue.push(revenueToPush);
-				total += revenueAmount;
 			}
+			total += revenueAmount;
 		}
 	}
 
 	return { incidentalRevenue, total };
-}
-
-function calculateRequiredTotal(periodicRevenueList, incidentalTotal, otherTotal) {
-	const periodicTotal = Array.isArray(periodicRevenueList) ? periodicRevenueList.reduce((sum, item) => sum + (item.amount || 0), 0) : 0;
-
-	return periodicTotal + incidentalTotal + otherTotal;
 }
 
 function calculateActualTotal(periodicRevenueList, incidentalRevenueList, otherTotal) {
@@ -194,12 +188,116 @@ function calculateActualTotal(periodicRevenueList, incidentalRevenueList, otherT
 	return periodicTotal + incidentalTotal + otherTotal;
 }
 
+function allocateInvoiceFees(invoice, fees) {
+	const result = [];
+	let remaining = invoice.paidAmount || 0;
+	const hasDeducted = invoice.detuctedInfo?.detuctedId;
+	const sortedFees = sortFeesByPriority(fees);
+
+	// ===== 1. PROCESS FEES =====
+	for (const fee of sortedFees) {
+		if (remaining <= 0 && hasDeducted) break;
+
+		const requiredAmount = hasDeducted ? Math.min(remaining, fee.amount) : fee.amount;
+
+		const actualPaid = Math.min(remaining, fee.amount);
+
+		result.push({
+			feeName: fee.feeName,
+			amount: requiredAmount,
+			actualPaidAmount: actualPaid,
+			unit: fee.unit,
+			feeKey: fee.feeKey,
+		});
+
+		remaining -= actualPaid;
+	}
+
+	// ===== 2. PROCESS DEBTS =====
+	if (invoice.debts?.length > 0) {
+		for (const debt of invoice.debts) {
+			if (remaining <= 0 && hasDeducted) break;
+
+			const requiredAmount = hasDeducted ? Math.min(remaining, debt.amount) : debt.amount;
+
+			const actualPaid = Math.min(remaining, debt.amount);
+
+			result.push({
+				feeName: 'nợ',
+				amount: requiredAmount,
+				actualPaidAmount: actualPaid,
+				unit: 'room',
+				feeKey: 'SPEC101PH',
+			});
+
+			remaining -= actualPaid;
+		}
+	}
+
+	// ===== 3. FALLBACK ZERO =====
+	if (result.length === 0) {
+		result.push({
+			feeName: 'nợ',
+			amount: 0,
+			actualPaidAmount: 0,
+			unit: 'room',
+			feeKey: 'SPEC101PH',
+		});
+	}
+
+	return result;
+}
+
+function aggregateFeesByKey(feeList) {
+	// First grouping by full feeKey
+	const groupedByFull = feeList.reduce((acc, curr) => {
+		const key = curr.feeKey || 'SPEC100PH';
+
+		if (!acc[key]) {
+			acc[key] = {
+				feeName: curr.feeName,
+				amount: 0,
+				actualPaidAmount: 0,
+				unit: curr.unit,
+				feeKey: key,
+			};
+		}
+
+		acc[key].amount += curr.amount;
+		acc[key].actualPaidAmount += curr.actualPaidAmount;
+		return acc;
+	}, {});
+
+	// Second grouping by trimmed key
+	const groupedByTrimmed = {};
+
+	for (const fee of Object.values(groupedByFull)) {
+		const trimmedKey = fee.feeKey.slice(0, -2);
+
+		if (!groupedByTrimmed[trimmedKey]) {
+			groupedByTrimmed[trimmedKey] = {
+				feeName: fee.feeName,
+				totalFeeAmount: 0,
+				totalActualFeePaidAmount: 0,
+				unit: fee.unit,
+				feeKey: trimmedKey,
+			};
+		}
+
+		groupedByTrimmed[trimmedKey].totalFeeAmount += fee.amount;
+		groupedByTrimmed[trimmedKey].totalActualFeePaidAmount += fee.actualPaidAmount;
+	}
+
+	return Object.values(groupedByTrimmed);
+}
+
 module.exports = {
 	getDepositPaidInCurrentPeriod,
 	getDepositRevenueThisPeriod,
 	aggregateRevenueByFeeKey,
 	processIncidentalRevenues,
-	calculateRequiredTotal,
 	calculateActualTotal,
 	processInvoiceAllocation,
+	aggregateFeesByKey,
+	allocateInvoiceFees,
 };

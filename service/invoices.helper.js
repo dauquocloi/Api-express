@@ -31,7 +31,7 @@ const generateInvoiceFees = (listFeeOfRoom, rentAmount, stayDays, feeIndexValues
 					unit: fee.unit,
 					quantity: quantity,
 					feeKey: fee.feeKey,
-					amount: calculateFeeUnitQuantityAmount(fee.feeAmount, fee.quantity, stayDays),
+					amount: calculateFeeUnitQuantityAmount(fee.feeAmount, quantity, stayDays),
 				};
 			case feeUnit['ROOM']:
 				return {

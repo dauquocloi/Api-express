@@ -29,6 +29,10 @@ exports.getExpenditures = async (buildingId, month, year) => {
 			const { incidentalExpenditures, periodicExpenditures } = expenditures;
 			return { incidentalExpenditures, periodicExpenditures, period: { month: month, year: year }, status: 'unlock' };
 		} else {
+			// if (month > currentMonth && year >= currentYear) {
+			// 	return null;
+			// }
+
 			const expenditureLocked = await Services.expenditures.getExpendituresStatusLocked(buildingObjectId, month, year);
 			const { expenditures } = expenditureLocked;
 			if (expenditures.length === 0)

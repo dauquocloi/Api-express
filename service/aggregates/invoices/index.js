@@ -429,6 +429,7 @@ const getInvoiceDetail = (invoiceId) => {
 				invoiceContent: 1,
 				detuctedInfo: 1,
 				version: 1,
+				paymentContent: 1,
 				room: {
 					$let: {
 						vars: {

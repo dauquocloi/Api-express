@@ -12,6 +12,6 @@ exports.getRevenues = asyncHandler(async (req, res) => {
 exports.getTotalFeeRevenue = asyncHandler(async (req, res) => {
 	const data = req.query;
 	console.log('log of getTotalFeeRevenue: ', data);
-	const result = await UseCase.getTotalFeeRevenue(data);
+	const result = await UseCase.getTotalFeeRevenue(data.buildingId, data.month, data.year, data.feeKey);
 	return new SuccessResponse('Success', result).send(res);
 });

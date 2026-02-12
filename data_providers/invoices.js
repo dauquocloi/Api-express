@@ -124,19 +124,23 @@ exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, use
 
 exports.getInvoiceDetail = async (invoiceId, buildingId) => {
 	const invoiceObjectId = new mongoose.Types.ObjectId(invoiceId);
-	// const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
 	const invoice = await Services.invoices.getInvoiceDetail(invoiceObjectId);
 	const { _id: invoiceInfo, transactionInfo } = invoice;
-	return { invoiceDetail: { ...invoiceInfo, transactionInfo }, paymentInfo: null };
 
-	// if ((invoiceInfo.status === 'unpaid' || invoiceInfo.status === 'partial') && invoiceInfo.locked === false) {
-	// 	const bankInfo = await Entity.BanksEntity.findOne({ building: { $in: [buildingObjectId] } });
+	const bankAccount = await Services.bankAccounts.findByBuildingId(buildingId).populate('bank').lean().exec();
+	console.log('log of bankAccount: ', bankAccount);
+	if (!bankAccount) throw new NotFoundError('Không tìm thấy tài khoản ngân hàng của tòa nhà !');
 
-	// 	return { invoiceDetail: { ...invoiceInfo, transactionInfo }, paymentInfo: bankInfo };
-	// } else {
-	// 	return { invoiceDetail: { ...invoiceInfo, transactionInfo }, paymentInfo: null };
-	// }
+	return {
+		invoiceDetail: { ...invoiceInfo, transactionInfo },
+		paymentInfo: {
+			_id: bankAccount._id,
+			accountNumber: bankAccount.accountNumber,
+			accountName: bankAccount.accountName,
+			bank: bankAccount.bank,
+		},
+	};
 };
 
 //owner only
@@ -424,6 +428,9 @@ exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, cre
 		session = await mongoose.startSession();
 
 		await session.withTransaction(async () => {
+			const paymentInfo = await Services.bankAccounts.findByBuildingId(buildingId).session(session).lean().exec();
+			if (!paymentInfo) throw new BadRequestError('Tòa nhà chưa có thông tin thanh toán !');
+
 			await Services.rooms.assertRoomWritable({ roomId, userId: createrId, session });
 			const currentPeriod = await getCurrentPeriod(buildingObjectId);
 			const roomContractOwner = await Services.customers

@@ -7,10 +7,11 @@ const Pipelines = require('../service/aggregates');
 const Services = require('../service');
 const { depositStatus } = require('../constants/deposits');
 const redis = require('../config/redisClient');
+const { feeUnit } = require('../constants/fees');
 
 exports.getDeposits = async (buildingId) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
-	const deposits = Services.deposits.getDeposits(buildingObjectId);
+	const deposits = await Services.deposits.getDeposits(buildingObjectId);
 	return deposits;
 };
 
@@ -26,6 +27,12 @@ exports.createDeposit = async (data, redisKey) => {
 		// Khởi tạo transaction
 		session = await mongoose.startSession();
 		await session.withTransaction(async () => {
+			const currentRoom = await Services.rooms.findById(data.roomId).session(session).lean().exec();
+			if (!currentRoom) {
+				throw new BadRequestError(`Phòng với Id: ${data.roomId} không tồn tại !`);
+				p;
+			}
+			if (currentRoom.roomState === 1) throw new BadRequestError(`Không thể đặt cọc cho phòng đang thuê !`);
 			const depositReceipt = await Services.receipts.findById(data.receiptId).session(session).lean().exec();
 
 			if (!depositReceipt) {
@@ -45,8 +52,9 @@ exports.createDeposit = async (data, redisKey) => {
 				const fees = [];
 				for (const feeItem of data.fees) {
 					const match = feeMap.get(feeItem.feeKey);
+
 					if (match) {
-						if (match.unit === 'index') {
+						if (match.unit === feeUnit['INDEX']) {
 							fees.push({
 								feeName: match.feeName,
 								unit: match.unit,
@@ -76,26 +84,24 @@ exports.createDeposit = async (data, redisKey) => {
 				else if (paidAmount < room.depositAmount) return depositStatus['PARTIAL'];
 			};
 
-			const [newDeposit] = await Entity.DepositsEntity.create(
-				[
-					{
-						room: roomObjectId,
-						building: buildingObjectId,
-						receipt: receiptObjectId,
-						status: getDepositStatus(),
-						rent: room.rent,
-						depositAmount: room.depositAmount,
-						actualDepositAmount: paidAmount,
-						depositCompletionDate: room.depositCompletionDate,
-						checkinDate: room.checkinDate,
-						rentalTerm: room.rentalTerm,
-						numberOfOccupants: room.numberOfOccupants,
-						customer: customer,
-						fees: getInitialFeesByFeeKey(),
-						interiors: data.interiors,
-					},
-				],
-				{ session },
+			const newDeposit = await Services.deposits.generateDeposit(
+				{
+					roomId: roomObjectId,
+					buildingId: buildingObjectId,
+					receiptId: receiptObjectId,
+					rent: room.rent,
+					depositAmount: room.depositAmount,
+					actualDepositAmount: paidAmount,
+					depositCompletionDate: room.depositCompletionDate,
+					checkinDate: room.checkinDate,
+					rentalTerm: room.rentalTerm,
+					numberOfOccupants: room.numberOfOccupants,
+					customer: customer,
+					interiors: data.interiors,
+					fees: getInitialFeesByFeeKey(),
+					status: getDepositStatus(),
+				},
+				session,
 			);
 
 			await Services.rooms.setRoomDeposited({ roomId: data.roomId, isDeposited: true, session });

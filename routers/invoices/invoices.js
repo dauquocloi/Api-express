@@ -20,9 +20,9 @@ exports.getInvoiceSendingStatus = asyncHandler(async (req, res) => {
 });
 
 exports.getInvoiceDetail = asyncHandler(async (req, res) => {
-	const data = { ...req.params, ...req.query };
+	const data = { ...req.params };
 	console.log('log of data from getInvoiceDetail: ', data);
-	const result = await UseCase.getInvoiceDetail(data.invoiceId, data.buildingId);
+	const result = await UseCase.getInvoiceDetail(data.invoiceId, req.buildingId);
 	return new SuccessResponse('Success', result).send(res);
 });
 

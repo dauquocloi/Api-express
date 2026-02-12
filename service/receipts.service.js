@@ -286,7 +286,7 @@ exports.importReceiptsDeposit = async (receiptData, session) => {
 };
 
 exports.closeAllReceipts = async (receiptIds, session) => {
-	const result = await Entity.ReceiptsEntity.updateMany(
+	await Entity.ReceiptsEntity.updateMany(
 		{ _id: { $in: receiptIds } },
 		{
 			$set: { locked: true },
@@ -294,7 +294,7 @@ exports.closeAllReceipts = async (receiptIds, session) => {
 		},
 		{ session },
 	);
-	return result;
+	return true;
 };
 
 exports.updateReceiptsCarriedOverPaidAmount = async (carriedOverMap, session) => {

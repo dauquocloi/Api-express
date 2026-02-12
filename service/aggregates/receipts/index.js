@@ -211,6 +211,7 @@ const getReceiptDetail = (receiptObjectId) => {
 				},
 				detuctedInfo: 1,
 				version: 1,
+				receiptType: 1,
 			},
 		},
 		{
@@ -230,6 +231,7 @@ const getReceiptDetail = (receiptObjectId) => {
 					paidAmount: '$paidAmount',
 					detuctedInfo: '$detuctedInfo',
 					version: '$version',
+					receiptType: '$receiptType',
 				},
 				transactionInfo: {
 					$push: {

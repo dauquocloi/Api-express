@@ -191,12 +191,8 @@ exports.updateInvoicePaidStatusWithVersion = async ({ invoiceId, paidAmount, inv
 };
 
 exports.closeAllInvoices = async (invoiceIds, session) => {
-	const result = await Entity.InvoicesEntity.updateMany(
-		{ _id: { $in: invoiceIds } },
-		{ $set: { locked: true }, $inc: { version: 1 } },
-		{ session },
-	);
-	return result;
+	await Entity.InvoicesEntity.updateMany({ _id: { $in: invoiceIds } }, { $set: { locked: true }, $inc: { version: 1 } }, { session });
+	return true;
 };
 
 exports.removeDetuctedInfo = async (invoiceId, session) => {

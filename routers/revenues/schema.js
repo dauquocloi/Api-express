@@ -16,7 +16,7 @@ module.exports = {
 		month: Joi.string().optional(),
 		year: Joi.string().optional(),
 		feeKey: Joi.string()
-			.valid(...listFeeKeys)
+			.valid(...listFeeKeys, 'SPEC101')
 			.required()
 			.messages({
 				'any.only': 'Đoán sai rồi, dòng ngu',
