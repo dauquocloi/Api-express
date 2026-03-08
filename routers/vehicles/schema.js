@@ -13,12 +13,16 @@ module.exports = {
 	}),
 	createVehicle: Joi.object().keys({
 		customerId: JoiObjectId().required(),
-		roomId: JoiObjectId().required(),
 		licensePlate: Joi.string().required(),
 		fromDate: Joi.date().required(),
+		image: Joi.string().allow('', null).optional(),
 	}),
 	modifyVehicle: Joi.object().keys({
 		licensePlate: Joi.string().required(),
 		fromDate: Joi.date().required(),
+		status: Joi.string()
+			.valid(...Object.values(vehicleStatus))
+			.required(),
+		image: Joi.string().allow('', null).optional(),
 	}),
 };

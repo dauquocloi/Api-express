@@ -19,7 +19,7 @@ exports.createDeposit = asyncHandler(async (req, res) => {
 exports.getDepositDetail = asyncHandler(async (req, res) => {
 	let data = req.params;
 	console.log('this is log of getDepositDetail: ', data);
-	const result = await UseCase.getDepositDetail(data.depositId);
+	const result = await UseCase.getDepositDetail(data.depositId, req.buildingId);
 	return new SuccessResponse('Success', result).send(res);
 });
 
@@ -40,7 +40,7 @@ exports.uploardDepositTerm = asyncHandler(async (req, res) => {
 exports.terminateDeposit = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('this is log of terminateDeposit: ', data);
-	await UseCase.terminateDeposit(data);
+	await UseCase.terminateDeposit(data.depositId, data.version);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

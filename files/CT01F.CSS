@@ -1,0 +1,223 @@
+/* ===== RESET & CĂN CHỈNH HỆ THỐNG ===== */
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+	background: #525659; /* Màu nền xám giống trình xem PDF */
+}
+
+/* ===== TRANG A4 ===== */
+.a4-page {
+	width: 210mm;
+	min-height: 297mm;
+
+	background: white;
+	font-family: 'Times New Roman', Times, serif;
+	font-size: 12pt;
+	position: relative;
+}
+
+.content-container {
+	padding: 10mm 15mm 10mm 15mm; /* Lề: Trên 20, Dưới 20, Phải 15, Trái 25 */
+}
+
+.header {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.cccd-table-contaier {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: center;
+}
+
+/* ===== QUY TẮC IN ẤN ===== */
+@media print {
+	@page {
+		size: A4;
+		margin: 0; /* Loại bỏ lề mặc định của trình duyệt để dùng lề của .a4-page */
+	}
+	body {
+		background: none !important;
+		margin: 0 !important;
+		padding: 0 !important;
+	}
+	.a4-page {
+		width: 210mm;
+		height: 297mm;
+		margin: 0 !important;
+		box-shadow: none !important;
+		page-break-after: always;
+		overflow: hidden;
+	}
+}
+
+@page {
+	size: A4;
+	margin: 0; /* Đã xử lý margin bằng padding của .a4-page */
+}
+
+/* ===== ĐỊNH DẠNG VĂN BẢN ===== */
+p {
+	margin: 0px 0;
+	text-align: justify; /* Căn đều hai bên */
+}
+
+.text-center {
+	text-align: center;
+}
+.text-right {
+	text-align: right;
+}
+.text-bold {
+	font-weight: bold;
+}
+.text-italic {
+	font-style: italic;
+}
+.uppercase {
+	text-transform: uppercase;
+}
+
+/* ===== ĐỊNH DẠNG BẢNG (TABLE) ===== */
+table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 8px 0;
+}
+
+th,
+td {
+	border: 1px solid black;
+	padding: 16px 14px;
+	vertical-align: middle;
+}
+
+.header-table-td {
+	border: 1px solid black;
+	vertical-align: middle;
+}
+
+/* Bảng không viền (dùng cho các phần ký tên, bố cục lề) */
+table.no-border,
+table.no-border td {
+	border: none !important;
+}
+
+/* Định dạng ô nhập Số Định Danh Cá Nhân (12 ô) */
+/* .id-table {
+	display: inline-table;
+	width: auto;
+	margin-left: 5px;
+}
+.id-table td {
+	width: 7mm;
+	height: 8mm;
+	text-align: center;
+	font-weight: bold;
+} */
+
+/* Dòng kẻ chấm cho phần điền thông tin */
+.dotted-line {
+	border-bottom: 1px dotted #000;
+	flex-grow: 1;
+	display: inline-block;
+	min-width: 50px;
+}
+
+/* Bảng không viền cho phần ký tên */
+.footer-table {
+	width: 100%; /* Nới rộng hơn lề văn bản một chút để dàn hàng ngang */
+	border-collapse: collapse;
+	border: none !important;
+	/* margin: 10px; */
+}
+
+.footer-table td {
+	border: none !important; /* Loại bỏ toàn bộ kẻ ô */
+	vertical-align: top;
+	text-align: center;
+	line-height: 1.2;
+	font-size: 10pt; /* Giảm nhẹ cỡ chữ để không bị tràn hàng */
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+/* Hỗ trợ hiển thị ghi chú nhỏ dưới chữ ký */
+.footer-table sup {
+	font-size: 9pt;
+}
+
+.footer-table p {
+	text-align: center;
+}
+
+/* Đảm bảo ô trống vẫn hiện viền và có độ cao */
+table td {
+	border: 1px solid black !important; /* Ép hiển thị viền đen */
+	empty-cells: show; /* Lệnh yêu cầu trình duyệt hiển thị ô trống */
+}
+
+/* Fix chiều cao cho các hàng dữ liệu */
+.member-table tr {
+	height: 28px; /* Hoặc chiều cao bạn muốn */
+}
+
+.bottom {
+	display: flex;
+	flex-direction: row;
+	width: 100%;
+	justify-content: center;
+	margin-top: 60px;
+	position: absolute;
+	bottom: 35px;
+}
+
+.family-table {
+	width: 100%;
+	margin-right: auto;
+	margin-left: auto;
+	margin-bottom: 0pt;
+	padding: 0pt;
+	border-collapse: collapse;
+	margin-top: 10px;
+}
+
+.family-table tr {
+	height: 35px;
+}
+
+/* Trong file CT01.CSS của bạn */
+
+.id-table {
+	width: auto;
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+
+.id-table td {
+	width: 8mm; /* Cố định chiều rộng */
+	height: 8mm; /* Cố định chiều cao bằng chiều rộng để tạo hình vuông */
+	text-align: center;
+	vertical-align: middle;
+	padding: 0; /* Loại bỏ padding để không làm tăng kích thước ô */
+	line-height: 1;
+	border: 0.25mm solid rgb(0, 0, 0) !important;
+}
+
+.id-table td p {
+	margin: 0 !important; /* Loại bỏ lề trên dưới của thẻ p */
+	padding: 0 !important;
+	display: inline-block; /* Giúp căn chỉnh chuẩn hơn */
+	width: 100%;
+	text-align: center;
+	font-weight: normal;
+}

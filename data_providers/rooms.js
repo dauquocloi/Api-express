@@ -1,8 +1,7 @@
 const mongoose = require('mongoose');
-const MongoConnect = require('../utils/MongoConnect');
 var Entity = require('../models');
 const uploadFile = require('../utils/uploadFile');
-const { AppError, NotFoundError, NoDataError, InvalidInputError, ConflictError } = require('../AppError');
+const { NotFoundError, NoDataError, InvalidInputError, ConflictError } = require('../AppError');
 const Services = require('../service');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const { generateInvoiceFees } = require('../service/invoices.helper');
@@ -12,6 +11,7 @@ const { receiptStatus, receiptTypes } = require('../constants/receipt');
 const { feeUnit } = require('../constants/fees');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
 const { sourceType } = require('../constants/debts');
+const redis = require('../config/redisClient');
 
 exports.getRoom = async (roomId) => {
 	const roomObjectId = new mongoose.Types.ObjectId(roomId);
@@ -327,45 +327,31 @@ exports.getRoomHistoryDetail = async (roomHistoryId) => {
 	return result;
 };
 
-//================================ UN REFACTED =====================================//
-
-exports.importImage = async (data, cb, next) => {
+exports.importImage = async (roomId, images, redisKey) => {
 	try {
-		const roomId = new mongoose.Types.ObjectId(`${data.roomId}`);
-		const currentRoom = await Entity.RoomsEntity.findById(roomId);
-		if (!currentRoom) throw new Error('Phòng không tồn tại !');
+		const currentRoom = await Services.rooms.findById(roomId);
+		if (!currentRoom) throw new NotFoundError('Phòng không tồn tại !');
 
-		const roomImages = [];
-		for (const image of data.imagesRoom) {
+		const roomImageKeys = [];
+		for (const image of images) {
 			const handleuploadFile = await uploadFile(image);
-			roomImages.push(handleuploadFile.Key);
+			roomImageKeys.push(handleuploadFile.Key);
 		}
-
-		if (currentRoom.roomImage?.ref) {
-			currentRoom.roomImage.ref = roomImages;
-		}
-
-		const importedRoomImages = await currentRoom.save();
-		cb(null, importedRoomImages);
+		await Services.rooms.importRoomImages(roomId, roomImageKeys);
+		await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
+		return 'success';
 	} catch (error) {
-		next(error);
+		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
+		throw error;
 	}
 };
 
-exports.updateNoteRoom = async (data, cb, next) => {
-	try {
-		const roomObjectId = new mongoose.Types.ObjectId(data.roomId);
-		const updatedRoom = await Entity.RoomsEntity.findByIdAndUpdate(
-			roomObjectId,
-			{ $set: { note: data.note } },
-			{ new: true, runValidators: true },
-		);
-		if (!updatedRoom) throw new Error('Cập nhật ghi chú không thành công !');
-		cb(null, 'Cập nhật ghi chú thành công !');
-	} catch (error) {
-		next(error);
-	}
+exports.updateNoteRoom = async (roomId, note) => {
+	await Services.rooms.writeNote(roomId, note);
+	return true;
 };
+
+//================================ UN REFACTED =====================================//
 
 exports.deleteDebts = async (roomId) => {
 	const findDebts = await Entity.DebtsEntity.find({ room: roomId, status: { $in: ['closed', 'pending'] } });

@@ -129,7 +129,6 @@ exports.getInvoiceDetail = async (invoiceId, buildingId) => {
 	const { _id: invoiceInfo, transactionInfo } = invoice;
 
 	const bankAccount = await Services.bankAccounts.findByBuildingId(buildingId).populate('bank').lean().exec();
-	console.log('log of bankAccount: ', bankAccount);
 	if (!bankAccount) throw new NotFoundError('Không tìm thấy tài khoản ngân hàng của tòa nhà !');
 
 	return {

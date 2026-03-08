@@ -20,4 +20,12 @@ const RESOURCE_ID_MAP = {
 	checkoutCosts: 'checkoutCostId',
 };
 
-module.exports = { RESOURCE_ID_MAP };
+const RESOURCES = Object.fromEntries(Object.keys(RESOURCE_ID_MAP).map((k) => [k, k]));
+
+const VALIDATE_SOURCE = {
+	PARAMS: 'params',
+	QUERY: 'query',
+	BODY: 'body',
+};
+
+module.exports = { RESOURCE_ID_MAP, VALIDATE_SOURCE, RESOURCES };

@@ -19,6 +19,7 @@ module.exports = function getCheckoutCostDetailPipeline(checkoutCostId) {
 							status: 1,
 							date: 1,
 							receiptContent: 1,
+							paymentContent: 1,
 						},
 					},
 				],

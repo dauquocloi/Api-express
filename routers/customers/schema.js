@@ -34,4 +34,7 @@ module.exports = {
 		gender: Joi.string().required(),
 		isContractOwner: Joi.boolean().optional(),
 	}),
+	setCustomerStatus: Joi.object().keys({
+		status: Joi.number().valid(0, 1, 2).required(),
+	}),
 };

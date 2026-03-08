@@ -7,7 +7,7 @@ exports.findBankAccountByAccountNumber = (accountNumber) => {
 
 exports.findById = (bankAccountId) => Entity.BankAccountsEntity.findById(bankAccountId);
 
-exports.findByBuildingId = (buildingId) => Entity.BankAccountsEntity.findOne({ building: buildingId });
+exports.findByBuildingId = (buildingId) => Entity.BankAccountsEntity.findOne({ buildings: buildingId });
 
 exports.importBankAccount = async (accountNumber, accountName, bankId, ownerId) => {
 	const result = await Entity.BankAccountsEntity.create({

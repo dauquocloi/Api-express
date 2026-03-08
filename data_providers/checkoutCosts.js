@@ -9,12 +9,23 @@ const { feeUnit } = require('../constants/fees');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
 const { receiptStatus } = require('../constants/receipt');
 
-exports.getCheckoutCostDetail = async (checkoutCostId) => {
+exports.getCheckoutCostDetail = async (checkoutCostId, buildingId) => {
 	const checkoutCostObjectId = new mongoose.Types.ObjectId(checkoutCostId);
 
 	const result = await Services.checkoutCosts.getCheckoutCostDetail(checkoutCostObjectId);
 
-	return result;
+	const bankAccount = await Services.bankAccounts.findByBuildingId(buildingId).populate('bank').lean().exec();
+	if (!bankAccount) throw new NotFoundError('Không tìm thấy tài khoản ngân hàng của tòa nhà !');
+
+	return {
+		...result,
+		paymentInfo: {
+			_id: bankAccount._id,
+			accountNumber: bankAccount.accountNumber,
+			accountName: bankAccount.accountName,
+			bank: bankAccount.bank,
+		},
+	};
 };
 
 exports.getModifyCheckoutCostInfo = async (checkoutCostId) => {

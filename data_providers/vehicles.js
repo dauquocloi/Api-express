@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
-const MongoConnect = require('../utils/MongoConnect');
 const uploadFile = require('../utils/uploadFile');
 const getFileUrl = require('../utils/getFileUrl');
 const Services = require('../service');
-var Entity = require('../models');
-const { NotFoundError } = require('../AppError');
+const { NotFoundError, BadRequestError } = require('../AppError');
 const redis = require('../config/redisClient');
+const { vehicleStatus } = require('../constants/vehicle');
+const { isValidImage } = require('../utils/checkIsValidImage');
 
 exports.getAll = async (buildingId, status) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -13,49 +13,52 @@ exports.getAll = async (buildingId, status) => {
 	return vehicles;
 };
 
-exports.editVehicle = async (data, redisKey) => {
-	const curentVehicle = await Services.vehicles.findById(data.vehicleId);
-	if (!curentVehicle) {
+exports.editVehicle = async (data, redisKey, userId) => {
+	const currentVehicle = await Services.vehicles.findById(data.vehicleId).lean().exec();
+	if (!currentVehicle) {
 		throw new NotFoundError('Dữ liệu không tồn tại');
 	}
-	let vehicleImage;
-	if (data.vehicleImage != undefined) {
-		const handleuploadFile = await uploadFile(data.vehicleImage?.buffer);
-		vehicleImage = handleuploadFile.Key;
-	} else {
-		vehicleImage = data.image;
-	}
+	await Services.rooms.assertRoomWritable({ roomId: currentVehicle.room, userId });
+
 	const vehicle = {
 		licensePlate: data.licensePlate,
 		fromDate: data.fromDate,
-		// owner: data.owner, // should be cannot modified !!!
-		image: vehicleImage,
 		status: data.status,
+		version: currentVehicle.version,
 	};
-	Object.assign(curentVehicle, vehicle);
-	const updatedVehicle = await vehicleRecent.save();
+	if (data.vehicleImage && isValidImage(data.vehicleImage)) {
+		const handleuploadFile = await uploadFile(data.vehicleImage);
+		vehicle.image = handleuploadFile.Key;
+	}
 
-	await redis.set(redisKey, `SUCCESS:${JSON.stringify(updatedVehicle)}`, 'EX', process.env.REDIS_EXP_SEC);
-	return updatedVehicle;
+	await Services.vehicles.modifyVehicle(vehicle);
+
+	await redis.set(redisKey, `SUCCESS:${JSON.stringify(vehicle)}`, 'EX', process.env.REDIS_EXP_SEC);
+	return vehicle;
 };
 
-exports.addVehicle = async (data, redisKey) => {
-	let customerObjectId = new mongoose.Types.ObjectId(`${data.customerId}`);
-	let roomObjectId = new mongoose.Types.ObjectId(`${data.roomId}`);
+exports.addVehicle = async (data, redisKey, userId) => {
+	let customerObjectId = new mongoose.Types.ObjectId(data.customerId);
+	const currentCustomer = await Services.customers.findById(customerObjectId).lean().exec();
+	if (!currentCustomer) throw new BadRequestError('Không tìm thấy thông tin chủ xe !');
+	if (currentCustomer.status === 0) throw new BadRequestError('Không thể thêm xe cho khách đã dọn đi !');
+
+	await Services.rooms.assertRoomWritable({ roomId: currentCustomer.room, userId });
 
 	let image = '';
-	if (data.vehicle && data.vehicle !== '') {
-		image = await uploadFile(data.buffer);
-		image = image.key;
+	if (data.image && isValidImage(data.image)) {
+		image = await uploadFile(data.image);
+		image = image.Key;
 	}
 
 	const vehicle = {
 		licensePlate: data.licensePlate,
 		owner: customerObjectId,
-		room: roomObjectId,
+		room: currentCustomer.room,
 		fromDate: data.fromDate,
-		status: 1,
+		status: vehicleStatus['ACTIVE'],
 		image: image,
+		contract: currentCustomer.contract,
 	};
 
 	let vehicleCreated = await Services.vehicles.createVehicle(vehicle);
@@ -70,7 +73,7 @@ exports.getVehicle = async (vehicleId) => {
 
 	if (vehicle.image != undefined && vehicle.image != null && vehicle.image != '') {
 		const url = await getFileUrl(vehicle.image);
-		vehicle.url = url;
+		vehicle.image = url;
 	}
 
 	return vehicle;

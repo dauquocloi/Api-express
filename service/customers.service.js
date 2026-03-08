@@ -35,3 +35,57 @@ exports.importCustomers = async (customersData, session) => {
 	const result = await Entity.CustomersEntity.insertMany(customersData, { session });
 	return result;
 };
+
+exports.resetContractOwner = async (contractId, session) => {
+	const result = await Entity.CustomersEntity.findOneAndUpdate(
+		{ contract: contractId, isContractOwner: true },
+		{ $set: { isContractOwner: false }, $inc: { version: 1 } },
+		{ session },
+	);
+	if (!result) throw new NotFoundError('Dữ liệu không tồn tại');
+	return result;
+};
+
+exports.setIsContractOwner = async (customerId, session) => {
+	const result = await Entity.CustomersEntity.findOneAndUpdate(
+		{ _id: customerId },
+		{ $set: { isContractOwner: true }, $inc: { version: 1 } },
+		{ session },
+	);
+	if (!result) throw new NotFoundError('Dữ liệu không tồn tại');
+	return result;
+};
+
+exports.addCustomer = async (
+	{ roomId, contractId, fullName, gender, birthdate, permanentAddress, phone, cccd, cccdIssueDate, cccdIssueAt },
+	session,
+) => {
+	const result = await Entity.CustomersEntity.create(
+		[
+			{
+				room: roomId,
+				fullName: fullName,
+				gender: gender,
+				isContractOwner: false,
+				birthdate: birthdate,
+				permanentAddress: permanentAddress,
+				phone: phone,
+				cccd: cccd,
+				cccdIssueDate: cccdIssueDate,
+				cccdIssueAt: cccdIssueAt,
+				status: 1,
+				temporaryResidence: false,
+				contract: contractId,
+			},
+		],
+		{ session },
+	);
+
+	return result;
+};
+
+exports.setCustomerLeft = async (customerId, session) => {
+	const result = await Entity.CustomersEntity.findOneAndUpdate({ _id: customerId }, { $set: { status: 0 }, $inc: { version: 1 } }, { session });
+	if (!result) throw new NotFoundError('Dữ liệu không tồn tại');
+	return result;
+};

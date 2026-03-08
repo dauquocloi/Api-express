@@ -7,7 +7,7 @@ const findById = (buildingId) => Entity.BuildingsEntity.findById(buildingId);
 
 const findByManagementId = (userId) => Entity.BuildingsEntity.find({ 'management.user': userId });
 
-const findUserInBuilding = async (userId, buildingId) => {
+const findUserInBuilding = async ({ userId, buildingId }) => {
 	return await Entity.BuildingsEntity.findOne({ _id: buildingId, 'management.user': userId }).lean().exec();
 };
 

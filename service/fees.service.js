@@ -70,7 +70,7 @@ exports.modifyFeeAmount = async (feeId, feeAmount, version) => {
 		{ _id: feeId, version: version },
 		{
 			$set: {
-				feeAmount: feeAmount.feeAmount,
+				feeAmount: feeAmount,
 			},
 			$inc: {
 				version: 1,

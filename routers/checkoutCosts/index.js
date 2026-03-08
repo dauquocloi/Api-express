@@ -5,8 +5,9 @@ const CheckoutCosts = require('./checkoutCosts.js');
 const authentication = require('../../auth/authentication');
 const authorization = require('../../auth/authorization');
 const checkResourceAccess = require('../../auth/checkResourceAccess');
+const { checkIdempotency } = require('../../middleware/idempotency.js');
 const ROLES = require('../../constants/userRoles');
-const RESOURCE = 'checkoutCosts';
+const { RESOURCES } = require('../../constants/resources.js');
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ router.get(
 	'/:checkoutCostId',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['checkoutCosts']),
 	CheckoutCosts.getCheckoutCost,
 );
 
@@ -26,14 +27,14 @@ router.get(
 	'/:checkoutCostId/modify-info',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['checkoutCosts']),
 	CheckoutCosts.getModifyCheckoutCostInfo,
 );
 router.delete(
 	'/:checkoutCostId/debts',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['checkoutCosts']),
 	CheckoutCosts.removeDebtsFromCheckoutCost,
 );
 router.patch(
@@ -41,7 +42,8 @@ router.patch(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.modifyCheckoutCost, ValidateSource.BODY),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['checkoutCosts']),
+	checkIdempotency,
 	CheckoutCosts.modifyCheckoutCost,
 );
 router.delete(
@@ -49,7 +51,7 @@ router.delete(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.terminateCheckoutCost, ValidateSource.BODY),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['checkoutCosts']),
 	CheckoutCosts.terminateCheckoutCost,
 );
 

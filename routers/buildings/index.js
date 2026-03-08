@@ -6,9 +6,9 @@ const ROLES = require('../../constants/userRoles');
 const authentication = require('../../auth/authentication');
 const authorization = require('../../auth/authorization');
 const checkResourceAccess = require('../../auth/checkResourceAccess');
+const { checkIdempotency } = require('../../middleware/idempotency');
 const router = express.Router();
-
-const RESOURCE = 'buildings';
+const { RESOURCES } = require('../../constants/resources');
 
 router.get('/:buildingId/contract-term-url', validator(schema.id, ValidateSource.PARAM), Buildings.getContractTermUrl);
 
@@ -16,19 +16,19 @@ router.get('/:buildingId/contract-term-url', validator(schema.id, ValidateSource
 router.use(authentication);
 //=================//
 
-router.get('/', authorization(ROLES['ADMIN'], ROLES['OWNER'], ROLES['MANAGER']), Buildings.getAll);
+router.get('/', authorization(ROLES['ADMIN'], ROLES['OWNER'], ROLES['MANAGER'], ROLES['STAFF']), Buildings.getAll);
 
 router.get(
 	'/:buildingId/bill-collection-progress',
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['buildings']),
 	Buildings.getBillCollectionProgress,
 );
 router.get(
 	'/:buildingId/rooms',
 	authorization(ROLES['OWNER'], ROLES['MANAGER'], ROLES['STAFF']),
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['buildings']),
 	Buildings.getRooms,
 );
 
@@ -36,7 +36,7 @@ router.get(
 	'/:buildingId/list-selecting-rooms',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['buildings']),
 
 	Buildings.getListSectingRooms,
 );
@@ -47,7 +47,7 @@ router.get(
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.period, ValidateSource.QUERY),
 
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['buildings']),
 	Buildings.getAllCheckoutCosts,
 );
 
@@ -56,7 +56,7 @@ router.get(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['buildings']),
 	Buildings.getStatistics,
 );
 
@@ -65,28 +65,34 @@ router.get(
 	authorization(ROLES['OWNER'], ROLES['MANAGER'], ROLES['STAFF']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.getStatisticGeneral, ValidateSource.QUERY),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['buildings']),
 	Buildings.getStatisticGeneral,
 );
 
-router.get('/permissions', authorization(ROLES['OWNER']), checkResourceAccess(RESOURCE), Buildings.getBuildingPermissions);
+router.get('/permissions', authorization(ROLES['OWNER']), Buildings.getBuildingPermissions);
 
 router.patch(
 	'/:buildingId/permissions',
 	authorization(ROLES['OWNER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.editPermission, ValidateSource.BODY),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['buildings']),
 	Buildings.setBuildingPermission,
 );
 
-router.get('/:buildingId/deposit-term-file', validator(schema.id, ValidateSource.PARAM), checkResourceAccess(RESOURCE), Buildings.getDepositTermFile);
+router.get(
+	'/:buildingId/deposit-term-file',
+	authorization(ROLES['OWNER'], ROLES['MANAGER'], ROLES['STAFF']),
+	validator(schema.id, ValidateSource.PARAM),
+	checkResourceAccess(RESOURCES['buildings']),
+	Buildings.getDepositTermFile,
+);
 
 router.get(
 	'/:buildingId/workflow/finance-settlement-prepare',
 	authorization(ROLES['OWNER']),
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['buildings']),
 	Buildings.getPrepareFinanceSettlementData,
 );
 
@@ -94,6 +100,8 @@ router.post(
 	'/:buildingId/workflow/finance-settlement',
 	authorization(ROLES['OWNER']),
 	validator(schema.id, ValidateSource.PARAM),
+	checkResourceAccess(RESOURCES['buildings']),
+	checkIdempotency,
 	Buildings.financeSettlement,
 );
 

@@ -97,15 +97,20 @@ const getAllVehicles = (buildingId, status) => {
 									vehicleInfo: {
 										$ifNull: [
 											{
-												$filter: {
-													input: '$vehicleInfo',
-													as: 'vehicle',
-													cond: {
-														$eq: ['$$vehicle.owner', '$$customer._id'],
+												$arrayElemAt: [
+													{
+														$filter: {
+															input: '$vehicleInfo',
+															as: 'vehicle',
+															cond: {
+																$eq: ['$$vehicle.owner', '$$customer._id'],
+															},
+														},
 													},
-												},
+													0,
+												],
 											},
-											{},
+											null,
 										],
 									},
 								},
@@ -113,7 +118,7 @@ const getAllVehicles = (buildingId, status) => {
 						},
 						as: 'item',
 						cond: {
-							$gt: [{ $size: '$$item.vehicleInfo' }, 0],
+							$ne: ['$$item.vehicleInfo', null],
 						},
 					},
 				},

@@ -8,7 +8,8 @@ const checkResourceAccess = require('../../auth/checkResourceAccess');
 const ROLES = require('../../constants/userRoles');
 const router = express.Router();
 const { checkIdempotency } = require('../../middleware/idempotency');
-const RESOURCE = 'contracts';
+const { RESOURCES, VALIDATE_SOURCE: RESOURCE_VS } = require('../../constants/resources');
+const { buildingPermissions: POLICY } = require('../../constants/buildings');
 
 router.get(
 	'/customer/contract-pdf-url',
@@ -20,26 +21,22 @@ router.get(
 router.use(authentication);
 //==============//
 
-router.get(
-	'/pdf-url',
-	validator(schema.getContractSignedUrl, ValidateSource.QUERY),
-	checkResourceAccess(RESOURCE),
-	Contracts.getContractPdfSignedUrl,
-);
+router.get('/pdf-url', validator(schema.getContractSignedUrl, ValidateSource.QUERY), Contracts.getContractPdfSignedUrl);
 
 router.post(
 	'/',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
-	checkIdempotency,
 	validator(schema.createContract, ValidateSource.BODY),
+	checkIdempotency,
 	Contracts.generateContract,
 );
 
 router.post(
 	'/workflow/prepare',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
-	checkIdempotency,
 	validator(schema.generatePrepareContract, ValidateSource.BODY),
+	checkResourceAccess(RESOURCES['buildings'], null, RESOURCE_VS['BODY']),
+	checkIdempotency,
 	Contracts.prepareGenerateContract,
 );
 
@@ -48,27 +45,28 @@ router.patch(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.setMoveOutDate, ValidateSource.BODY),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['contracts'], POLICY['MANAGER_EDIT_CONTRACT']),
+	checkIdempotency,
 	Contracts.setExpectedMoveOutDate,
 );
 
 router.patch(
 	'/:contractId/workflow/cancel-terminate-early',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
-	checkIdempotency,
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.cancelTerminateEarly, ValidateSource.BODY),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['contracts'], POLICY['MANAGER_EDIT_CONTRACT']),
+	checkIdempotency,
 	Contracts.cancelIsEarlyTermination,
 );
 
 router.patch(
 	'/:contractId/workflow/terminate-early',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
-	checkIdempotency,
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.terminateEarly, ValidateSource.BODY),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['contracts'], POLICY['MANAGER_EDIT_CONTRACT']),
+	checkIdempotency,
 	Contracts.terminateContractUnRefund,
 );
 
@@ -78,7 +76,7 @@ router.patch(
 	checkIdempotency,
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.contractExtention, ValidateSource.BODY),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['contracts'], POLICY['MANAGER_EDIT_CONTRACT']),
 	Contracts.contractExtention,
 );
 

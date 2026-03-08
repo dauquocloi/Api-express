@@ -112,21 +112,25 @@ exports.createReceipt = async (roomId, buildingId, receiptAmount, receiptContent
 };
 
 exports.getReceiptDetail = async (receiptId, buildingId) => {
+	console.log('log of building id: ', buildingId);
 	// const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 	const receiptObjectId = new mongoose.Types.ObjectId(receiptId);
 
 	const getReceipt = await Services.receipts.getReceiptAndTransDetail(receiptObjectId);
 
-	return { receiptInfo: getReceipt._id, transactionInfo: getReceipt.transactionInfo, paymentInfo: null };
+	const bankAccount = await Services.bankAccounts.findByBuildingId(buildingId).populate('bank').lean().exec();
+	if (!bankAccount) throw new NotFoundError('Không tìm thấy tài khoản ngân hàng của tòa nhà !');
 
-	// let receipt = receiptInfo[0]._id;
-	// if ((receipt.status === 'unpaid' || receipt.status == 'partial') && receipt.locked === false) {
-	// 	const bankInfo = await Entity.BanksEntity.findOne({ building: { $in: [buildingObjectId] } });
-	// 	console.log('log of bankInfo', bankInfo);
-	// 	cb(null, { receiptInfo: receipt, transactionInfo: receiptInfo[0].transactionInfo, paymentInfo: bankInfo });
-	// } else {
-	// 	cb(null, { receiptInfo: receipt, transactionInfo: receiptInfo[0].transactionInfo, paymentInfo: null });
-	// }
+	return {
+		receiptInfo: getReceipt._id,
+		transactionInfo: getReceipt.transactionInfo,
+		paymentInfo: {
+			_id: bankAccount._id,
+			accountNumber: bankAccount.accountNumber,
+			accountName: bankAccount.accountName,
+			bank: bankAccount.bank,
+		},
+	};
 };
 
 exports.getDepositReceiptDetail = async (receiptId, buildingId) => {
@@ -135,18 +139,6 @@ exports.getDepositReceiptDetail = async (receiptId, buildingId) => {
 
 	const receipt = await Services.receipts.getDepositReceiptDetail(receiptObjectId);
 	return receipt;
-
-	// if (receipts.length === 0) throw new Error(`Hóa đơn đặt cọc không tồn tại.`);
-
-	// let receipt = receipts[0]?.receipt;
-	// let transactions = receipts[0]?.transactions;
-	// if ((receipt.status === 'unpaid' || receipt.status == 'partial') && receipt.locked === false) {
-	// 	const bankInfo = await Entity.BanksEntity.findOne({ building: { $in: [buildingObjectId] } });
-	// 	console.log('log of bankInfo', bankInfo);
-	// 	cb(null, { receiptInfo: receipt, transactionInfo: transactions, paymentInfo: bankInfo });
-	// } else {
-	// 	cb(null, { receiptInfo: receipt, transactionInfo: transactions, paymentInfo: null });
-	// }
 };
 
 // should not be used
@@ -390,6 +382,8 @@ exports.deleteReceipt = async (receiptId, userId, version) => {
 			const currentReceipt = await Services.receipts.findById(receiptId).session(session).lean().exec();
 			if (!currentReceipt) throw new NotFoundError('Hóa đơn không tồn tại');
 			if (currentReceipt.locked === true) throw new BadRequestError('Bạn không thể sửa hóa đơn đã khóa !');
+			if (currentReceipt.receiptType === receiptTypes['DEPOSIT']) throw new BadRequestError('Không thể xóa hóa đơn đặt cọc !');
+			if (currentReceipt.receiptType === receiptTypes['CHECKOUT']) throw new BadRequestError('Không thể xóa hóa đơn trả phòng !');
 			if (currentReceipt.version !== version) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 			await Services.rooms.assertRoomWritable({ roomId: currentReceipt.room, userId, session });
 

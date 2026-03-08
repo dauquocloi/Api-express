@@ -33,9 +33,9 @@ exports.createDepositReceipt = asyncHandler(async (req, res) => {
 });
 
 exports.getReceiptDetail = asyncHandler(async (req, res) => {
-	const data = { ...req.params, ...req.query };
+	const data = req.params;
 	console.log('log of getReceiptDetail', data);
-	const result = await UseCase.getReceiptDetail(data.receiptId);
+	const result = await UseCase.getReceiptDetail(data.receiptId, req.buildingId);
 	return new SuccessResponse('Success', result).send(res);
 });
 

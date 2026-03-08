@@ -48,11 +48,6 @@ const CustomersSchema = new Schema(
 			ref: 'RoomsEntity',
 			required: true,
 		},
-		// user: {
-		// 	type: Schema.Types.ObjectId,
-		// 	ref: 'UsersEntity',
-		// },
-		// customerPermission: String,
 		temporaryResidence: {
 			type: Boolean,
 			default: false,

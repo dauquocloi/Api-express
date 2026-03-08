@@ -4,10 +4,11 @@ const listFeeInitial = require('../utils/getListFeeInital');
 const { feeUnit } = require('../constants/fees');
 const Services = require('../service');
 const redis = require('../config/redisClient');
-const { NotFoundError, InternalError, InvalidInputError, ConflictError } = require('../AppError');
+const { NotFoundError, InternalError, InvalidInputError, ConflictError, BadRequestError } = require('../AppError');
 
-exports.addFee = async (roomId, feeKey, feeAmount, lastIndex, redisKey) => {
+exports.addFee = async (roomId, feeKey, feeAmount, lastIndex, redisKey, userId) => {
 	let roomObjectId = new mongoose.Types.ObjectId(roomId);
+	await Services.rooms.assertRoomWritable({ roomId, userId });
 
 	let findFee = listFeeInitial.find((fee) => fee.feeKey === feeKey);
 	if (!findFee) {
@@ -37,28 +38,17 @@ exports.addFee = async (roomId, feeKey, feeAmount, lastIndex, redisKey) => {
 	return feeCreated;
 };
 
-// exports.getFeesByRoomId = async (data, cb, next) => {
-// 	try {
-// 		let roomId = new mongoose.Types.ObjectId(`${data}`);
-// 		const fees = await Entity.FeesEntity.find({ room: roomId });
-
-// 		if (!fees) {
-// 			throw new Error(`Không có dữ liệu ${data}`);
-// 		}
-// 		cb(null, fees);
-// 	} catch (error) {
-// 		next(error);
-// 	}
-// };
-
-exports.deleteFee = async (feeId, userId, roomId) => {
+exports.deleteFee = async (feeId, userId) => {
 	let session;
 	try {
 		session = await mongoose.startSession();
 		await session.withTransaction(async () => {
-			await Services.rooms.assertRoomWritable({ roomId, userId, session });
+			const currentFee = await Services.fees.findById(feeId).session(session).lean().exec();
+			if (!currentFee) throw new NotFoundError('Phí không tồn tại');
+			if (currentFee.feeKey === 'SPEC100PH') throw new BadRequestError('Không thể xóa tiền phòng');
+			await Services.rooms.assertRoomWritable({ roomId: currentFee.room, userId, session });
 			await Services.fees.removeFee(feeId, session);
-			await Services.rooms.bumpRoomVersionBlind(roomId, session);
+			await Services.rooms.bumpRoomVersionBlind(currentFee.room, session);
 			return;
 		});
 		return 'Success';
@@ -74,19 +64,19 @@ exports.editFee = async (feeId, roomId, userId, feeAmount, lastIndex, version, r
 	try {
 		session = await mongoose.startSession();
 		await session.withTransaction(async () => {
-			const feeRecent = await Entity.FeesEntity.findOne({ _id: feeId }).lean().exec();
+			const feeRecent = await Entity.FeesEntity.findOne({ _id: feeId }).session(session).lean().exec();
 			if (!feeRecent) new NotFoundError('Phí không tồn tại');
 
-			await Services.rooms.assertRoomWritable({ roomId, userId });
+			await Services.rooms.assertRoomWritable({ roomId, userId, session });
 
 			if (feeRecent.unit === feeUnit['INDEX']) {
 				// feeRecent.lastIndex = data.lastIndex;
-				await Services.fees.modifyFeeUnitIndex(feeId, lastIndex, feeAmount, version);
+				await Services.fees.modifyFeeUnitIndex(feeId, lastIndex, feeAmount, version, session);
 			} else {
-				await Services.fees.modifyFeeAmount(feeId, feeAmount, version);
+				await Services.fees.modifyFeeAmount(feeId, feeAmount, version, session);
 			}
 
-			await Services.rooms.bumpRoomVersionBlind(roomId, null);
+			await Services.rooms.bumpRoomVersionBlind(roomId, session);
 			return;
 		});
 

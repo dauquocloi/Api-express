@@ -120,13 +120,24 @@ exports.createDeposit = async (data, redisKey) => {
 	}
 };
 
-exports.getDepositDetail = async (depositId) => {
+exports.getDepositDetail = async (depositId, buildingId) => {
 	const depositObjectId = new mongoose.Types.ObjectId(depositId);
 
 	const [depositDetail] = await Entity.DepositsEntity.aggregate(Pipelines.deposits.getDepositDetail(depositObjectId));
 	if (!depositDetail) throw new NotFoundError('Dữ liệu không tồn tại');
 
-	return depositDetail;
+	const bankAccount = await Services.bankAccounts.findByBuildingId(buildingId).populate('bank').lean().exec();
+	if (!bankAccount) throw new NotFoundError('Không tìm thấy tài khoản ngân hàng của tòa nhà !');
+
+	return {
+		...depositDetail,
+		paymentInfo: {
+			_id: bankAccount._id,
+			accountNumber: bankAccount.accountNumber,
+			accountName: bankAccount.accountName,
+			bank: bankAccount.bank,
+		},
+	};
 };
 
 exports.modifyDeposit = async (data, redisKey) => {
@@ -302,7 +313,7 @@ exports.terminateDeposit = async (depositId, version) => {
 	try {
 		// Khởi tạo transaction
 		session = await mongoose.startSession();
-		return session.withTransaction(async () => {
+		await session.withTransaction(async () => {
 			const deposit = await Entity.DepositsEntity.findById(depositId).session(session).lean().exec();
 			if (!deposit) NotFoundError('Dữ liệu đặt cọc không tồn tại');
 

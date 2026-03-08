@@ -3,14 +3,13 @@ const Entity = require('../models');
 const { withSignedUrls } = require('../utils/withSignedUrls');
 const generateContractCode = require('../utils/generateContractCode');
 const { contractStatus } = require('../constants/contracts');
-const dayjs = require('dayjs');
 
 exports.findById = (contractId) => {
 	return Entity.ContractsEntity.findById(contractId);
 };
 
 exports.findByRoomId = (roomId) => {
-	return Entity.ContractsEntity.findOne({ room: roomId, status: 'active' });
+	return Entity.ContractsEntity.findOne({ room: roomId, status: contractStatus['ACTIVE'] });
 };
 
 exports.findByContractCode = (contractCode) => Entity.ContractsEntity.findOne({ contractCode: contractCode });

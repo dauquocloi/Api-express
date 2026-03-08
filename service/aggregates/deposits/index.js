@@ -175,6 +175,7 @@ const getDepositDetail = (depositId) => {
 		{
 			$project: {
 				_id: 1,
+				version: 1,
 				status: 1,
 				interiors: 1,
 				fees: 1,

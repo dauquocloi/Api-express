@@ -103,6 +103,21 @@ exports.getRoomHistoryDetail = asyncHandler(async (req, res) => {
 	return new SuccessResponse('Success', result).send(res);
 });
 
+exports.importImage = asyncHandler(async (req, res) => {
+	const imagesRoom = req.files;
+	const data = req.params;
+	console.log('log of data from importImage: ', data, imagesRoom);
+	await UseCase.importImage(data.roomId, imagesRoom, req.redisKey);
+	return new SuccessMsgResponse('Success').send(res);
+});
+
+exports.updateNoteRoom = asyncHandler(async (req, res) => {
+	const data = { ...req.body, ...req.params };
+	console.log('log of data from updateNoteRoom: ', data);
+	await UseCase.updateNoteRoom(data.roomId, data.note);
+	return new SuccessMsgResponse('Success').send(res);
+});
+
 //============================ UN REFACTED =====================================//
 
 exports.create = (req, res) => {
@@ -172,61 +187,4 @@ exports.finance = (req, res) => {
 			});
 		}
 	});
-};
-
-exports.importImage = (req, res) => {
-	try {
-		// const { error, value } = validateImportRoomImageSchema(req.params);
-
-		// if (error) {
-		// 	return res.status(400).send({
-		// 		errorCode: 1,
-		// 		data: {},
-		// 		message: 'Invalid input data',
-		// 		errors: error.details.map((err) => err.message),
-		// 	});
-		// }
-		const imagesRoom = req.files;
-
-		const data = { ...req.params, imagesRoom };
-		console.log('log of data from importImage');
-		UseCase.importImage(
-			data,
-			(err, result) => {
-				if (result) {
-					return res.status(201).send({
-						errorCode: 0,
-						data: result,
-						message: 'succesfull',
-						errors: [],
-					});
-				}
-			},
-			next,
-		);
-	} catch (error) {
-		next(new Error(error.message));
-	}
-};
-
-exports.updateNoteRoom = (req, res) => {
-	try {
-		const data = { ...req.body, ...req.params };
-		console.log('log of data from updateNoteRoom: ', data);
-		UseCase.updateNoteRoom(
-			data,
-			(err, result) => {
-				if (result) {
-					return res.status(201).send({
-						errorCode: 0,
-						message: 'successful',
-						errors: [],
-					});
-				}
-			},
-			next,
-		);
-	} catch (error) {
-		next(error);
-	}
 };

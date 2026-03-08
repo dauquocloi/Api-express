@@ -168,7 +168,7 @@ const getRoomByIdPipeline = (roomId) => {
 					{
 						$match: {
 							$expr: {
-								$eq: ['$contract', '$$contractId'],
+								$and: [{ $eq: ['$contract', '$$contractId'] }, { $in: ['$status', [1, 2]] }],
 							},
 						},
 					},

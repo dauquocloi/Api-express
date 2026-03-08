@@ -138,15 +138,10 @@ const unLockedRoom = async (roomId, session) => {
 };
 
 const assertRoomWritable = async ({ roomId, userId, session = null }) => {
-	console.log('userId: ', userId);
 	const now = new Date();
+	const room = await Entity.RoomsEntity.findById(roomId).select('writeLock').session(session).lean().exec();
 
-	const query = Entity.RoomsEntity.findById(roomId).select('writeLock');
-
-	if (session) query.session(session);
-
-	const room = await query.lean();
-	if (!room) throw new NotFoundError('Phòng không tồn tại');
+	if (!room || !room._id) throw new NotFoundError('Phòng không tồn tại');
 
 	const { locked, expAt, ownerId } = room.writeLock || {};
 
@@ -280,6 +275,21 @@ const lockAllRoomsForSettlement = async (buildingId, ownerId, session) => {
 	return result;
 };
 
+const importRoomImages = async (roomId, imagesRef) => {
+	const result = await Entity.RoomsEntity.updateOne(
+		{ _id: roomId },
+		{ $set: { 'roomImage.ref': imagesRef, 'roomImage.lastUpload': new Date() }, $inc: { version: 1 } },
+	);
+	if (!result) throw new NotFoundError('Phòng không tồn tại !');
+	return 'success';
+};
+
+const writeNote = async (roomId, note, session) => {
+	const result = await Entity.RoomsEntity.updateOne({ _id: roomId }, { $set: { note: note.trim() } }, { session });
+	if (!result) throw new NotFoundError('Phòng không tồn tại !');
+	return 'success';
+};
+
 module.exports = {
 	getAllRooms,
 	getRoom,
@@ -302,4 +312,6 @@ module.exports = {
 	getRoomHistoryDetail,
 	importRooms,
 	lockAllRoomsForSettlement,
+	importRoomImages,
+	writeNote,
 };

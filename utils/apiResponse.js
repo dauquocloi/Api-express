@@ -5,9 +5,22 @@ class ApiResponse {
 		this.errorCode = errorCode;
 		this.status = status;
 		this.message = message;
+		this.contentType = null;
+	}
+
+	setContentType(type) {
+		this.contentType = type;
+		return this;
 	}
 
 	send(res) {
+		if (this.contentType) {
+			res.contentType(this.contentType);
+		}
+		if (this.data instanceof Buffer) {
+			return res.status(this.status).send(this.data);
+		}
+
 		return res.status(this.status).json({
 			errorCode: this.errorCode,
 			message: this.message,
@@ -95,6 +108,14 @@ class ToManyRequestResponse extends ApiResponse {
 	}
 }
 
+class FileResponse extends ApiResponse {
+	constructor(data, contentType = 'application/pdf', message = 'Success') {
+		super(errorCodes.success, message, responseStatus.SUCCESS);
+		this.data = data;
+		this.contentType = contentType;
+	}
+}
+
 module.exports = {
 	AccessTokenErrorResponse,
 	AuthFailureResponse,
@@ -109,4 +130,5 @@ module.exports = {
 	NotFoundResponse,
 	ToManyRequestResponse,
 	ProcessingResponse,
+	FileResponse,
 };

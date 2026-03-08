@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Mẫu CT01</title>
+    <link rel="stylesheet" href="CT01F.CSS">
+</head>
+
+<body>
+
+    <div class="a4-page">
+        <div class="content-container">
+
+            <div class="header">
+
+                <p>Mẫu CT01 ban hành kèm theo Thông tư số 53/2025/TT-BCA</p>
+                <p> ngày 01/7/2025 của Bộ trưởng Bộ Công an</p>
+                <p style="margin-top: 15px;"><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p>
+                <p><strong>Độc lập – Tự do – Hạnh phúc</strong></p>
+                <p style="margin-top: 15px;"><strong>TỜ KHAI THAY ĐỔI THÔNG TIN CƯ TRÚ</strong></p>
+            </div>
+            <p style="margin-top: 15px;">Kính gửi<sup>(1)</sup>: {{SEND_TO}}</p>
+            <p style="margin-top: 12px;">1. Họ, chữ đệm và tên khai sinh: <strong>{{FULL_NAME}}</strong></p>
+
+            <div style="margin-top: 12px; display: flex; flex-direction: row;">
+
+                <div style="display: flex; flex: 1.7">
+
+                    <p>2. Ngày, tháng, năm sinh: {{BIRTH_DAY}}</p>
+                </div>
+                <div style="display: flex; flex: 1">
+
+                    <p> 3. Giới tính: {{GENDER}}</p>
+                </div>
+            </div>
+
+
+            <Div class="cccd-table-contaier" style="margin-top: 6px;">
+
+                <p style="margin-right: 10px;">4. Số định danh cá nhân:</p>
+                <table class="id-table">
+                    <tr>
+                        <td>
+                            <p> {{CCCD0}}</p>
+                        </td>
+                        <td>
+                            <p> {{CCCD1}}</p>
+                        </td>
+                        <td>
+                            <p> {{CCCD2}}</p>
+                        </td>
+                        <td>
+                            <p> {{CCCD3}}</p>
+                        </td>
+                        <td>
+                            <p> {{CCCD4}}</p>
+                        </td>
+                        <td>
+                            <p> {{CCCD5}}</p>
+                        </td>
+                        <td>
+                            <p> {{CCCD6}}</p>
+                        </td>
+                        <td>
+                            <p> {{CCCD7}}</p>
+                        </td>
+                        <td>
+                            <p> {{CCCD8}}</p>
+                        </td>
+                        <td>
+                            <p> {{CCCD9}}</p>
+                        </td>
+                        <td>
+                            <p> {{CCCD10}}</p>
+                        </td>
+                        <td>
+                            <p> {{CCCD11}}</p>
+                        </td>
+                    </tr>
+                </table>
+            </Div>
+
+            <div style="margin-top: 12px; display: flex; flex-direction: row;">
+                <div style="display: flex; flex: 1.7">
+                    <p>5. Số điện thoại liên hệ: {{PHONE}}</p>
+
+                </div>
+                <div style="display: flex; flex: 1">
+                    <p>6. Email: {{EMAIL}}</p>
+
+                </div>
+            </div>
+
+            <div style="margin-top: 12px; display: flex; flex-direction: row">
+                <div style="display: flex; flex: 1.7">
+                    <p style="text-align: left; margin: 0; line-height: 1.2;">7. Họ, chữ đệm và tên chủ hộ:
+                        <strong>{{OWNER_NAME}}</strong>
+                    </p>
+
+                </div>
+                <div style="display: flex; flex: 1">
+                    <p style="line-height: 1; white-space: nowrap; overflow: visible;">8. Mối quan hệ với chủ hộ:
+                        {{RELATIONSHIP}}</p>
+
+                </div>
+            </div>
+
+
+            <Div class="cccd-table-contaier" style="margin-top: 6px;">
+
+                <p style="margin-right: 10px;">9. Số định danh cá nhân của chủ hộ:</p>
+                <table class="id-table">
+                    <tr>
+                        <td>
+                            <p> {{OWNER_CCCD0}}</p>
+                        </td>
+                        <td>
+                            <p> {{OWNER_CCCD1}}</p>
+                        </td>
+                        <td>
+                            <p> {{OWNER_CCCD2}}</p>
+                        </td>
+                        <td>
+                            <p> {{OWNER_CCCD3}}</p>
+                        </td>
+                        <td>
+                            <p> {{OWNER_CCCD4}}</p>
+                        </td>
+                        <td>
+                            <p> {{OWNER_CCCD5}}</p>
+                        </td>
+                        <td>
+                            <p> {{OWNER_CCCD6}}</p>
+                        </td>
+                        <td>
+                            <p> {{OWNER_CCCD7}}</p>
+                        </td>
+                        <td>
+                            <p> {{OWNER_CCCD8}}</p>
+                        </td>
+                        <td>
+                            <p> {{OWNER_CCCD9}}</p>
+                        </td>
+                        <td>
+                            <p> {{OWNER_CCCD10}}</p>
+                        </td>
+                        <td>
+                            <p> {{OWNER_CCCD11}}</p>
+                        </td>
+                    </tr>
+                </table>
+            </Div>
+
+            <p style="margin-top: 10px">10. Nội dung đề nghị<sup>(2)</sup>: Đăng ký tạm trú phòng {{ROOM_INDEX}} tại địa
+                chỉ {{ADDRESS}}</p>
+
+            <p style="margin-top: 10px">11. Những thành viên trong hộ gia đình cùng thay đổi:</p>
+
+            <table class="family-table">
+                <tr style="height:38.2pt">
+                    <td style="width:4.96%; border:0.75pt solid #000000; padding:0pt 5.03pt; vertical-align:middle">
+                        <p style="margin-bottom:0pt; text-align:center; line-height:normal; font-size:9pt">
+                            <strong><span
+                                    style="font-family:'Times New Roman'; letter-spacing:-0.2pt">TT</span></strong>
+                        </p>
+                    </td>
+                    <td style="width:29.2%; border:0.75pt solid #000000; padding:0pt 5.03pt; vertical-align:middle">
+                        <p style="margin-bottom:0pt; text-align:center; line-height:normal">
+                            <strong><span style="font-family:'Times New Roman'; letter-spacing:-0.2pt">Họ, chữ đệm
+                                </span></strong>
+                        </p>
+                        <p style="margin-bottom:0pt; text-align:center; line-height:normal">
+                            <strong><span style="font-family:'Times New Roman'; letter-spacing:-0.2pt">và tên
+                                </span></strong>
+                        </p>
+                    </td>
+                    <td style="width:16.96%; border:0.75pt solid #000000; padding:0pt 5.03pt; vertical-align:middle">
+                        <p style="margin-bottom:0pt; text-align:center; line-height:normal">
+                            <strong><span style="font-family:'Times New Roman'; ">Ngày, tháng, năm sinh</span></strong>
+                        </p>
+                    </td>
+                    <td style="width:8.28%; border:0.75pt solid #000000; padding:0pt 5.03pt; vertical-align:middle">
+                        <p style="margin-bottom:0pt; text-align:center; line-height:normal">
+                            <strong><span style="font-family:'Times New Roman'; letter-spacing:-0.2pt">Giới
+                                    tính</span></strong>
+                        </p>
+                    </td>
+                    <td style="width:23.64%; border:0.75pt solid #000000; padding:0pt 5.03pt; vertical-align:middle">
+                        <p style="margin-bottom:0pt; text-align:center; line-height:normal">
+                            <strong><span style="font-family:'Times New Roman'; letter-spacing:-0.2pt">Số định danh
+                                </span></strong>
+                        </p>
+                        <p style="margin-bottom:0pt; text-align:center; line-height:normal">
+                            <strong><span style="font-family:'Times New Roman'; letter-spacing:-0.2pt">cá
+                                    nhân</span></strong>
+                        </p>
+                    </td>
+                    <td style="width:16.94%; border:0.75pt solid #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:6pt; margin-bottom:0pt; text-align:center; line-height:normal">
+                            <strong><span style="font-family:'Times New Roman'; letter-spacing:-0.2pt">Mối quan hệ
+                                </span></strong>
+                        </p>
+                        <p style="margin-bottom:0pt; text-align:center; line-height:normal">
+                            <strong><span style="font-family:'Times New Roman'; letter-spacing:-0.2pt">với chủ
+                                    hộ</span></strong>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td
+                        style="width:4.96%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:29.2%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:16.96%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:8.28%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:23.64%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:16.94%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td
+                        style="width:4.96%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:29.2%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:16.96%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:8.28%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:23.64%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:16.94%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td
+                        style="width:4.96%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:29.2%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:16.96%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:8.28%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:23.64%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:16.94%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td
+                        style="width:4.96%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:29.2%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:16.96%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:8.28%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:23.64%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:16.94%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td
+                        style="width:4.96%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:29.2%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:16.96%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:8.28%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:23.64%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:16.94%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td
+                        style="width:4.96%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:29.2%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:16.96%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:8.28%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:23.64%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:16.94%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td
+                        style="width:4.96%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:29.2%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:16.96%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:8.28%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:23.64%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                    <td
+                        style="width:16.94%; border-top:0.75pt dotted #000000; border-right:0.75pt solid #000000; border-left:0.75pt solid #000000; border-bottom:0.75pt dotted #000000; padding:0pt 5.03pt; vertical-align:top">
+                        <p style="margin-top:3pt; margin-bottom:3pt; line-height:normal; font-size:12pt">
+                            <span style="font-family:'Times New Roman'">&#xa0;</span>
+                        </p>
+                    </td>
+                </tr>
+
+            </table>
+        </div>
+
+        <table class="footer-table">
+            <tr style="display: flex; flex-direction: row; justify-content: space-between;">
+                <td>
+                    <p class="text-italic">....., ngày.... tháng.... năm....</p>
+                    <p><strong>Ý KIẾN CỦA CHỦ HỘ<sup>(3)</sup></strong></p>
+                    <p class="text-italic">(Ký, ghi rõ họ tên)</p>
+                </td>
+
+                <td>
+                    <p class="text-italic">....., ngày.... tháng.... năm....</p>
+                    <p><strong>Ý KIẾN CỦA CHỦ SỞ HỮU<br>CHỖ Ở HỢP PHÁP<sup>(4)</sup></strong></p>
+                    <p class="text-italic">(Ký, ghi rõ họ tên)</p>
+
+                </td>
+
+                <td>
+                    <p class="text-italic">....., ngày.... tháng.... năm....</p>
+                    <p><strong>Ý KIẾN CỦA CHA, MẸ HOẶC<br>NGƯỜI GIÁM HỘ<sup>(5)</sup></strong></p>
+                    <p class="text-italic">(Ký, ghi rõ họ tên)</p>
+
+                </td>
+
+                <td>
+                    <p class="text-italic">....., ngày.... tháng.... năm....</p>
+                    <p><strong>NGƯỜI KÊ KHAI<sup>(6)</sup></strong></p>
+                    <p class="text-italic">(Ký, ghi rõ họ tên)</p>
+                </td>
+            </tr>
+        </table>
+
+        <div class="bottom">
+            <div>
+                <p style="font-size: 10pt;">
+                    <span><sup>(7)
+                            Họ
+                            và tên: </sup></span><span><sup>..................</sup></span><span><sup>
+                        </sup></span>
+                </p>
+                <p style="font-size: 10pt;">
+                    <span><sup>(7)
+                        </sup></span><span><sup>Số
+                            định
+                            danh cá nhân</sup></span><span><sup>:</sup></span><span><sup>...............</sup></span>
+                </p>
+            </div>
+
+            <div style="margin-left: 50px;">
+                <p style="font-size: 10pt;">
+                    <span><sup>(7)
+                            Họ
+                            và tên: </sup></span><span style=><sup>..................</sup></span><span><sup>
+                        </sup></span>
+                </p>
+                <p style="font-size: 10pt;">
+                    <span><sup>(7)
+                        </sup></span><span><sup>Số
+                            định
+                            danh cá nhân</sup></span><span><sup>:</sup></span><span><sup>...............</sup></span>
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+
+</html>

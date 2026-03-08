@@ -46,4 +46,7 @@ module.exports = {
 	getHistoryDetail: Joi.object().keys({
 		roomHistoryId: JoiObjectId().required(),
 	}),
+	writeNote: Joi.object().keys({
+		note: Joi.string().required(),
+	}),
 };

@@ -8,11 +8,13 @@ const BankAccountsSchema = new Schema(
 			ref: 'BanksEntity',
 			required: true,
 		},
-		building: {
-			type: Schema.Types.ObjectId,
-			ref: 'BuildingsEntity',
-			required: true,
-		},
+		buildings: [
+			{
+				type: Schema.Types.ObjectId,
+				ref: 'BuildingsEntity',
+				required: true,
+			},
+		],
 		status: { type: String, enum: ['active', 'inactive'], default: 'active' },
 		user: { type: Schema.Types.ObjectId, ref: 'UsersEntity', required: true },
 		company: { type: Schema.Types.ObjectId },
@@ -29,6 +31,6 @@ const BankAccountsSchema = new Schema(
 	},
 );
 
-BankAccountsSchema.index({ building: 1 }, { unique: true });
+// BankAccountsSchema.index({ buildings: 1 }, { unique: true });
 
 exports.BankAccountsEntity = mongoose.model('BankAccountsEntity', BankAccountsSchema, 'bankAccounts');

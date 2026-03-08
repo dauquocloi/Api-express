@@ -7,18 +7,27 @@ const authorization = require('../../auth/authorization');
 const ROLES = require('../../constants/userRoles');
 const checkResourceAccess = require('../../auth/checkResourceAccess');
 const { checkIdempotency } = require('../../middleware/idempotency');
-const RESOURCE = 'vehicles';
+const { RESOURCES, VALIDATE_SOURCE: RESOURCE_VS } = require('../../constants/resources');
+const upload = require('../../middleware/multer');
 
 const router = express.Router();
 
 router.use(authentication);
 
-router.get('/', authorization(ROLES['MANAGER'], ROLES['OWNER'], ROLES['STAFF']), validator(schema.getAll, ValidateSource.QUERY), Vehicles.getAll);
+router.get(
+	'/',
+	authorization(ROLES['MANAGER'], ROLES['OWNER'], ROLES['STAFF']),
+	validator(schema.getAll, ValidateSource.QUERY),
+	checkResourceAccess(RESOURCES['buildings'], null, RESOURCE_VS['QUERY']),
+	Vehicles.getAll,
+);
 
 router.post(
 	'/',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
-	validator(schema.create, ValidateSource.BODY),
+	upload.single('image'),
+	validator(schema.createVehicle, ValidateSource.BODY),
+	checkResourceAccess(RESOURCES['customers'], null, RESOURCE_VS['BODY']),
 	checkIdempotency,
 	Vehicles.addVehicle,
 );
@@ -27,17 +36,17 @@ router.get(
 	'/:vehicleId',
 	authorization(ROLES['MANAGER'], ROLES['OWNER'], ROLES['STAFF']),
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['vehicles']),
 	Vehicles.getVehicle,
 );
 
 router.patch(
 	'/:vehicleId',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	upload.single('image'),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.modifyVehicle, ValidateSource.BODY),
-	checkResourceAccess(RESOURCE),
-	checkIdempotency,
+	checkResourceAccess(RESOURCES['vehicles']),
 	Vehicles.editVehicle,
 );
 

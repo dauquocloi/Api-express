@@ -8,7 +8,7 @@ const checkResourceAccess = require('../../auth/checkResourceAccess');
 const ROLES = require('../../constants/userRoles');
 const router = express.Router();
 const { checkIdempotency } = require('../../middleware/idempotency');
-const RESOURCE = 'depositRefunds';
+const { RESOURCES, VALIDATE_SOURCE: RESOURCE_VS } = require('../../constants/resources');
 
 //================//
 router.use(authentication);
@@ -25,32 +25,34 @@ router.get(
 	'/:depositRefundId',
 	authorization(ROLES['MANAGER'], ROLES['OWNER'], ROLES['STAFF']),
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['depositRefunds']),
 	DepositRefunds.getDepositRefundDetail,
 );
 
 router.post(
 	'/',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
-	checkIdempotency,
 	validator(schema.createDepositRefund, ValidateSource.BODY),
+	checkResourceAccess(RESOURCES['contracts'], null, RESOURCE_VS['BODY']),
+	checkIdempotency,
 	DepositRefunds.generateDepositRefund,
 );
 
 router.post(
 	'/:depositRefundId/confirm',
 	authorization(ROLES['OWNER']),
-	checkIdempotency,
 	validator(schema.id, ValidateSource.PARAM),
+	checkResourceAccess(RESOURCES['depositRefunds']),
+	checkIdempotency,
 	DepositRefunds.confirmDepositRefund,
 );
 
 router.patch(
 	'/:depositRefundId',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
-	checkIdempotency,
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['depositRefunds']),
+	checkIdempotency,
 	DepositRefunds.modifyDepositRefund,
 );
 
@@ -60,7 +62,7 @@ router.delete(
 	'/:depositRefundId/debts',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['depositRefunds']),
 	DepositRefunds.removeDebtsFromDepositRefund,
 );
 
@@ -68,7 +70,7 @@ router.get(
 	'/:depositRefundId/modify-info',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['depositRefunds']),
 	DepositRefunds.getModifyDepositRefundInfo,
 );
 

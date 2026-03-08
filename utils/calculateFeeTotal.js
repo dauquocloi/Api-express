@@ -13,11 +13,15 @@ const calculateInvoiceUnpaidAmount = (amount, paidAmount) => {
 const calculateTotalFeeAmount = (listFees) => {
 	if (!listFees || !Array.isArray(listFees)) return 0;
 
-	return listFees.reduce((sum, fee) => sum + Number(fee.amount), 0);
+	return Math.round(listFees.reduce((sum, fee) => sum + Number(fee.amount), 0) / 1000) * 1000;
 };
 
 const calculateTotalFeesOther = (listFeesOther) => {
 	return listFeesOther.reduce((sum, fee) => sum + Number(fee.amount), 0);
+};
+
+const calculateTotalInvoiceAmount = (totalFeesAmount, totalDebtsAmount) => {
+	return Number(totalFeesAmount) + Number(totalDebtsAmount);
 };
 
 module.exports = {
@@ -26,4 +30,5 @@ module.exports = {
 	calculateFeeUnitQuantityAmount,
 	calculateTotalFeeAmount,
 	calculateTotalFeesOther,
+	calculateTotalInvoiceAmount,
 };

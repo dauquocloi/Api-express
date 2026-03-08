@@ -148,7 +148,8 @@ exports.getStatisticGeneral = async (buildingId, year) => {
 
 exports.getDepositTermFile = async (buildingId) => {
 	const building = await Services.buildings.findById(buildingId).lean().exec();
-	if (!building) throw NotFoundError('Dữ liệu không tồn tại');
+	if (!building) throw new NotFoundError('Dữ liệu không tồn tại');
+	if (!building.depositTermUrl) throw new NotFoundError('Tòa nhà không tồn tại điều khoản đặt cọc');
 	const depositTermFileUrl = await getFileUrl(building.depositTermUrl);
 	return { depositTermFileUrl: depositTermFileUrl };
 };

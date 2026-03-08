@@ -7,8 +7,7 @@ const authorization = require('../../auth/authorization');
 const ROLES = require('../../constants/userRoles');
 const { checkIdempotency } = require('../../middleware/idempotency');
 const checkResourceAccess = require('../../auth/checkResourceAccess');
-
-const RESOURCE = 'transactions';
+const { RESOURCES } = require('../../constants/resources');
 const router = express.Router();
 
 router.use(authentication);
@@ -18,26 +17,26 @@ router.patch(
 	authorization(ROLES['OWNER']),
 	checkIdempotency,
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['transactions']),
 	Transactions.confirmTransaction,
 );
 
 router.patch(
 	'/:transactionId/decline',
 	authorization(ROLES['OWNER']),
-	checkIdempotency,
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.declineTransaction, ValidateSource.BODY),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['transactions']),
+	checkIdempotency,
 	Transactions.declineTransaction,
 );
 
 router.patch(
 	'/:transactionId/receive-cash-from-manager',
 	authorization(ROLES['OWNER']),
-	checkIdempotency,
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCE),
+	checkResourceAccess(RESOURCES['transactions']),
+	checkIdempotency,
 	Transactions.receiveCashFromManager,
 );
 

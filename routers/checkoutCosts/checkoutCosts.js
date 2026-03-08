@@ -5,7 +5,7 @@ const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse
 exports.getCheckoutCost = asyncHandler(async (req, res) => {
 	let data = req.params;
 	console.log('log of data from getCheckoutCost: ', data);
-	const result = await UseCase.getCheckoutCostDetail(data.checkoutCostId);
+	const result = await UseCase.getCheckoutCostDetail(data.checkoutCostId, req.buildingId);
 	return new SuccessResponse('Success', result).send(res);
 });
 

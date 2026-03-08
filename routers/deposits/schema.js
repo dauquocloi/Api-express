@@ -61,4 +61,7 @@ module.exports = {
 		fees: Joi.array().items(feeSchema.required()).optional(),
 		customer: customerSchema.required(),
 	}),
+	terminateDeposit: Joi.object().keys({
+		version: Joi.number().integer().min(1).required(),
+	}),
 };

@@ -1,6 +1,8 @@
 const Joi = require('joi');
 const { JoiObjectId } = require('../../utils/validator');
 const listFeeInital = require('../../utils/getListFeeInital');
+const initialFeeKeys = listFeeInital.map((fee) => fee.feeKey);
+
 module.exports = {
 	id: Joi.object().keys({
 		feeId: JoiObjectId().required(),
@@ -8,10 +10,10 @@ module.exports = {
 	addFee: Joi.object().keys({
 		roomId: JoiObjectId().required(),
 		feeKey: Joi.string()
-			.valid(...Object.values(listFeeInital), 'SPEC101PH')
+			.valid(...initialFeeKeys, 'SPEC101PH')
 			.required(),
 		feeAmount: Joi.number().min(0).required(),
-		lastIndex: Joi.number().optional(),
+		lastIndex: Joi.number().allow('', null).optional(),
 	}),
 	editFee: Joi.object().keys({
 		roomId: JoiObjectId().required(),
