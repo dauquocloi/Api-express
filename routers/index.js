@@ -395,7 +395,7 @@ router.use('', apiLimiter);
 router.use('/admin', Admintations);
 router.use('/logout', Logout);
 router.use('/buildings', Buildings);
-router.use('/api/v1/contracts', Contracts);
+router.use('/contracts', Contracts);
 router.use('/checkoutCosts', CheckoutCosts);
 router.use('/deposits', Deposits);
 router.use('/depositRefunds', DepositRefunds);

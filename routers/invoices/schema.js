@@ -45,7 +45,7 @@ module.exports = {
 		paymentMethod: Joi.string().valid('transfer', 'cash').required(),
 	}),
 	deleteInvoice: Joi.object().keys({
-		roomVersion: Joi.number().integer().min(1).required(),
+		// roomVersion: Joi.number().integer().min(1).required(),
 		version: Joi.number().integer().min(1).required(),
 	}),
 };

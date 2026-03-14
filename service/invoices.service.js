@@ -43,6 +43,12 @@ exports.closeAndSetDetucedInvoice = async (invoiceId, detuctedType, detuctedId, 
 	return result;
 };
 
+exports.lockInvoice = async (invoiceId, session) => {
+	const result = await Entity.InvoicesEntity.updateOne({ _id: invoiceId }, { $set: { locked: true }, $inc: { version: 1 } }, { session });
+	if (result.matchedCount === 0) throw new NotFoundError('Không tìm thấy bản ghi!');
+	return true;
+};
+
 exports.createInvoice = async (
 	{
 		roomId,
@@ -133,8 +139,8 @@ exports.getInvoiceInfoByInvoiceCode = async (invoiceCode) => {
 	return invoiceInfo;
 };
 
-exports.unLockInvoice = async (invoiceId) => {
-	const result = await Entity.InvoicesEntity.findOneAndUpdate({ _id: invoiceId }, { $set: { locked: false } }, { new: true });
+exports.unLockInvoice = async (invoiceId, session, userId) => {
+	const result = await Entity.InvoicesEntity.findOneAndUpdate({ _id: invoiceId }, { $set: { locked: false } }, { new: true, session });
 	if (!result) throw new NotFoundError('Hóa đơn không tồn tại');
 	return result;
 };

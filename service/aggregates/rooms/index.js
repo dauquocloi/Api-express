@@ -163,12 +163,22 @@ const getRoomByIdPipeline = (roomId) => {
 		{
 			$lookup: {
 				from: 'customers',
-				let: { contractId: '$contractInfo._id' },
+				let: {
+					contractId: {
+						$ifNull: ['$contractInfo._id', null],
+					},
+				},
 				pipeline: [
 					{
 						$match: {
 							$expr: {
-								$and: [{ $eq: ['$contract', '$$contractId'] }, { $in: ['$status', [1, 2]] }],
+								$and: [
+									{ $ne: ['$$contractId', null] },
+									{
+										$eq: ['$contract', '$$contractId'],
+									},
+									{ $in: ['$status', [1, 2]] },
+								],
 							},
 						},
 					},

@@ -14,41 +14,63 @@ class NotiTaskCompletedJob extends BaseJob {
 
 	// *Job handler
 	async handle(payload) {
-		const { managementIds, taskTitle, performerIds, taskId } = payload;
+		try {
+			const { managementIds, taskTitle, performerIds, taskId } = payload;
 
-		const receiverInfo = await Services.users.findUserByIds(managementIds).lean().exec();
-		if (!receiverInfo) throw new Error('Không tìm thấy người nhận');
-		const performers = await Services.users.findUserByIds(performerIds).select('fullName').lean().exec();
-		const performerNames = performers?.map((performer) => getLastName(performer.fullName));
+			const receiverInfo = await Services.users.findUserByIds(managementIds).lean().exec();
+			if (!receiverInfo) throw new Error('Không tìm thấy người nhận');
+			const performers = await Services.users.findUserByIds(performerIds).select('fullName').lean().exec();
+			const performerNames = performers?.map((performer) => getLastName(performer.fullName));
 
-		let receiverIds = receiverInfo?.map((r) => r._id);
-		let expoPushTokens = receiverInfo?.map((r) => r.expoPushToken).filter((token) => Expo.isExpoPushToken(token));
+			let receiverIds = receiverInfo?.map((r) => r._id);
+			let expoPushTokens = receiverInfo?.map((r) => r.expoPushToken).filter((token) => Expo.isExpoPushToken(token));
 
-		const createTaskNoti = await Services.notifications.createTaskNotification({ taskTitle, receiverIds, performerNames, taskId });
-		if (!createTaskNoti) throw new Error('Có lỗi trong quá trình tạo thông báo !');
-		const notiSended = await Services.notifications.sendNotification(notiTypes['TASK'], {
-			expoPushTokens: expoPushTokens,
-			title: createTaskNoti.title,
-			content: createTaskNoti.content,
-			metaData: createTaskNoti.metaData,
-		});
-		if (!notiSended || notiSended.success === false) throw new Error('Gửi thông báo thất bại !');
+			const createTaskNoti = await Services.notifications.createTaskNotification({ taskTitle, receiverIds, performerNames, taskId });
+			if (!createTaskNoti) throw new Error('Có lỗi trong quá trình tạo thông báo !');
+			const notiSended = await Services.notifications.sendNotification(notiTypes['TASK'], {
+				expoPushTokens: expoPushTokens,
+				title: createTaskNoti.title,
+				content: createTaskNoti.content,
+				metaData: createTaskNoti.metaData,
+			});
+			if (!notiSended || notiSended.success === false) throw new Error('Gửi thông báo thất bại !');
 
-		return notiSended;
+			return notiSended;
+		} catch (error) {
+			throw error;
+		}
 	}
 
 	async onCompleted(job, result) {
-		const { amount } = job.data.payload;
-
 		// Update order status
 		console.log('JOB COMPLETED', result);
 	}
 
 	async onFailed(job, error) {
-		const { amount } = job.data.payload;
+		console.error(`[Task Completed Notification Failed] Job #${job.id}`, {
+			error: error.message,
+			payload: job.data.payload,
+			attemptsMade: job.attemptsMade,
+			attemptsRemaining: job.opts.attempts - job.attemptsMade,
+		});
 
-		// Update order as payment failed
-		console.log('JOB FAILED', error);
+		// Gửi alert lên Sentry với severity cao
+		Sentry.captureException(error, {
+			level: 'error',
+			tags: {
+				job: 'noti-task-completed',
+				jobId: job.id,
+				component: 'background-job',
+				status: 'failed',
+			},
+			extra: {
+				payload: job.data.payload,
+				attemptsMade: job.attemptsMade,
+				maxAttempts: job.opts.attempts,
+				errorMessage: error.message,
+				errorStack: error.stack,
+			},
+		});
 	}
 }
 
@@ -132,18 +154,6 @@ class NotiManagerCollectCashReceiptJob extends BaseJob {
 			};
 		} catch (error) {
 			console.error(`[NotiManagerCollectCashReceiptJob] Error:`, error);
-
-			Sentry.captureException(error, {
-				tags: {
-					job: 'noti-manager-collect-cash',
-					component: 'background-job',
-				},
-				extra: {
-					payload: payload,
-					errorMessage: error.message,
-					errorStack: error.stack,
-				},
-			});
 
 			// Throw error để Bull đánh dấu job failed và retry
 			throw error;
@@ -255,18 +265,6 @@ class NotiManagerCollectCashInvoiceJob extends BaseJob {
 		} catch (error) {
 			console.error(`[NotiManagerCollectCashReceiptJob] Error:`, error);
 
-			Sentry.captureException(error, {
-				tags: {
-					job: 'noti-manager-collect-cash',
-					component: 'background-job',
-				},
-				extra: {
-					payload: payload,
-					errorMessage: error.message,
-					errorStack: error.stack,
-				},
-			});
-
 			// Throw error để Bull đánh dấu job failed và retry
 			throw error;
 		}
@@ -306,31 +304,35 @@ class NotiPaymentJob extends BaseJob {
 	}
 
 	async handle(payload) {
-		const { managementIds, amount, paymentContent, billContent, buildingName, roomIndex, billType, billStatus, billId } = payload;
+		try {
+			const { managementIds, amount, paymentContent, billContent, buildingName, roomIndex, billType, billStatus, billId } = payload;
 
-		const notiCreated = await Services.notifications.createPaymentNotification({
-			managementIds,
-			amount,
-			paymentContent,
-			billContent,
-			buildingName,
-			roomIndex,
-			billType,
-			billStatus,
-			billId,
-		});
-		console.log('log of notiCreated: ', notiCreated);
+			const notiCreated = await Services.notifications.createPaymentNotification({
+				managementIds,
+				amount,
+				paymentContent,
+				billContent,
+				buildingName,
+				roomIndex,
+				billType,
+				billStatus,
+				billId,
+			});
+			console.log('log of notiCreated: ', notiCreated);
 
-		const managementsInfo = await Services.users.findUserByIds(managementIds).lean().exec();
-		const expoPushTokens = managementsInfo?.map((r) => r.expoPushToken).filter((token) => Expo.isExpoPushToken(token));
-		const notiSended = await Services.notifications.sendNotification(notiTypes['TRANSACTION'], {
-			title: notiCreated.title,
-			content: notiCreated.content,
-			metaData: notiCreated.metaData,
-			expoPushTokens,
-		});
+			const managementsInfo = await Services.users.findUserByIds(managementIds).lean().exec();
+			const expoPushTokens = managementsInfo?.map((r) => r.expoPushToken).filter((token) => Expo.isExpoPushToken(token));
+			const notiSended = await Services.notifications.sendNotification(notiTypes['TRANSACTION'], {
+				title: notiCreated.title,
+				content: notiCreated.content,
+				metaData: notiCreated.metaData,
+				expoPushTokens,
+			});
 
-		return notiSended;
+			return notiSended;
+		} catch (error) {
+			throw error;
+		}
 	}
 }
 
@@ -340,60 +342,64 @@ class NotiContractNearExpiJob extends BaseJob {
 	}
 
 	async handle(payload) {
-		const { contractId, buildingId, roomIndex, roomId, contractEndDate } = payload;
-		const data = await Services.buildings
-			.findById(buildingId)
-			.populate({ path: 'management.user', populate: 'notificationSetting' })
-			.lean()
-			.exec();
-		console.log('log of data from NotiContractNearExpiJob: ', data);
+		try {
+			const { contractId, buildingId, roomIndex, roomId, contractEndDate } = payload;
+			const data = await Services.buildings
+				.findById(buildingId)
+				.populate({ path: 'management.user', populate: 'notificationSetting' })
+				.lean()
+				.exec();
+			console.log('log of data from NotiContractNearExpiJob: ', data);
 
-		if (!data || !data.management) {
-			throw new Error('Building not found');
-		}
+			if (!data || !data.management) {
+				throw new Error('Building not found');
+			}
 
-		const receivers = data.management.filter((m) => m.user && (m.role.includes(ROLES['MANAGER']) || m.role.includes(ROLES['OWNER'])));
-		const notiCreated = await Services.notifications.createContractExpiNotification({
-			roomId: roomId,
-			roomIndex: roomIndex,
-			buildingName: data.buildingName,
-			contractEndDate: contractEndDate,
-			receiverIds: receivers.map((m) => m.user._id),
-		});
-		if (!notiCreated) throw new Error('Create Notification Failed');
+			const receivers = data.management.filter((m) => m.user && (m.role.includes(ROLES['MANAGER']) || m.role.includes(ROLES['OWNER'])));
+			const notiCreated = await Services.notifications.createContractExpiNotification({
+				roomId: roomId,
+				roomIndex: roomIndex,
+				buildingName: data.buildingName,
+				contractEndDate: contractEndDate,
+				receiverIds: receivers.map((m) => m.user._id),
+			});
+			if (!notiCreated) throw new Error('Create Notification Failed');
 
-		const userEnabledNoti = receivers
-			.filter((m) => m.user?.notificationSetting?.contractExpiring?.enabled ?? true)
-			.map((m) => m.user?.expoPushToken)
-			.filter((token) => Expo.isExpoPushToken(token));
+			const userEnabledNoti = receivers
+				.filter((m) => m.user?.notificationSetting?.contractExpiring?.enabled ?? true)
+				.map((m) => m.user?.expoPushToken)
+				.filter((token) => Expo.isExpoPushToken(token));
 
-		if (userEnabledNoti.length === 0) {
-			console.log('No push notifications sent - all users disabled or no valid tokens');
+			if (userEnabledNoti.length === 0) {
+				console.log('No push notifications sent - all users disabled or no valid tokens');
+				return {
+					success: true,
+					created: true,
+					pushSent: false,
+					reason: 'All users have disabled push notifications or no valid tokens',
+					notificationId: notiCreated._id,
+					totalReceivers: receivers.length,
+					pushSentTo: 0,
+				};
+			}
+
+			const notiSended = await Services.notifications.sendNotification(notiTypes['CONTRACT_EXPIRING'], {
+				...notiCreated,
+				expoPushTokens: userEnabledNoti,
+			});
+
 			return {
 				success: true,
 				created: true,
-				pushSent: false,
-				reason: 'All users have disabled push notifications or no valid tokens',
+				pushSent: true,
 				notificationId: notiCreated._id,
 				totalReceivers: receivers.length,
-				pushSentTo: 0,
+				pushSentTo: userEnabledNoti,
+				result: notiSended ?? null,
 			};
+		} catch (error) {
+			throw error;
 		}
-
-		const notiSended = await Services.notifications.sendNotification(notiTypes['CONTRACT_EXPIRING'], {
-			...notiCreated,
-			expoPushTokens: userEnabledNoti,
-		});
-
-		return {
-			success: true,
-			created: true,
-			pushSent: true,
-			notificationId: notiCreated._id,
-			totalReceivers: receivers.length,
-			pushSentTo: userEnabledNoti,
-			result: notiSended ?? null,
-		};
 	}
 
 	async onFailed(job, error) {
@@ -430,72 +436,76 @@ class NotiTransactionDeclinedJob extends BaseJob {
 	}
 
 	async handle(payload) {
-		const { id, billType, transactionAmount, reason = '', receiverId } = payload;
-		const receiverInfo = await Services.users.findById(receiverId).lean().exec();
-		if (!receiverInfo) throw new Error('Receiver not found');
+		try {
+			const { id, billType, transactionAmount, reason = '', receiverId } = payload;
+			const receiverInfo = await Services.users.findById(receiverId).lean().exec();
+			if (!receiverInfo) throw new Error('Receiver not found');
 
-		let billContent;
-		let roomIndex;
-		let buildingName;
-		let billId;
+			let billContent;
+			let roomIndex;
+			let buildingName;
+			let billId;
 
-		if (billType === 'invoice') {
-			const invoiceInfo = await Services.invoices.findById(id).populate({ path: 'room', populate: 'building' }).lean().exec();
-			if (!invoiceInfo) throw new Error('Invoice not found');
-			const { room, invoiceContent } = invoiceInfo;
-			roomIndex = room.roomIndex;
-			buildingName = room.building.buildingName;
-			billContent = invoiceContent;
-			billId = invoiceInfo._id;
-		} else if (billType === 'receipt') {
-			const receiptInfo = await Services.receipts.findById(id).populate({ path: 'room', populate: 'building' }).lean().exec();
-			console.log('log of receiptInfo: ', receiptInfo);
-			if (!receiptInfo) throw new Error('Receipt not found');
-			const { room, receiptContent } = receiptInfo;
-			roomIndex = room.roomIndex;
-			buildingName = room.building.buildingName;
-			billContent = receiptContent;
-			billId = receiptInfo._id;
-		}
+			if (billType === 'invoice') {
+				const invoiceInfo = await Services.invoices.findById(id).populate({ path: 'room', populate: 'building' }).lean().exec();
+				if (!invoiceInfo) throw new Error('Invoice not found');
+				const { room, invoiceContent } = invoiceInfo;
+				roomIndex = room.roomIndex;
+				buildingName = room.building.buildingName;
+				billContent = invoiceContent;
+				billId = invoiceInfo._id;
+			} else if (billType === 'receipt') {
+				const receiptInfo = await Services.receipts.findById(id).populate({ path: 'room', populate: 'building' }).lean().exec();
+				console.log('log of receiptInfo: ', receiptInfo);
+				if (!receiptInfo) throw new Error('Receipt not found');
+				const { room, receiptContent } = receiptInfo;
+				roomIndex = room.roomIndex;
+				buildingName = room.building.buildingName;
+				billContent = receiptContent;
+				billId = receiptInfo._id;
+			}
 
-		const notiCreated = await Services.notifications.createTransactionDeclinedNotification({
-			roomIndex: roomIndex,
-			billContent: billContent,
-			billType,
-			billId: billId,
-			transactionAmount,
-			reason,
-			buildingName: buildingName,
-			creatorName: receiverInfo.fullName,
-			receiverIds: [receiverInfo._id.toString()],
-		});
-
-		if (receiverInfo.expoPushToken) {
-			const notiSended = await Services.notifications.sendNotification(notiTypes['TRANSACTION_DECLINED'], {
-				...notiCreated,
-				expoPushTokens: [receiverInfo.expoPushToken],
+			const notiCreated = await Services.notifications.createTransactionDeclinedNotification({
+				roomIndex: roomIndex,
+				billContent: billContent,
+				billType,
+				billId: billId,
+				transactionAmount,
+				reason,
+				buildingName: buildingName,
+				creatorName: receiverInfo.fullName,
+				receiverIds: [receiverInfo._id.toString()],
 			});
 
-			return {
-				success: true,
-				created: true,
-				pushSent: true,
-				notificationId: notiCreated._id,
-				totalReceivers: 1,
-				pushSentTo: [receiverInfo.expoPushToken],
-				result: notiSended ?? null,
-			};
-		} else {
-			return {
-				success: true,
-				created: true,
-				pushSent: false,
-				reason: 'Collector does not have push notification token',
-				notificationId: notiCreated._id,
-				totalReceivers: 0,
-				pushSentTo: 0,
-				result: null,
-			};
+			if (receiverInfo.expoPushToken) {
+				const notiSended = await Services.notifications.sendNotification(notiTypes['TRANSACTION_DECLINED'], {
+					...notiCreated,
+					expoPushTokens: [receiverInfo.expoPushToken],
+				});
+
+				return {
+					success: true,
+					created: true,
+					pushSent: true,
+					notificationId: notiCreated._id,
+					totalReceivers: 1,
+					pushSentTo: [receiverInfo.expoPushToken],
+					result: notiSended ?? null,
+				};
+			} else {
+				return {
+					success: true,
+					created: true,
+					pushSent: false,
+					reason: 'Collector does not have push notification token',
+					notificationId: notiCreated._id,
+					totalReceivers: 0,
+					pushSentTo: 0,
+					result: null,
+				};
+			}
+		} catch (error) {
+			throw error;
 		}
 	}
 }

@@ -8,6 +8,7 @@ const { generateInvoiceFees } = require('../service/invoices.helper');
 const { calculateTotalFeeAmount } = require('../utils/calculateFeeTotal');
 const { calculateTotalCheckoutCostAmount } = require('../service/checkoutCost/checkoutCosts.helper');
 const { receiptStatus, receiptTypes } = require('../constants/receipt');
+const { debtStatus } = require('../constants/debts');
 const { feeUnit } = require('../constants/fees');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
 const { sourceType } = require('../constants/debts');
@@ -351,26 +352,14 @@ exports.updateNoteRoom = async (roomId, note) => {
 	return true;
 };
 
-//================================ UN REFACTED =====================================//
-
 exports.deleteDebts = async (roomId) => {
-	const findDebts = await Entity.DebtsEntity.find({ room: roomId, status: { $in: ['closed', 'pending'] } });
+	await Services.rooms.assertRoomWritable({ roomId });
+	const findDebts = await Services.debts.findPendingDebts(roomId).lean().exec();
 	if (!findDebts || findDebts.length === 0) throw new NotFoundError('Nợ không tồn tại');
 
-	// const totalDebts = findDebts.reduce((sum, debt) => sum + debt.amount, 0);
-	// if (findDebts[0].status === 'closed' && findDebts[0].sourceId !== null) {
-	// 	const currentInvoice = await Entity.InvoicesEntity.findOne({ _id: findDebts[0].sourceId });
-	// 	if (!currentInvoice) throw new AppError(errorCodes.notExist, 'Hóa đơn cho khoản nợ không tồn tại!', 404);
-
-	// 	const calculateInvoiceTotalAmount = currentInvoice.total - totalDebts;
-	// 	currentInvoice.debts = null;
-	// 	currentInvoice.total = calculateInvoiceTotalAmount;
-	// 	currentInvoice.status = calculateInvoiceTotalAmount <= currentInvoice.paidAmount ? 'paid' : currentInvoice.status;
-
-	// 	await currentInvoice.save({ session });
-	// }
-
-	await Entity.DebtsEntity.updateMany({ room: roomId, status: { $in: ['closed', 'pending'] } }, { $set: { status: 'terminated' } });
+	await Services.debts.terminateDebts(findDebts.map((item) => item._id));
 
 	return 'Success';
 };
+
+//================================ UN REFACTED =====================================//

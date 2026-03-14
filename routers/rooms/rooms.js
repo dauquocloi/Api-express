@@ -1,13 +1,11 @@
 const UseCase = require('../../data_providers/rooms');
-const { validateImportRoomImageSchema, validateModifyInterior } = require('../../utils/validator');
 const asyncHandler = require('../../utils/asyncHandler');
 const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
-
-// const JWT_SECRET = '82371923sdasdads[]sdsadasd'; // this is shit
 
 exports.getRoom = asyncHandler(async (req, res) => {
 	let data = req.params;
 	console.log('log of data from getRoom: ', data);
+	// await new Promise((resolve) => setTimeout(resolve, 5000));
 
 	const roomInfo = await UseCase.getRoom(data.roomId);
 	return new SuccessResponse('Success', roomInfo).send(res);

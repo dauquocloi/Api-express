@@ -108,6 +108,7 @@ const InvoicesSchema = new Schema(
 			type: Boolean,
 			default: false,
 		},
+
 		invoiceCode: {
 			type: String,
 			trim: true,

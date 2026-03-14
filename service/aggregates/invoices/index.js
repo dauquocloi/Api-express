@@ -52,23 +52,9 @@ const getInvoicePaymentStatus = (buildingId, month, year) => {
 			},
 		},
 		{
-			$lookup: {
-				from: 'transactions',
-				let: {
-					invoiceId: {
-						$arrayElemAt: ['$invoiceInfo', 0],
-					},
-				},
-				pipeline: [
-					{
-						$match: {
-							$expr: {
-								$eq: ['$invoice', '$$invoiceId._id'],
-							},
-						},
-					},
-				],
-				as: 'transactions',
+			$unwind: {
+				path: '$invoiceInfo',
+				preserveNullAndEmptyArrays: true,
 			},
 		},
 		{
@@ -76,24 +62,7 @@ const getInvoicePaymentStatus = (buildingId, month, year) => {
 				_id: 1,
 				buildingName: 1,
 				roomInfo: 1,
-				invoiceInfo: {
-					$arrayElemAt: ['$invoiceInfo', 0],
-				},
-				transactions: {
-					$map: {
-						input: '$transactions',
-						as: 'trans',
-						in: {
-							_id: '$$trans._id',
-							paymentMethod: '$$trans.paymentMethod',
-							collector: {
-								$ifNull: ['$$trans.collector', null],
-							},
-							ownerConfirmed: '$$trans.ownerConfirmed',
-							createdBy: '$$trans.createdBy',
-						},
-					},
-				},
+				invoiceInfo: 1,
 			},
 		},
 		{
@@ -113,7 +82,6 @@ const getInvoicePaymentStatus = (buildingId, month, year) => {
 						month: '$invoiceInfo.month',
 						year: '$invoiceInfo.year',
 						status: '$invoiceInfo.status',
-						transaction: '$transactions',
 					},
 				},
 			},

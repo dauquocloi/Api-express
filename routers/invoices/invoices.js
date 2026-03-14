@@ -36,7 +36,7 @@ exports.modifyInvoice = asyncHandler(async (req, res) => {
 exports.deleteInvoice = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('log of data from deleteInvoice: ', data);
-	await UseCase.deleteInvoice(data.invoiceId, data.roomVersion, req.user._id, data.version);
+	await UseCase.deleteInvoice(data.invoiceId, req.user._id, data.version);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

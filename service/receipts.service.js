@@ -10,6 +10,8 @@ exports.findById = (receiptId) => {
 	return Entity.ReceiptsEntity.findById(receiptId);
 };
 
+exports.findReceipts = (receiptIds) => Entity.ReceiptsEntity.find({ _id: { $in: receiptIds } });
+
 // exports.findByRoomIds = (roomIds) => Entity.ReceiptsEntity.find({ room: { $in: roomIds } });
 
 exports.closeAndSetDetucted = async (receiptIds, detuctedType, detuctedId, session) => {
@@ -28,6 +30,14 @@ exports.closeAndSetDetucted = async (receiptIds, detuctedType, detuctedId, sessi
 	if (result.matchedCount === 0 || result.matchedCount !== receiptIds.length) throw new NotFoundError('Không tìm thấy bản ghi!');
 
 	return result;
+};
+
+exports.lockReceipts = async (receiptIds, session) => {
+	await Entity.ReceiptsEntity.updateMany(
+		{ _id: { $in: receiptIds }, locked: false },
+		{ $set: { locked: true }, $inc: { version: 1 } },
+		{ session },
+	);
 };
 
 exports.createReceipt = async (

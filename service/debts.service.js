@@ -3,6 +3,8 @@ const Entity = require('../models');
 const { NotFoundError } = require('../AppError');
 const { debtStatus } = require('../constants/debts');
 
+exports.findPendingDebts = (roomId) => Entity.DebtsEntity.find({ room: roomId, status: debtStatus.PENDING });
+
 exports.getDebtsAndReceiptUnpaid = async (roomObjectId, currentMonth, currentYear, session) => {
 	const query = Entity.RoomsEntity.aggregate(pipelines.debts.getDebtsAndReceiptUnpaid(roomObjectId, currentMonth, currentYear));
 	if (session) query.session(session);
@@ -48,7 +50,7 @@ exports.closeAndSetSourceInfo = async ({ roomId, sourceId, sourceType }, session
 exports.terminateDebts = async (debtIds, session) => {
 	const result = await Entity.DebtsEntity.updateMany({ _id: { $in: debtIds } }, { $set: { status: debtStatus['TERMINATED'] } }, { session });
 	if (result.matchedCount === 0 || result.matchedCount !== debtIds.length) throw new NotFoundError('Không tìm thấy bản ghi');
-	return result;
+	return true;
 };
 
 exports.getDebtsByIds = async (debtIds, session) => {

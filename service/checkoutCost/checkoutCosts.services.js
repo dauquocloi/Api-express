@@ -42,8 +42,10 @@ const generateCheckoutCost = async (
 	return newCheckoutCost;
 };
 
-const getCheckoutCostDetail = async (checkoutCostObjectId) => {
-	const [result] = await Entity.CheckoutCostsEntity.aggregate(Pipelines.checkoutCosts.getCheckoutCostDetailPipeline(checkoutCostObjectId));
+const getCheckoutCostDetail = async (checkoutCostObjectId, session) => {
+	const [result] = await Entity.CheckoutCostsEntity.aggregate(Pipelines.checkoutCosts.getCheckoutCostDetailPipeline(checkoutCostObjectId)).session(
+		session,
+	);
 
 	if (!result) throw new NotFoundError('Dữ liệu không tồn tại');
 	return result;

@@ -43,6 +43,11 @@ class BaseJob {
 			const finalOptions = { ...defaultOptions, ...options };
 
 			if (jobId) {
+				const oldJob = await this.queue.getJob(jobId);
+				if (oldJob) {
+					await oldJob.remove();
+					console.log(`[♻️ Job Overwritten] Removed old job #${jobId} to reset timer.`);
+				}
 				finalOptions.jobId = jobId;
 			}
 

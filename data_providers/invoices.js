@@ -143,7 +143,7 @@ exports.getInvoiceDetail = async (invoiceId, buildingId) => {
 };
 
 //owner only
-exports.deleteInvoice = async (invoiceId, roomVersion, userId, invoiceVersion) => {
+exports.deleteInvoice = async (invoiceId, userId, invoiceVersion) => {
 	let session;
 	try {
 		const invoiceObjectId = new mongoose.Types.ObjectId(invoiceId);
@@ -198,7 +198,7 @@ exports.deleteInvoice = async (invoiceId, roomVersion, userId, invoiceVersion) =
 				}
 			}
 
-			await Services.rooms.bumpRoomVersion(invoice.room, roomVersion, session);
+			await Services.rooms.bumpRoomVersionBlind(invoice.room, session);
 
 			return 'Success';
 		});

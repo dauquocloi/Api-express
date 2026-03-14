@@ -8,6 +8,8 @@ const { calculateTotalFeeAmount, calculateTotalFeesOther } = require('../utils/c
 const { feeUnit } = require('../constants/fees');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
 const { receiptStatus } = require('../constants/receipt');
+const { LockInvoiceJob } = require('../jobs/Invoices');
+const { LockReceiptsJob } = require('../jobs/Receipts');
 
 exports.getCheckoutCostDetail = async (checkoutCostId, buildingId) => {
 	const checkoutCostObjectId = new mongoose.Types.ObjectId(checkoutCostId);
@@ -28,28 +30,57 @@ exports.getCheckoutCostDetail = async (checkoutCostId, buildingId) => {
 	};
 };
 
-exports.getModifyCheckoutCostInfo = async (checkoutCostId) => {
+exports.getModifyCheckoutCostInfo = async (checkoutCostId, userId) => {
 	let session;
-	let result;
 	try {
 		session = await mongoose.startSession();
-		await session.withTransaction(async () => {
+		return await session.withTransaction(async () => {
 			const checkoutCostObjectId = new mongoose.Types.ObjectId(checkoutCostId);
-			const checkoutCost = await Services.checkoutCosts.getCheckoutCostDetail(checkoutCostObjectId);
+			const checkoutCost = await Services.checkoutCosts.getCheckoutCostDetail(checkoutCostObjectId, session);
 
-			if (checkoutCost.invoiceUnpaid && checkoutCost.invoiceUnpaid !== null) {
-				await Services.invoices.unLockInvoice(checkoutCost.invoiceUnpaid._id, session);
+			if (checkoutCost.invoiceUnpaid) {
+				await Services.invoices.unLockInvoice(checkoutCost.invoiceUnpaid._id, session, userId);
+				await new LockInvoiceJob().enqueue({ invoiceId: checkoutCost.invoiceUnpaid._id }, checkoutCost.invoiceUnpaid._id, {
+					delay: 10 * 60 * 1000,
+				});
 			}
 			if (checkoutCost?.receiptsUnpaid && checkoutCost?.receiptsUnpaid?.length > 0) {
 				await Services.receipts.unlockManyReceipts(
 					checkoutCost.receiptsUnpaid.map((r) => r._id),
 					session,
 				);
+				await new LockReceiptsJob().enqueue(
+					{ receiptIds: checkoutCost.receiptsUnpaid.map((r) => r._id.toString()) },
+					checkoutCost.receiptsUnpaid.map((r) => r._id),
+					{ delay: 10 * 60 * 1000 },
+				);
 			}
-			result = checkoutCost;
-			return;
+			return checkoutCost;
 		});
-		return result;
+	} catch (error) {
+		throw error;
+	} finally {
+		if (session) session.endSession();
+	}
+};
+
+exports.finishModifyCheckoutCost = async (checkoutCostId) => {
+	let session;
+	try {
+		session = await mongoose.startSession();
+		return await session.withTransaction(async () => {
+			const currentCheckoutCost = await Services.checkoutCosts.findById(checkoutCostId).session(session).lean().exec();
+			if (!currentCheckoutCost) throw new NotFoundError('Phiếu trả phòng không tồn tại !');
+
+			if (currentCheckoutCost.invoiceUnpaid) {
+				await Services.invoices.lockInvoice(currentCheckoutCost.invoiceUnpaid, session);
+			}
+			if (currentCheckoutCost.receiptsUnpaid?.length > 0) {
+				await Services.receipts.lockReceipts(currentCheckoutCost.receiptsUnpaid, session);
+			}
+
+			return true;
+		});
 	} catch (error) {
 		throw error;
 	} finally {
