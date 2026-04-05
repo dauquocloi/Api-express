@@ -98,7 +98,7 @@ const ReceiptsSchema = new Schema(
 			type: Schema.Types.ObjectId,
 			ref: 'ContractsEntity',
 		},
-		creater: { type: Schema.Types.ObjectId, ref: 'UsersEntity' },
+		creater: { type: Schema.Types.ObjectId, ref: 'UsersEntity', required: true },
 		version: {
 			type: Number,
 			default: 1,

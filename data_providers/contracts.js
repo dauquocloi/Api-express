@@ -10,7 +10,7 @@ const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const { receiptTypes, receiptStatus } = require('../constants/receipt');
 const { feeUnit } = require('../constants/fees');
 const formatInitialFees = require('../utils/formatInitialFees');
-const { invoiceStatus } = require('../constants/invoices');
+const { invoiceStatus, invoiceType } = require('../constants/invoices');
 const getFieldUrl = require('../utils/getFileUrl');
 const redis = require('../config/redisClient');
 const withSignedUrls = require('../utils/withSignedUrls');
@@ -59,6 +59,7 @@ exports.prepareGenerateContract = async (
 					payerName: customers[0]?.fullName ?? '',
 					creater: createrId,
 					initialStatus: invoiceStatus['PENDING'],
+					invoiceType: invoiceType['FIRST_INVOICE'],
 				},
 				session,
 			);

@@ -20,7 +20,9 @@ class NotiTaskCompletedJob extends BaseJob {
 			const receiverInfo = await Services.users.findUserByIds(managementIds).lean().exec();
 			if (!receiverInfo) throw new Error('Không tìm thấy người nhận');
 			const performers = await Services.users.findUserByIds(performerIds).select('fullName').lean().exec();
+			console.log('log of performers: ', performers);
 			const performerNames = performers?.map((performer) => getLastName(performer.fullName));
+			console.log('log of performerNames: ', performerNames);
 
 			let receiverIds = receiverInfo?.map((r) => r._id);
 			let expoPushTokens = receiverInfo?.map((r) => r.expoPushToken).filter((token) => Expo.isExpoPushToken(token));

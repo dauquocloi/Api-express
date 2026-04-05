@@ -7,6 +7,6 @@ const { ValidateSource } = require('../../utils/validator');
 const apiKeyAuth = require('../../auth/apiKeyAuthentication');
 
 router.post('/socket', Payments.testSocket);
-router.post('/payment', Payments.weebhookPayment);
+router.post('/payment', Payments.webhookPayment);
 
 module.exports = router;

@@ -13,15 +13,7 @@ exports.getListReceiptPaymentStatus = asyncHandler(async (req, res) => {
 exports.createReceipt = asyncHandler(async (req, res) => {
 	const data = { ...req.query, ...req.body };
 	console.log('log of data from createReceipt', data);
-	const result = await UseCase.createReceipt(
-		data.roomId,
-		data.buildingId,
-		data.receiptAmount,
-		data.receiptContent,
-		data.date,
-		req.user._id,
-		req.redisKey,
-	);
+	const result = await UseCase.createReceipt(data.roomId, data.receiptAmount, data.receiptContent, data.date, req.user._id, req.redisKey);
 	return new SuccessResponse('Success', result).send(res);
 });
 

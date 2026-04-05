@@ -114,7 +114,7 @@ exports.removeManager = asyncHandler(async (req, res) => {
 
 exports.getListSelectionManagements = asyncHandler(async (req, res) => {
 	let data = req.user;
-	console.log('log of data from getAllManagement: ', data);
+	// console.log('log of data from getAllManagement: ', data);
 	const result = await UseCase.getListSelectionManagements(data._id);
 	return new SuccessResponse('Success', result).send(res);
 });

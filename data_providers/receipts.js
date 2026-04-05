@@ -15,6 +15,8 @@ const { TaskNotiJob, NotiManagerCollectCashReceiptJob } = require('../jobs/Notif
 const { getInvoiceStatus } = require('../service/invoices.helper');
 const Roles = require('../constants/userRoles');
 const { debtStatus, sourceType } = require('../constants/debts');
+const { ZNSNewInvoiceNotiJob } = require('../jobs/ZNSJob');
+const { billType } = require('../constants/bills');
 
 exports.getListReceiptPaymentStatus = async (buildingId, month, year) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -60,20 +62,21 @@ exports.createDepositReceipt = async (roomId, buildingId, receipAmount, payerNam
 	return result;
 };
 
-exports.createReceipt = async (roomId, buildingId, receiptAmount, receiptContent, date, userId, redisKey) => {
+exports.createReceipt = async (roomId, receiptAmount, receiptContent, date, userId, redisKey) => {
 	let session;
 	let result;
 	try {
 		session = await mongoose.startSession();
 		await session.withTransaction(async () => {
 			const roomObjectId = new mongoose.Types.ObjectId(roomId);
-			const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+			const currentRoom = await Services.rooms.findById(roomObjectId).session(session).lean().exec();
+			if (!currentRoom) throw new NotFoundError('Phòng không tồn tại !');
 
-			const paymentInfo = await Services.bankAccounts.findByBuildingId(buildingId).session(session).lean().exec();
+			const paymentInfo = await Services.bankAccounts.findByBuildingId(currentRoom.building).session(session).lean().exec();
 			if (!paymentInfo) throw new BadRequestError('Tòa nhà chưa có thông tin thanh toán !');
 
 			await Services.rooms.assertRoomWritable({ roomId, userId, session: null });
-			const currentPeriod = await getCurrentPeriod(buildingObjectId);
+			const currentPeriod = await getCurrentPeriod(currentRoom.building);
 			const contractOwner = await Services.customers
 				.findIsContractOwnerByRoomId(roomObjectId)
 				.session(session)
@@ -92,12 +95,19 @@ exports.createReceipt = async (roomId, buildingId, receiptAmount, receiptContent
 					initialStatus: receiptStatus['UNPAID'],
 					date: date,
 					contract: contractOwner?.contract._id,
+					creater: userId,
 				},
 
 				session,
 			);
 
 			await Services.rooms.bumpRoomVersionBlind(roomId, session);
+
+			await new ZNSNewInvoiceNotiJob().enqueue({
+				billId: receiptCreated._id,
+				type: billType.RECEIPT,
+			});
+
 			result = receiptCreated;
 			return 'Success';
 		});
@@ -219,7 +229,7 @@ exports.collectCashMoney = async (receiptId, buildingId, amount, date, collector
 
 		await new NotiManagerCollectCashReceiptJob().enqueue({
 			collectorId: collectorObjectId,
-			receiptId: receiptObjectId,
+			receiptId: receiptId.toString(),
 			amount: amount,
 		});
 		await session.commitTransaction();
@@ -286,7 +296,7 @@ exports.checkout = async (receiptId, buildingId, amount, date, collectorInfo, ve
 			if (collectorInfo.role !== Roles['OWNER']) {
 				await new NotiManagerCollectCashReceiptJob().enqueue({
 					collectorId: collectorObjectId,
-					receiptId: receiptObjectId,
+					receiptId: receiptId.toString(),
 					amount: amount,
 				});
 			}

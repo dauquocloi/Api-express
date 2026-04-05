@@ -1,19 +1,9 @@
 const mongoose = require('mongoose');
 let Entity = require('../models');
-const bcrypt = require('bcrypt');
-const { result } = require('underscore');
-var XLSX = require('xlsx');
-const uploadFile = require('../utils/uploadFile');
-const withSignedUrls = require('../utils/withSignedUrls');
 const Services = require('../service');
-const Pipelines = require('../service/aggregates');
 const { BadRequestError, NotFoundError, InternalError, NoDataError, InvalidInputError } = require('../AppError');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const getFileUrl = require('../utils/getFileUrl');
-const { receiptStatus, receiptTypes: RECEIPT_TYPES } = require('../constants/receipt');
-const { debtStatus } = require('../constants/debts');
-const { calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
-const { invoiceStatus } = require('../constants/invoices');
 const {
 	isMissingInvoice,
 	formatPeriodicExpenditurePayload,
@@ -21,9 +11,12 @@ const {
 	generateDebtFromReceipts,
 	generateDebtFromInvoices,
 	existTransactionUnConfirmed,
+	generateColumnExcel,
+	generateRowExcelData,
+	formatExcel,
+	styleExcel,
 } = require('./buildings.util');
-const { depositRefundStatus } = require('../constants/deposits');
-const { checkoutCostStatus } = require('../constants/checkoutCosts');
+const ExcelJS = require('exceljs');
 
 //  get all buildings by managername
 exports.getAll = async (userId) => {
@@ -239,4 +232,48 @@ exports.getContractTermUrl = async (buildingId) => {
 	if (!currentBuilding.contractPdfUrl) throw new NotFoundError('Tòa nhà chưa khởi tạo điều khoản hợp đồng !');
 	const contractTermFileUrl = await getFileUrl(currentBuilding.contractPdfUrl);
 	return { contractTermFileUrl: contractTermFileUrl };
+};
+
+exports.getBuildingReportXlsx = async (buildingId, month, year) => {
+	let currentMonth;
+	let currentYear;
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+	if (!month || !year) {
+		const currentPeriod = await getCurrentPeriod(buildingId);
+		currentMonth = currentPeriod.currentMonth;
+		currentYear = currentPeriod.currentYear;
+	} else {
+		currentMonth = Number(month);
+		currentYear = Number(year);
+	}
+	const data = await Services.buildings.getExcelData(buildingObjectId, currentMonth, currentYear);
+
+	const workbook = new ExcelJS.Workbook();
+	const worksheet = workbook.addWorksheet('Invoices');
+
+	// 1. Tạo header
+	const schema = generateColumnExcel(data, worksheet);
+
+	worksheet.columns = schema.map((col) => ({
+		header: col.header,
+		key: col.key,
+		width: col.width,
+	}));
+
+	// 2. Add row (1 room = 1 row)
+	const rows = generateRowExcelData(data);
+
+	// 3. Add + format (🔥 quan trọng)
+	rows.forEach((rowData) => {
+		const row = worksheet.addRow(rowData);
+		formatExcel(row, schema, rowData);
+	});
+
+	// 4. Style
+	styleExcel(worksheet, schema);
+
+	// 💰 Format tiền
+
+	// 💾 Save file
+	return workbook;
 };

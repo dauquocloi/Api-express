@@ -37,6 +37,7 @@
 		"docx-templates": "^4.13.0",
 		"docxtemplater": "^3.59.0",
 		"dotenv": "^16.4.5",
+		"exceljs": "^4.4.0",
 		"expo-server-sdk": "^3.14.0",
 		"express": "^4.17.1",
 		"express-mung": "^0.5.1",

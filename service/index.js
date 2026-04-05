@@ -23,11 +23,13 @@ const revenues = require('./revenues.service');
 const banks = require('./banks.service');
 const contractExtentions = require('./contractExtentions.service');
 const otps = require('./otps.service');
+const OA = require('./OA.service');
 
 module.exports = {
 	buildings,
 	banks,
 	customers,
+	OA,
 	contracts,
 	contractExtentions,
 	checkoutCosts,

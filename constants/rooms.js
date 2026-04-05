@@ -11,8 +11,15 @@ const LOCK_REASON = {
 	SETTLEMENT: 'Đang quyết toán, vui lòng đợi',
 };
 
+const roomStateTransform = {
+	[roomState.UN_HIRED]: 'Đang trống',
+	[roomState.HIRED]: 'Đang thuê',
+	[roomState.ABOUT_CHECKOUT]: 'Sắp trả phòng',
+};
+
 module.exports = {
 	roomState,
+	roomStateTransform,
 	ROOM_LOCK_TTL_MS,
 	LOCK_REASON,
 };

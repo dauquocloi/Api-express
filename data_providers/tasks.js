@@ -6,6 +6,7 @@ const Services = require('../service');
 const { NotiTaskCompletedJob } = require('../jobs/Notifications');
 const { BadRequestError } = require('../AppError');
 const ROLES = require('../constants/userRoles');
+const dayjs = require('dayjs');
 
 exports.createTask = async (performers, userId, taskContent, detail, executionDate) => {
 	let performerObjectIds = [];
@@ -57,10 +58,42 @@ exports.createTask = async (performers, userId, taskContent, detail, executionDa
 		executionDate: executionDate || Date.now(),
 	};
 
-	return await Services.tasks.createTask(newTaskData);
+	const result = await Services.tasks.createTask(newTaskData);
+	const taskCreated = await Services.tasks
+		.findById(result._id)
+		.populate([
+			{
+				path: 'managements',
+				select: 'fullName _id avatar',
+			},
+			{
+				path: 'performers',
+				select: 'fullName _id avatar',
+			},
+		])
+		.lean()
+		.exec();
+
+	console.log('taskCreated: ', taskCreated);
+
+	return {
+		_id: dayjs(taskCreated.executionDate).format('YYYY-MM-DD'),
+		data: {
+			_id: taskCreated._id,
+			status: taskCreated.status,
+			taskContent: taskCreated.taskContent,
+			detail: taskCreated.detail,
+			executionDate: taskCreated.executionDate,
+			performers: taskCreated.performers,
+			managements: taskCreated.managements,
+			createdAt: taskCreated.createdAt,
+			updatedAt: taskCreated.updatedAt,
+		},
+	};
 };
 
 exports.getTasks = async (userId, page = 1, search, startDate, endDate) => {
+	console.log('log of data from getTasks: ', userId, page, search, startDate, endDate);
 	const userObjectId = new mongoose.Types.ObjectId(userId);
 	const daysPerPage = 5; //days;
 	const tasks = await Services.tasks.getTasks(userObjectId, page, daysPerPage, search, startDate, endDate);
@@ -70,36 +103,54 @@ exports.getTasks = async (userId, page = 1, search, startDate, endDate) => {
 };
 
 exports.modifyTask = async (data) => {
-	const getTaskInfo = await Services.tasks.findById(data.taskId);
-
-	getTaskInfo.taskContent = data.taskContent;
-	getTaskInfo.detail = data.detail;
-	getTaskInfo.executionDate = data.executionDate;
-	getTaskInfo.performers = data.performers;
-	getTaskInfo.status = data.status; // Done task
-
-	if (data.taskImages.length > 0) {
-		const images = [];
-		for (const image of data.taskImages) {
-			const handleuploadFile = await uploadFile(image);
-			images.push(handleuploadFile.Key);
-		}
-		getTaskInfo.images = images;
+	const existingTask = await Services.tasks.findById(data.taskId).lean().exec();
+	if (!existingTask) {
+		return new BadRequestError('Dữ liệu không tồn tại!');
 	}
 
-	await getTaskInfo.save();
-	if (getTaskInfo.status === 'completed') {
-		const jobPayload = {
-			managementIds: getTaskInfo.managements,
+	// Prepare update data
+	const updateData = {
+		taskContent: data.taskContent,
+		detail: data.detail,
+		executionDate: data.executionDate,
+		performers: data.performers,
+		status: data.status,
+	};
+
+	// Handle image upload if needed
+	if (data.taskImages?.length > 0) {
+		const imageUploadPromises = data.taskImages.map((image) => uploadFile(image));
+		const uploadResults = await Promise.all(imageUploadPromises);
+		updateData.images = uploadResults.map((result) => result.Key);
+	}
+
+	// Update task and return populated document in one query
+	const taskModified = await Services.tasks.updateTask({ taskId: data.taskId, ...updateData });
+	console.log('taskModified: ', taskModified);
+
+	// Enqueue notification if task completed
+	if (data.status === 'completed') {
+		await new NotiTaskCompletedJob().enqueue({
+			managementIds: taskModified.managements.map((m) => m._id),
 			performerIds: data.performers,
-			taskTitle: getTaskInfo.taskContent,
-			taskId: data.taskId,
-		};
-		await new NotiTaskCompletedJob().enqueue(jobPayload);
+			taskTitle: taskModified.taskContent,
+			taskId: data.taskId.toString(),
+		});
 	}
 
 	return {
-		taskId: data.taskId,
+		_id: dayjs(taskModified.executionDate).format('YYYY-MM-DD'),
+		data: {
+			_id: taskModified._id,
+			status: taskModified.status,
+			taskContent: taskModified.taskContent,
+			detail: taskModified.detail,
+			executionDate: taskModified.executionDate,
+			performers: taskModified.performers,
+			managements: taskModified.managements,
+			createdAt: taskModified.createdAt,
+			updatedAt: taskModified.updatedAt,
+		},
 	};
 };
 

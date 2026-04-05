@@ -15,6 +15,7 @@ router.use(
 		req.accessToken = getAccessToken(req.headers.authorization); // Express headers are auto converted to lowercase
 		try {
 			const payload = await JWT.validate(req.accessToken);
+			console.log('log of payload from authentication middleware', payload);
 			validateTokenData(payload);
 
 			const user = await Services.users.findById(new mongoose.Types.ObjectId(payload.sub)).lean().exec();

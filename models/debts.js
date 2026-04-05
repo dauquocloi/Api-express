@@ -21,12 +21,12 @@ const DebtsSchema = new Schema(
 		status: {
 			type: String,
 			enum: Object.values(debtStatus),
-			default: 'pending',
+			default: debtStatus.PENDING,
 		},
 		sourceType: {
 			type: String,
 			enum: Object.values(sourceType),
-			default: 'pending',
+			default: sourceType.PENDING,
 		},
 		sourceId: {
 			type: Schema.Types.ObjectId,

@@ -38,5 +38,10 @@ TasksSchema.post('findOne', async function (doc) {
 	}
 });
 
+// TasksSchema.index(
+// 	{ taskContent: 'text', detail: 'text' },
+// 	{ weights: { taskContent: 10, detail: 5 }, name: 'TaskSearchIndex', default_language: 'none' },
+// );
+
 // Register the room schema
 exports.TasksEntity = mongoose.model('TasksEntity', TasksSchema, 'tasks');

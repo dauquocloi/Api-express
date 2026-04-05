@@ -1,3 +1,8 @@
+const { vehicleStatus } = require('../../../constants/vehicle');
+const { debtStatus } = require('../../../constants/debts');
+const { invoiceStatus } = require('../../../constants/invoices');
+const { receiptStatus } = require('../../../constants/receipt');
+
 const getAllBillsPipeline = (buildingId, month, year) => {
 	return [
 		{
@@ -601,4 +606,292 @@ const getAllInvoicesInPeriod = (buildingObjectId, month, year) => {
 	];
 };
 
-module.exports = { getAllBillsPipeline, getStatisticGeneral, getFinanceSettlementData, getPrepareFinanceSettlementData, getAllInvoicesInPeriod };
+const getExcelData = (buildingObjectId, month, year) => {
+	return [
+		{
+			$match: {
+				_id: buildingObjectId,
+			},
+		},
+		{
+			$lookup: {
+				from: 'rooms',
+				localField: '_id',
+				foreignField: 'building',
+				pipeline: [
+					{
+						$lookup: {
+							from: 'fees',
+							localField: '_id',
+							foreignField: 'room',
+							pipeline: [
+								{
+									$lookup: {
+										from: 'feeIndexHistory',
+										localField: '_id',
+										foreignField: 'fee',
+										pipeline: [
+											{
+												$project: {
+													feeKey: 1,
+													prevIndex: 1,
+													lastIndex: 1,
+													room: 1,
+												},
+											},
+										],
+										as: 'feeIndexHistory',
+									},
+								},
+								{
+									$project: {
+										feeKey: 1,
+										feeAmount: 1,
+										feeName: 1,
+										unit: 1,
+										room: 1,
+										feeIndexHistory: {
+											$ifNull: [{ $arrayElemAt: ['$feeIndexHistory', 0] }, null],
+										},
+									},
+								},
+							],
+							as: 'fees',
+						},
+					},
+					{
+						$lookup: {
+							from: 'contracts',
+							localField: '_id',
+							foreignField: 'room',
+							pipeline: [
+								{
+									$match: {
+										status: 'active',
+									},
+								},
+								{
+									$lookup: {
+										from: 'receipts',
+										localField: 'depositReceiptId',
+										foreignField: '_id',
+										pipeline: [
+											{
+												$project: {
+													amount: 1,
+													paidAmount: 1,
+													status: 1,
+													createdAt: 1,
+												},
+											},
+										],
+										as: 'depositReceipt',
+									},
+								},
+								{
+									$lookup: {
+										from: 'customers',
+										localField: '_id',
+										foreignField: 'contract',
+										pipeline: [
+											{
+												$project: {
+													_id: 1,
+													fullName: 1,
+													phone: 1,
+													isContractOwner: 1,
+												},
+											},
+										],
+										as: 'customers',
+									},
+								},
+								{
+									$lookup: {
+										from: 'vehicles',
+										localField: 'customers._id',
+										foreignField: 'owner',
+										pipeline: [
+											{
+												$match: {
+													$expr: {
+														$in: ['$status', [vehicleStatus.ACTIVE, vehicleStatus.SUSPENDED]],
+													},
+												},
+											},
+											{
+												$project: {
+													licensePlate: 1,
+													owner: 1,
+													fromDate: 1,
+													room: 1,
+													status: 1,
+												},
+											},
+										],
+										as: 'vehicles',
+									},
+								},
+								{
+									$project: {
+										depositReceipt: {
+											$arrayElemAt: ['$depositReceipt', 0],
+										},
+										customers: 1,
+										contractSignDate: 1,
+										contractEndDate: 1,
+										status: 1,
+										contractTerm: 1,
+										note: 1,
+										rent: 1,
+										depositAmount: 1,
+										vehicles: 1,
+										customerQuantity: { $size: '$customers' },
+										vehicleQuantity: { $size: '$vehicles' },
+									},
+								},
+							],
+							as: 'contract',
+						},
+					},
+					{
+						$lookup: {
+							from: 'invoices',
+							localField: '_id',
+							foreignField: 'room',
+							pipeline: [
+								{
+									$match: {
+										$expr: {
+											$and: [
+												{
+													$not: {
+														$in: ['$status', [invoiceStatus.TERMINATED, invoiceStatus.PENDING]],
+													},
+												},
+												{
+													$eq: ['$month', month],
+												},
+												{
+													$eq: ['$year', year],
+												},
+											],
+										},
+									},
+								},
+								{
+									$project: {
+										total: 1,
+										paidAmount: 1,
+										status: 1,
+										invoiceContent: 1,
+									},
+								},
+							],
+							as: 'invoices',
+						},
+					},
+					{
+						$lookup: {
+							from: 'receipts',
+							localField: '_id',
+							foreignField: 'room',
+							pipeline: [
+								{
+									$match: {
+										$expr: {
+											$and: [
+												{
+													$not: {
+														$in: ['$status', [receiptStatus.TERMINATED, receiptStatus.PENDING]],
+													},
+												},
+												{
+													$eq: ['$month', month],
+												},
+												{
+													$eq: ['$year', year],
+												},
+											],
+										},
+									},
+								},
+								{
+									$project: {
+										amount: 1,
+										paidAmount: 1,
+										status: 1,
+										receiptContent: 1,
+									},
+								},
+							],
+							as: 'receipts',
+						},
+					},
+					{
+						$lookup: {
+							from: 'debts',
+							localField: '_id',
+							foreignField: 'room',
+							pipeline: [
+								{
+									$match: {
+										$expr: {
+											$in: ['$status', [debtStatus.PENDING]],
+										},
+									},
+								},
+								{
+									$project: {
+										amount: 1,
+										room: 1,
+										period: 1,
+										status: 1,
+										content: 1,
+									},
+								},
+							],
+							as: 'debts',
+						},
+					},
+					{
+						$project: {
+							contract: {
+								$ifNull: [
+									{
+										$arrayElemAt: ['$contract', 0],
+									},
+									null,
+								],
+							},
+							roomIndex: 1,
+							roomPrice: 1,
+							roomState: 1,
+							interior: 1,
+							note: 1,
+							invoices: 1,
+							receipts: 1,
+							fees: 1,
+							debts: 1,
+						},
+					},
+					{
+						$sort: {
+							roomIndex: 1,
+						},
+					},
+				],
+				as: 'rooms',
+			},
+		},
+	];
+};
+
+module.exports = {
+	getAllBillsPipeline,
+	getStatisticGeneral,
+	getFinanceSettlementData,
+	getPrepareFinanceSettlementData,
+	getAllInvoicesInPeriod,
+	getExcelData,
+};

@@ -14,6 +14,7 @@ const { TRANS_STATUS } = require('../constants/transactions');
 const { billType: BILL_TYPE } = require('../constants/bills');
 const { checkoutCostStatus: CHECKOUT_COST_STATUS, receiptToCheckoutCostStatusMap } = require('../constants/checkoutCosts');
 const { receiptToDepositRefundStatusMap } = require('../constants/deposits');
+const { SepayError, sepayErrorTypes } = require('../infrastructure/Sepay/SepayError');
 
 exports.handleSepayIPN = (data) => {
 	let session;
@@ -63,13 +64,13 @@ exports.collectCashFromEmployee = async (data, cb, next) => {
 }
  */
 }
-exports.weebhookPayment = async (sepayData) => {
+exports.webhookPayment = async (sepayData) => {
 	let session;
 	let result;
 	let redisIdempo;
 	try {
 		session = await mongoose.startSession();
-		await session.withTransaction(async () => {
+		return await session.withTransaction(async () => {
 			const existedTransaction = await Services.transactions.checkExistedTransaction(sepayData.id, session);
 			if (existedTransaction) return;
 
@@ -79,7 +80,12 @@ exports.weebhookPayment = async (sepayData) => {
 				.session(session)
 				.lean()
 				.exec();
-			if (!bankAccount) throw new BadRequestError('Số tài khoản không khớp với bất kỳ tài khoản nào trong hệ thống !');
+			if (!bankAccount)
+				throw new SepayError({
+					type: sepayErrorTypes['UNKNOWN_BANK_NUMBER'],
+					message: 'Số tài khoản không khớp với bất kỳ tài khoản nào trong hệ thống !',
+					raw: sepayData,
+				});
 
 			const findInvoice = await Services.invoices.findInvoiceInfoByPaymentContent(sepayData.content, session);
 			if (findInvoice) {
@@ -88,7 +94,12 @@ exports.weebhookPayment = async (sepayData) => {
 				}
 				const { _id, paidAmount, total, status, buildingId, invoiceContent, buildingName, management, room, paymentInfo } = findInvoice;
 
-				if (status === invoiceStatus['PAID']) throw new BadRequestError('Hóa đơn đã được thanh toán !');
+				if (status === invoiceStatus['PAID'])
+					throw new SepayError({
+						type: sepayErrorTypes['INVOICE_PAID'],
+						message: 'Hóa đơn đã được thanh toán !',
+						raw: sepayData,
+					});
 				const transaction = getTransactionManager();
 				transaction.broadcast({
 					type: 'invoice',
@@ -160,7 +171,7 @@ exports.weebhookPayment = async (sepayData) => {
 					roomIndex: room.roomIndex,
 					billType: BILL_TYPE['INVOICE'],
 					billStatus: getNewInvoiceStatus,
-					billId: _id,
+					billId: _id.toString(),
 				});
 
 				return 'Success';
@@ -172,7 +183,12 @@ exports.weebhookPayment = async (sepayData) => {
 				if (!findReceipt.paymentInfo || findReceipt.paymentInfo === null) return 'Success';
 				const { paidAmount, receiptContent, amount, _id, status, buildingId, management, room, buildingName, receiptType, paymentInfo } =
 					findReceipt;
-				if (status === receiptStatus['PAID']) throw new BadRequestError('Hóa đơn đã được thanh toán !');
+				if (status === receiptStatus['PAID'])
+					throw new SepayError({
+						type: sepayErrorTypes['INVOICE_PAID'],
+						message: 'Phiếu thu đã được thanh toán !',
+						raw: sepayData,
+					});
 
 				const transaction = getTransactionManager();
 				transaction.broadcast({
@@ -244,7 +260,7 @@ exports.weebhookPayment = async (sepayData) => {
 					roomIndex: room.roomIndex,
 					billType: BILL_TYPE['RECEIPT'],
 					billStatus: getNewReceiptStatus,
-					billId: _id,
+					billId: _id.toString(),
 				});
 
 				transaction.broadcast({
@@ -279,8 +295,6 @@ exports.weebhookPayment = async (sepayData) => {
 				session,
 			);
 		});
-
-		return 'Success';
 	} catch (error) {
 		throw error;
 	} finally {

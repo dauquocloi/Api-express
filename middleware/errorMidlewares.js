@@ -4,7 +4,7 @@ const logger = require('../utils/logger');
 const { parseMongoError } = require('../utils/mongoErrorParser');
 
 const errorMidlewares = (err, req, res, next) => {
-	console.log('log of error from midleware: ', err.stack, err.message, err.type);
+	console.log('log of error from errorMidlewares: ', err.stack, err.message, err.type);
 
 	if (err instanceof AppError) {
 		AppError.handle(err, res);

@@ -26,3 +26,24 @@ exports.deleteTask = async (taskId) => {
 	if (!removeTask) throw new NotFoundError(`Công việc không tồn tại!`);
 	return removeTask;
 };
+
+exports.updateTask = async ({ taskId, taskContent, detail, executionDate, performers, status, images = null }, session = null) => {
+	const querys = {
+		taskContent,
+		detail,
+		executionDate,
+		performers,
+		status,
+	};
+	if (images) querys.images = images;
+
+	const result = await Entity.TasksEntity.findOneAndUpdate({ _id: taskId }, querys, { new: true, session: session })
+		.populate([
+			{ path: 'managements', select: 'fullName _id avatar' },
+			{ path: 'performers', select: 'fullName _id avatar' },
+		])
+		.lean();
+
+	if (!result) throw new NotFoundError(`Công việc không tồn tại!`);
+	return result;
+};

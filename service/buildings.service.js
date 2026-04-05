@@ -200,6 +200,12 @@ const getAllInvoicesInPeriod = async (buildingObjectId, month, year, session) =>
 	return result.invoices;
 };
 
+const getExcelData = async (buildingId, month, year) => {
+	const [currentBuilding] = await Entity.BuildingsEntity.aggregate(Pipelines.buildings.getExcelData(buildingId, month, year));
+	if (!currentBuilding || !currentBuilding.rooms) throw new NotFoundError('Id tòa nhà không tồn tại');
+	return currentBuilding;
+};
+
 module.exports = {
 	getAllByManagementId,
 	getAllBills,
@@ -217,4 +223,5 @@ module.exports = {
 	getOwnerInfo,
 	importPaymentInfo,
 	getAllInvoicesInPeriod,
+	getExcelData,
 };

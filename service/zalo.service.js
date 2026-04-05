@@ -3,6 +3,7 @@ const qs = require('qs');
 const Entity = require('../models');
 const AppError = require('../AppError');
 const crypto = require('crypto');
+const { Urls } = require('../constants/Zalo');
 
 const ZALO_CHALLENGE_CODE = process.env.ZALO_CHALLENGE_CODE;
 const ZALO_VERIFY_CODE = process.env.ZALO_VERIFY_CODE;
@@ -127,5 +128,29 @@ exports.sendZNSInvoice = async (accessToken, reqData, next) => {
 		};
 	} catch (error) {
 		next(error);
+	}
+};
+
+exports.refreshAccessToken = async (refreshToken) => {
+	try {
+		const response = await axios.post(
+			ZALO_OAUTH_URL,
+			qs.stringify({
+				refresh_token: refreshToken,
+				app_id: process.env.ZALO_APP_ID,
+				grant_type: 'refresh_token',
+			}),
+			{
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+					secret_key: process.env.ZALO_SECRET_KEY,
+				},
+			},
+		);
+
+		return response.data;
+	} catch (error) {
+		console.error('Refresh token error:', error?.response?.data || error.message);
+		throw error;
 	}
 };

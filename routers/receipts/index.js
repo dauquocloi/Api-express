@@ -35,7 +35,7 @@ router.post(
 	'/',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.createReceipt, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['buildings'], null, RESOURCE_VS['BODY']),
+	checkResourceAccess(RESOURCES['rooms'], null, RESOURCE_VS['BODY']),
 	checkIdempotency,
 	Receipts.createReceipt,
 );

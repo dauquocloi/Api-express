@@ -1,9 +1,14 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { providers } = require('../constants/OA');
 
 const OATokenSchema = new Schema(
 	{
-		provider: { type: String, default: 'zalo' }, //sepay, zalo, gg, gmail
+		provider: {
+			type: String,
+			default: providers['ZALO'],
+			enum: Object.values(providers),
+		},
 		oaId: String,
 		accessToken: String,
 		refreshToken: String,

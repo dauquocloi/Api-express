@@ -116,6 +116,23 @@ class FileResponse extends ApiResponse {
 	}
 }
 
+class XlsxResponse extends ApiResponse {
+	constructor(workbook, fileName = 'report.xlsx') {
+		super(errorCodes.success, 'Success', responseStatus.SUCCESS);
+		this.workbook = workbook;
+		this.fileName = fileName;
+	}
+
+	async send(res) {
+		res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+		res.setHeader('Content-Disposition', `attachment; filename="${this.fileName}"`);
+
+		await this.workbook.xlsx.write(res);
+		res.end();
+	}
+}
+
 module.exports = {
 	AccessTokenErrorResponse,
 	AuthFailureResponse,
@@ -131,4 +148,5 @@ module.exports = {
 	ToManyRequestResponse,
 	ProcessingResponse,
 	FileResponse,
+	XlsxResponse,
 };

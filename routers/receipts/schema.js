@@ -12,7 +12,6 @@ module.exports = {
 	}),
 	createReceipt: Joi.object().keys({
 		roomId: JoiObjectId().required(),
-		buildingId: JoiObjectId().required(),
 		receiptAmount: Joi.number().required(),
 		receiptContent: Joi.string().required(),
 		date: Joi.date().optional(),

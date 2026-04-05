@@ -34,12 +34,12 @@ router.use(
 		const keystore = await KeystoreRepo.find(req.user, accessTokenPayload.prm, refreshTokenPayload.prm);
 		if (!keystore) throw new AuthFailureError('Invalid access token');
 
-		// await KeystoreRepo.remove(keystore._id);
+		await KeystoreRepo.remove(keystore._id);
 
 		const accessTokenKey = crypto.randomBytes(64).toString('hex');
 		const refreshTokenKey = crypto.randomBytes(64).toString('hex');
 
-		// await KeystoreRepo.create(req.user, accessTokenKey, refreshTokenKey);
+		await KeystoreRepo.create(req.user, accessTokenKey, refreshTokenKey);
 		const tokens = await createTokens(req.user, accessTokenKey, refreshTokenKey);
 
 		new TokenRefreshResponse('Token Issued', tokens.accessToken, tokens.refreshToken).send(res);

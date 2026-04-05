@@ -52,6 +52,7 @@ exports.removeInterior = async (interiorId) => {
 	}
 };
 
+//NOT USED
 exports.generateDepositReceiptAndFirstInvoice = async (roomId, buildingId, createrId, depositAmount, payer, stayDays, feeIndexValues) => {
 	let session;
 	try {

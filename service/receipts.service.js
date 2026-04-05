@@ -53,6 +53,7 @@ exports.createReceipt = async (
 		initialStatus,
 		date,
 		contract = null,
+		creater,
 	},
 	session,
 ) => {
@@ -78,6 +79,7 @@ exports.createReceipt = async (
 				paymentContent,
 				date: date ?? new Date(),
 				contract,
+				creater,
 			},
 		],
 		{ session },

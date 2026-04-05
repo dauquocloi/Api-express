@@ -11,13 +11,13 @@ exports.createTask = asyncHandler(async (req, res) => {
 
 exports.getTasks = asyncHandler(async (req, res) => {
 	console.log('log of data from getTasks: ', req.query);
-	const result = await UseCase.getTasks(
-		req.user._id,
-		Number(req?.query?.page) || 1,
-		req.query?.data?.search ?? null,
-		req.query?.data?.startDate ?? null,
-		req.query?.data?.endDate ?? null,
-	);
+	const startDate = new Date(req.query.startDate);
+	const validStartDate = isNaN(startDate.getTime()) ? null : startDate;
+
+	const endDate = new Date(req.query.endDate);
+	const validEndDate = isNaN(endDate.getTime()) ? null : endDate;
+
+	const result = await UseCase.getTasks(req.user._id, Number(req?.query?.page) || 1, req.query.search ?? null, validStartDate, validEndDate);
 	return new SuccessResponse('Success', result).send(res);
 });
 
@@ -33,9 +33,9 @@ exports.modifyTask = asyncHandler(async (req, res) => {
 	const taskImages = req.files;
 	let data = { ...req.body, ...req.user, ...req.params, taskImages };
 	console.log('log of data from modifyTask: ', data);
-	await UseCase.modifyTask(data);
+	const result = await UseCase.modifyTask(data);
 	// return new SuccessMsgResponse('Success').send(res);
-	return new SuccessMsgResponse('Success').send(res);
+	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.deleteTask = asyncHandler(async (req, res, next) => {

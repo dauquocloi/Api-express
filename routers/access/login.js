@@ -27,9 +27,9 @@ router.post(
 		const refreshTokenKey = crypto.randomBytes(64).toString('hex');
 
 		const keyStore = await Services.keyStores.create(user._id, accessTokenKey, refreshTokenKey);
+		console.log('log of keyStore from login: ', keyStore);
 		const tokens = await createTokens(user._id, accessTokenKey, refreshTokenKey);
 
-		console.log('user from login: ', user);
 		return new SuccessResponse('Login Success', {
 			user: {
 				_id: user._id,

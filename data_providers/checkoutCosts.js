@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const Services = require('../service');
 const { NotFoundError, ConflictError, BadRequestError } = require('../AppError');
 const { formatDebts } = require('../service/debts.helper');
-const { version } = require('pdfkit');
 const { generateInvoiceFees } = require('../service/invoices.helper');
 const { calculateTotalFeeAmount, calculateTotalFeesOther } = require('../utils/calculateFeeTotal');
 const { feeUnit } = require('../constants/fees');

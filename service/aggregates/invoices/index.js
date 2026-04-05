@@ -151,6 +151,12 @@ const getInvoicesSendingStatus = (buildingId, currentMonth, currentYear) => {
 							},
 						},
 					},
+					// {
+					// 	$sort: { createdAt: 1 },
+					// },
+					// {
+					// 	$limit: 1,
+					// },
 				],
 				as: 'invoiceRecent',
 			},
@@ -158,122 +164,27 @@ const getInvoicesSendingStatus = (buildingId, currentMonth, currentYear) => {
 		{
 			$addFields: {
 				invoiceStatus: {
-					$switch: {
-						branches: [
-							// nếu mảng invoiceRecent rỗng => chưa có hóa đơn
-							{
-								case: {
-									$eq: [
-										{
-											$size: '$invoiceRecent',
-										},
-										0,
-									],
-								},
-								then: false,
-							},
-							{
-								case: {
-									$allElementsTrue: {
-										$map: {
-											input: '$invoiceRecent',
-											as: 'inv',
-											in: {
-												$ne: ['$$inv.invoiceType', 'firstInvoice'],
-											},
-										},
+					$cond: {
+						if: { $eq: [{ $size: '$invoiceRecent' }, 0] },
+						then: false,
+						else: {
+							$anyElementTrue: {
+								$map: {
+									input: '$invoiceRecent',
+									as: 'inv',
+									in: {
+										$or: [
+											// 1. Không phải là firstInvoice thì coi như true
+											{ $ne: ['$$inv.invoiceType', 'firstInvoice'] },
+											// 2. Là firstInvoice nhưng cùng tháng hiện tại
+											{ $eq: [{ $month: '$$inv.createdAt' }, { $month: new Date() }] },
+											// 3. Là firstInvoice, khác tháng nhưng ở trên 30 ngày
+											{ $gte: ['$$inv.stayDays', 30] },
+										],
 									},
 								},
-								then: true,
 							},
-							{
-								case: {
-									$gt: [
-										{
-											$size: '$invoiceRecent',
-										},
-										1,
-									],
-								},
-								then: true,
-							},
-							// 2️ createdAt không thuộc tháng hiện tại và stayDays < 30 => false
-							{
-								case: {
-									$anyElementTrue: {
-										$map: {
-											input: '$invoiceRecent',
-											as: 'inv',
-											in: {
-												$switch: {
-													branches: [
-														//type === firstInvoice createdAt không cùng tháng & stayDays < 30
-														{
-															case: {
-																$and: [
-																	{
-																		$eq: ['$$inv.invoiceType', 'firstInvoice'],
-																	},
-																	{
-																		$ne: [
-																			{
-																				$month: '$$inv.createdAt',
-																			},
-																			'$month',
-																		],
-																	},
-																	{
-																		$lt: ['$$inv.stayDays', 30],
-																	},
-																],
-															},
-															then: false,
-														},
-														//type=firstInvoice & createdAt không cùng tháng & stayDays >= 30
-														{
-															case: {
-																$and: [
-																	{
-																		$eq: ['$$inv.invoiceType', 'firstInvoice'],
-																	},
-																	{
-																		$ne: [
-																			{
-																				$month: '$$inv.createdAt',
-																			},
-																			'$month',
-																		],
-																	},
-																	{
-																		$gte: ['$$inv.stayDays', 30],
-																	},
-																],
-															},
-															then: true,
-														},
-														// createdAt cùng tháng
-														{
-															case: {
-																$eq: [
-																	{
-																		$month: '$$inv.createdAt',
-																	},
-																	'$month',
-																],
-															},
-															then: true,
-														},
-													],
-													default: false,
-												},
-											},
-										},
-									},
-								},
-								then: true,
-							},
-						],
-						default: false,
+						},
 					},
 				},
 			},
@@ -285,41 +196,12 @@ const getInvoicesSendingStatus = (buildingId, currentMonth, currentYear) => {
 						{
 							$eq: ['$invoiceStatus', true],
 						},
+						// Nếu status là true
 						{
-							$let: {
-								vars: {
-									filtered: {
-										$filter: {
-											input: '$invoiceRecent',
-											as: 'inv',
-											cond: {
-												$ne: ['$$inv.invoiceType', 'firstInvoice'],
-											},
-										},
-									},
-								},
-								in: {
-									$cond: [
-										{
-											$gt: [
-												{
-													$size: '$$filtered',
-												},
-												0,
-											],
-										},
-										{
-											$first: '$$filtered._id',
-										},
-										// nếu có invoice != firstInvoice
-										{
-											$first: '$invoiceRecent._id',
-										}, // nếu tất cả là firstInvoice
-									],
-								},
-							},
+							$first: '$invoiceRecent._id',
 						},
-						null, // nếu invoiceStatus = false => không có invoiceId
+						// Lấy ID của phần tử đầu tiên trong mảng
+						null, // Nếu status là false
 					],
 				},
 			},

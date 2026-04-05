@@ -16,7 +16,9 @@ const { feeUnit } = require('../constants/fees');
 const { invoiceStatus } = require('../constants/invoices');
 const redis = require('../config/redisClient');
 const { NotiManagerCollectCashInvoiceJob } = require('../jobs/Notifications');
+const { ZNSNewInvoiceNotiJob } = require('../jobs/ZNSJob');
 const Roles = require('../constants/userRoles');
+const { billType } = require('../constants/bills');
 
 exports.getInvoicesPaymentStatus = async (buildingId, month, year) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -280,7 +282,7 @@ exports.collectCashMoney = async (invoiceId, buildingId, date, amount, collector
 
 		await new NotiManagerCollectCashInvoiceJob().enqueue({
 			collectorId: collectorObjectId,
-			invoiceId: invoiceObjectId,
+			invoiceId: invoiceId.toString(),
 			amount: amount,
 		});
 
@@ -343,7 +345,7 @@ exports.checkout = async (invoiceId, buildingId, date, amount, collectorInfo, ve
 			if (collectorInfo.role !== Roles['OWNER']) {
 				await new NotiManagerCollectCashInvoiceJob().enqueue({
 					collectorId: collectorObjectId,
-					invoiceId: invoiceObjectId,
+					invoiceId: invoiceId.toString(),
 					amount: amount,
 				});
 			}
@@ -484,6 +486,8 @@ exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, cre
 			await Services.fees.updateFeeIndexHistoryMany({ payloads: updateFeeIndexHistoryPayload, editorId: createrId }, session);
 			await Services.rooms.unLockedRoom(roomId, session);
 			await Services.rooms.bumpRoomVersion(roomId, roomVersion, session);
+
+			await new ZNSNewInvoiceNotiJob().enqueue({ billId: createdInvoice._id, type: billType.INVOICE });
 
 			result = createdInvoice;
 			return 'Success';

@@ -55,7 +55,7 @@ const checkContracts = async () => {
 			await new NotiContractNearExpiJob().enqueue({
 				buildingId: contract.room.building,
 				roomIndex: contract.room.roomIndex,
-				roomId: contract.room._id,
+				roomId: contract.room._id.toString(),
 				contractEndDate: contract.contractEndDate,
 			});
 		}
@@ -65,6 +65,6 @@ const checkContracts = async () => {
 	}
 };
 
-checkContracts(); //test
+// checkContracts(); //test
 
 cron.schedule('0 0 * * *', checkContracts);

@@ -1,5 +1,7 @@
+const dayjs = require('dayjs');
+
 const getTasks = (userObjectId, page, daysPerPage, search, startDate, endDate) => {
-	console.log('log of getTasks: ', daysPerPage, page);
+	console.log('log of getTasks: ', daysPerPage, page, search);
 	const pipeline = [];
 
 	const userIdStr = userObjectId.toString();
@@ -29,13 +31,13 @@ const getTasks = (userObjectId, page, daysPerPage, search, startDate, endDate) =
 		};
 
 		// filter theo ngày (nếu có)
-		if (startDate || endDate) {
+		if (dayjs(startDate).isValid() || dayjs(endDate).isValid()) {
 			compound.filter = [
 				{
 					range: {
 						path: 'executionDate',
-						...(startDate && { gte: new Date(startDate) }),
-						...(endDate && { lte: new Date(endDate) }),
+						...(startDate && { gte: dayjs(startDate).startOf('day').toDate() }),
+						...(endDate && { lte: dayjs(endDate).endOf('day').toDate() }),
 					},
 				},
 			];
@@ -101,7 +103,7 @@ const getTasks = (userObjectId, page, daysPerPage, search, startDate, endDate) =
 				from: 'users',
 				localField: 'performers',
 				foreignField: '_id',
-				pipeline: [{ $project: { _id: 1, fullName: 1, avatar: 1 } }],
+				pipeline: [{ $project: { _id: 1, fullName: 1, avatar: 1, gender: 1 } }],
 				as: 'performers',
 			},
 		},

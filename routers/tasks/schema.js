@@ -7,13 +7,10 @@ module.exports = {
 	}),
 	getTasks: Joi.object().keys({
 		page: Joi.string().optional(),
-		data: Joi.object()
-			.keys({
-				search: Joi.string().allow('').optional(),
-				startDate: Joi.date().optional(),
-				endDate: Joi.date().optional(),
-			})
-			.optional(),
+
+		search: Joi.string().allow('').optional(),
+		startDate: Joi.date().allow(null, '').optional(),
+		endDate: Joi.date().allow(null, '').optional(),
 	}),
 	createTask: Joi.object().keys({
 		taskContent: Joi.string().required(),
@@ -22,9 +19,9 @@ module.exports = {
 		executionDate: Joi.date().required(),
 	}),
 	modifyTask: Joi.object().keys({
-		taskContent: Joi.string().required(),
+		taskContent: Joi.string().allow('').required(),
 		performers: Joi.array().items(JoiObjectId()).required(),
-		detail: Joi.string().required(),
+		detail: Joi.string().allow('').required(),
 		executionDate: Joi.date().required(),
 		status: Joi.string().valid('pending', 'completed').required(),
 	}),

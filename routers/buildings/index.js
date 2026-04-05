@@ -105,6 +105,15 @@ router.post(
 	Buildings.financeSettlement,
 );
 
+router.get(
+	'/:buildingId/report',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	// validator(schema.id, ValidateSource.PARAM),
+	// validator(schema.excelData, ValidateSource.QUERY),
+	checkResourceAccess(RESOURCES['buildings']),
+	Buildings.getBuildingReportXlsx,
+);
+
 // VERY IMPORTANT API !!!
 
 module.exports = router;

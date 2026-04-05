@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const feeKeys = require('../utils/getListFeeInital').map((fee) => fee.feeKey);
 
 const FeeIndexHistorySchema = new Schema(
 	{
@@ -11,6 +12,7 @@ const FeeIndexHistorySchema = new Schema(
 		feeKey: {
 			type: String,
 			required: true,
+			enum: feeKeys,
 		},
 		fee: {
 			type: Schema.Types.ObjectId,

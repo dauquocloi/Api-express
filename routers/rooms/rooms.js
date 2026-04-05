@@ -5,7 +5,12 @@ const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse
 exports.getRoom = asyncHandler(async (req, res) => {
 	let data = req.params;
 	console.log('log of data from getRoom: ', data);
-	// await new Promise((resolve) => setTimeout(resolve, 5000));
+	// await new Promise((resolve, reject) => {
+	// 	setTimeout(() => {
+	// 		// Thay vì throw, ta dùng reject
+	// 		reject(new Error('Lỗi sau 5 giây!'));
+	// 	}, 5000);
+	// });
 
 	const roomInfo = await UseCase.getRoom(data.roomId);
 	return new SuccessResponse('Success', roomInfo).send(res);

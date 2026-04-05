@@ -34,7 +34,7 @@ const VehiclesSchema = new Schema(
 			type: String,
 			enum: Object.values(vehicleStatus),
 			required: true,
-			default: 'active',
+			default: vehicleStatus.ACTIVE,
 		},
 		contract: {
 			type: Schema.Types.ObjectId,

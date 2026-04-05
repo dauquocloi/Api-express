@@ -5,7 +5,7 @@ const { generateInvoiceFees } = require('./invoices.helper');
 const { calculateTotalFeeAmount } = require('../utils/calculateFeeTotal');
 const generatePaymentContent = require('../utils/generatePaymentContent');
 const Pipelines = require('./aggregates');
-const { invoiceStatus } = require('../constants/invoices');
+const { invoiceStatus, invoiceType: TYPES } = require('../constants/invoices');
 
 exports.findByIdQuery = async (invoiceId, session) => {
 	const query = Entity.InvoicesEntity.findById(invoiceId);
@@ -61,6 +61,7 @@ exports.createInvoice = async (
 		payerName,
 		creater,
 		initialStatus = invoiceStatus['UNPAID'],
+		invoiceType = TYPES['RENTAL'],
 	},
 
 	session,
@@ -88,7 +89,7 @@ exports.createInvoice = async (
 				payer: payerName,
 				creater: creater,
 				locked: false,
-				invoiceType: 'rental',
+				invoiceType,
 			},
 		],
 		{ session },

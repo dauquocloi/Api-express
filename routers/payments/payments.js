@@ -3,6 +3,7 @@ const { SuccessMsgResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
 const { getTransactionManager } = require('../../instance');
 const { TRANS_STATUS } = require('../../constants/transactions');
+const { SepayError } = require('../../infrastructure/Sepay/SepayError');
 
 exports.collectCashFromEmployee = (req, res, next) => {
 	try {
@@ -51,9 +52,17 @@ exports.testSocket = asyncHandler(async (req, res) => {
 	return new SuccessMsgResponse('Success').send(res);
 });
 
-exports.weebhookPayment = asyncHandler(async (req, res) => {
-	const sepayData = req.body;
-	console.log('log of weebhookPayment', sepayData);
-	await UseCase.weebhookPayment(sepayData);
-	return res.status(200).send({ success: true, errorCode: 0, message: 'succesfull' });
-});
+exports.webhookPayment = async (req, res) => {
+	try {
+		const sepayData = req.body;
+		console.log('log of weebhookPayment', sepayData);
+		await UseCase.webhookPayment(sepayData);
+		return res.status(200).send({ success: true, errorCode: 0, message: 'succesfull' });
+	} catch (error) {
+		console.error('Error in weebhookPayment: ', error);
+		if (error instanceof SepayError) {
+			SepayError.handle(error, { tags: { route: 'weebhookPayment' } });
+		}
+		res.status(200).send({ success: true, errorCode: 0, message: 'succesfull' });
+	}
+};
