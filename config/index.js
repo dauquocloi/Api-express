@@ -40,7 +40,10 @@ switch (configType) {
 			accessTokenValidity: process.env.ACCESS_TOKEN_VALIDITY_SEC,
 			refreshTokenValidity: process.env.REFRESH_TOKEN_VALIDITY_SEC,
 		};
-		exports.redis = redis;
+		exports.redisDb = {
+			url: process.env.REDIS_URL,
+			client: redis,
+		};
 		exports.cloudinary = cloudinary;
 		break;
 }

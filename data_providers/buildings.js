@@ -263,7 +263,7 @@ exports.getBuildingReportXlsx = async (buildingId, month, year) => {
 	// 2. Add row (1 room = 1 row)
 	const rows = generateRowExcelData(data);
 
-	// 3. Add + format (🔥 quan trọng)
+	// 3. Add + format
 	rows.forEach((rowData) => {
 		const row = worksheet.addRow(rowData);
 		formatExcel(row, schema, rowData);
@@ -272,8 +272,5 @@ exports.getBuildingReportXlsx = async (buildingId, month, year) => {
 	// 4. Style
 	styleExcel(worksheet, schema);
 
-	// 💰 Format tiền
-
-	// 💾 Save file
 	return workbook;
 };

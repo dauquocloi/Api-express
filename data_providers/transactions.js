@@ -4,7 +4,7 @@ const { CREATED_BY, OWNER_CONFIRMED_STATUS } = require('../constants/transaction
 const { BadRequestError, NoDataError, NotFoundError } = require('../AppError');
 const { getInvoiceStatus } = require('../service/invoices.helper');
 const { NotiTransactionDeclinedJob } = require('../jobs/Notifications');
-const redis = require('../config/redisClient');
+const { client: redis } = require('../config').redisDb;
 
 exports.confirmTransaction = async (transactionId, redisKey) => {
 	const currentTransaction = await Services.transactions.findById(transactionId).populate('invoice receipt').lean().exec();

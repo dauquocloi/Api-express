@@ -108,8 +108,8 @@ router.post(
 router.get(
 	'/:buildingId/report',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
-	// validator(schema.id, ValidateSource.PARAM),
-	// validator(schema.excelData, ValidateSource.QUERY),
+	validator(schema.id, ValidateSource.PARAM),
+	validator(schema.exportReport, ValidateSource.QUERY),
 	checkResourceAccess(RESOURCES['buildings']),
 	Buildings.getBuildingReportXlsx,
 );

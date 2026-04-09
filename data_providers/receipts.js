@@ -5,7 +5,7 @@ const generatePaymentContent = require('../utils/generatePaymentContent');
 const { AppError, NotFoundError, InternalError, BadRequestError, InvalidInputError, ConflictError } = require('../AppError');
 const { errorCodes } = require('../constants/errorCodes');
 const getContractOwnerByRoomId = require('./customers').getContractOwnerByRoomId;
-const redis = require('../config/redisClient');
+const { client: redis } = require('../config').redisDb;
 const { receiptTypes, receiptStatus } = require('../constants/receipt');
 
 const { calculateReceiptStatusAfterModified } = require('../service/receipts.helper');
@@ -35,7 +35,7 @@ exports.getListReceiptPaymentStatus = async (buildingId, month, year) => {
 	return { period: { month, year }, listReceiptPaymentStatus: receipt?.receipts ?? [] };
 };
 
-exports.createDepositReceipt = async (roomId, buildingId, receipAmount, payerName, redisKey) => {
+exports.createDepositReceipt = async (roomId, buildingId, receipAmount, payerName, redisKey, userId) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
 	const currentPeriod = await getCurrentPeriod(buildingObjectId);
@@ -53,6 +53,7 @@ exports.createDepositReceipt = async (roomId, buildingId, receipAmount, payerNam
 		receiptContent: `Tiền cọc phòng ${roomInfo.roomIndex}`,
 		receiptType: receiptTypes['DEPOSIT'],
 		status: receiptStatus['PENDING'],
+		creater: userId,
 	};
 	const depositReceiptCreated = await Services.receipts.createReceipt(newReceipt, null);
 
@@ -471,7 +472,7 @@ exports.modifyReceipt = async (receiptId, newReceiptAmount, receiptContent, user
 	}
 };
 
-exports.createDebtsReceipt = async (data, redisKey) => {
+exports.createDebtsReceipt = async (data, redisKey, userId) => {
 	let session;
 	try {
 		const roomObjectId = new mongoose.Types.ObjectId(data.roomId);
@@ -513,6 +514,7 @@ exports.createDebtsReceipt = async (data, redisKey) => {
 			initialStatus: receiptStatus['UNPAID'],
 			date: data.date,
 			contract: contract._id,
+			creater: userId,
 		});
 		console.log('log of debtReceipt from createDebtsReceipt: ', debtReceipt);
 

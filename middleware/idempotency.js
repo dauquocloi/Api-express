@@ -1,4 +1,4 @@
-const redis = require('../config').redis;
+const { client } = require('../config').redisDb;
 const { BadRequestError } = require('../AppError');
 const { ProcessingResponse, SuccessResponse } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
@@ -13,10 +13,10 @@ exports.checkIdempotency = asyncHandler(async (req, res, next) => {
 
 	const redisKey = `idem:${idempotencyKey}`;
 
-	const isSet = await redis.set(redisKey, 'PROCESSING', 'EX', process.env.REDIS_EXP_SEC, 'NX');
+	const isSet = await client.set(redisKey, 'PROCESSING', 'EX', process.env.REDIS_EXP_SEC, 'NX');
 
 	if (!isSet) {
-		const existing = await redis.get(redisKey);
+		const existing = await client.get(redisKey);
 		console.log('Log of existing from idem middleware: ', existing);
 
 		if (existing === 'PROCESSING') {

@@ -5,7 +5,11 @@ const getNotifications = (receiverObjectId, pages, limit) => {
 		{
 			$addFields: {
 				date: {
-					$dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
+					$dateToString: {
+						format: '%Y-%m-%d',
+						date: '$createdAt',
+						timezone: '+07:00',
+					},
 				},
 			},
 		},

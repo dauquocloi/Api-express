@@ -17,7 +17,7 @@ exports.getNotifications = async (receiverObjectId, pages, limit) => {
 exports.createTaskNotification = async ({ taskTitle, receiverIds, performersName, taskId }) => {
 	const taskDoneDataFormat = {
 		taskTitle,
-		performersName: performersName?.map((performer) => getLastName(performer.fullName)).join(', '),
+		performersName: performersName,
 	};
 	const createNotiForm = NotiForm('task', taskDoneDataFormat);
 	const createNoti = await Entity.NotisEntity.create({

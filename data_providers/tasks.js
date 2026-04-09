@@ -3,7 +3,8 @@ const Entity = require('../models');
 const uploadFile = require('../utils/uploadFile');
 const { errorCodes } = require('../constants/errorCodes');
 const Services = require('../service');
-const { NotiTaskCompletedJob } = require('../jobs/Notifications');
+// const { NotiTaskCompletedJob } = require('../jobs/Notifications');
+const { notiTaskCompletedJob } = require('../jobs/notification/notification.job');
 const { BadRequestError } = require('../AppError');
 const ROLES = require('../constants/userRoles');
 const dayjs = require('dayjs');
@@ -130,7 +131,7 @@ exports.modifyTask = async (data) => {
 
 	// Enqueue notification if task completed
 	if (data.status === 'completed') {
-		await new NotiTaskCompletedJob().enqueue({
+		await notiTaskCompletedJob({
 			managementIds: taskModified.managements.map((m) => m._id),
 			performerIds: data.performers,
 			taskTitle: taskModified.taskContent,

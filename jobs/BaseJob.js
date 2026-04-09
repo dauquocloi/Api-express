@@ -1,6 +1,6 @@
 // jobs/BaseJob.js
 const Queue = require('bull');
-const redis = require('../config/redisClient');
+const redis = require('../config').redis;
 
 class BaseJob {
 	constructor(queueName) {

@@ -66,7 +66,7 @@ exports.setBuildingPermission = asyncHandler(async (req, res) => {
 exports.getStatisticGeneral = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.query };
 	console.log('log of getStatisticGeneral', data);
-	await new Promise((resolve, reject) => setTimeout(() => reject(new Error('Lỗi lấy thống kê !')), 5000)); // Giả lập delay 5 giây
+	// await new Promise((resolve, reject) => setTimeout(() => reject(new Error('Lỗi lấy thống kê !')), 5000)); // Giả lập delay 5 giây
 	const result = await UseCase.getStatisticGeneral(data.buildingId, data.year);
 	return new SuccessResponse('Success', result).send(res);
 });

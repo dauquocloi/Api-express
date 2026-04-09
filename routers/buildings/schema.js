@@ -19,4 +19,8 @@ module.exports = {
 	getStatisticGeneral: Joi.object().keys({
 		year: Joi.number().optional(),
 	}),
+	exportReport: Joi.object().keys({
+		month: Joi.string().required(),
+		year: Joi.string().required(),
+	}),
 };

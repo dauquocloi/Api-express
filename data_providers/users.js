@@ -3,7 +3,7 @@ var Entity = require('../models');
 const bcrypt = require('bcrypt');
 const { NotFoundError, BadRequestError } = require('../AppError');
 const Services = require('../service');
-const redis = require('../config/redisClient');
+const { client: redis } = require('../config').redisDb;
 
 exports.getAll = async () => {
 	return await Services.users.getAllUsers();

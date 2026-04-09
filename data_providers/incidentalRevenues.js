@@ -4,7 +4,7 @@ var Entity = require('../models');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const formatFee = require('../utils/formatFee');
 const { NotFoundError } = require('../AppError');
-const redis = require('../config/redisClient');
+const { client: redis } = require('../config').redisDb;
 
 exports.createIncidentalRevenue = async (amount, content, collector, date, buildingId, redisKey) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);

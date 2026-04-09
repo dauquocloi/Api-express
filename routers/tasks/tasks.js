@@ -29,12 +29,10 @@ exports.getTaskDetail = asyncHandler(async (req, res) => {
 });
 
 exports.modifyTask = asyncHandler(async (req, res) => {
-	console.log('req: ', req.files);
 	const taskImages = req.files;
-	let data = { ...req.body, ...req.user, ...req.params, taskImages };
+	let data = { ...req.body, ...req.params, taskImages };
 	console.log('log of data from modifyTask: ', data);
 	const result = await UseCase.modifyTask(data);
-	// return new SuccessMsgResponse('Success').send(res);
 	return new SuccessResponse('Success', result).send(res);
 });
 

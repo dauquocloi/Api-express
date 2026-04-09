@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Entity = require('../models');
 const { NotFoundError, BadRequestError } = require('../AppError');
 const Services = require('../service');
-const redis = require('../config/redisClient');
+const { client: redis } = require('../config').redisDb;
 const { generateCT01Html, htmlToPdf } = require('../utils/html2pdf');
 const dayjs = require('dayjs');
 

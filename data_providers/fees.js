@@ -3,7 +3,7 @@ const Entity = require('../models');
 const listFeeInitial = require('../utils/getListFeeInital');
 const { feeUnit } = require('../constants/fees');
 const Services = require('../service');
-const redis = require('../config/redisClient');
+const { client: redis } = require('../config').redisDb;
 const { NotFoundError, InternalError, InvalidInputError, ConflictError, BadRequestError } = require('../AppError');
 
 exports.addFee = async (roomId, feeKey, feeAmount, lastIndex, redisKey, userId) => {

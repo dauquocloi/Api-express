@@ -12,7 +12,7 @@ const { debtStatus } = require('../constants/debts');
 const { feeUnit } = require('../constants/fees');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
 const { sourceType } = require('../constants/debts');
-const redis = require('../config/redisClient');
+const { client: redis } = require('../config').redisDb;
 
 exports.getRoom = async (roomId) => {
 	const roomObjectId = new mongoose.Types.ObjectId(roomId);

@@ -3,7 +3,7 @@ const uploadFile = require('../utils/uploadFile');
 const getFileUrl = require('../utils/getFileUrl');
 const Services = require('../service');
 const { NotFoundError, BadRequestError } = require('../AppError');
-const redis = require('../config/redisClient');
+const { client: redis } = require('../config').redisDb;
 const { vehicleStatus } = require('../constants/vehicle');
 const { isValidImage } = require('../utils/checkIsValidImage');
 

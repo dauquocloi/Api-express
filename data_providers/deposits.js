@@ -6,7 +6,7 @@ const { NotFoundError, BadRequestError } = require('../AppError');
 const Pipelines = require('../service/aggregates');
 const Services = require('../service');
 const { depositStatus } = require('../constants/deposits');
-const redis = require('../config/redisClient');
+const { client: redis } = require('../config').redisDb;
 const { feeUnit } = require('../constants/fees');
 
 exports.getDeposits = async (buildingId) => {

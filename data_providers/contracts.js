@@ -12,7 +12,7 @@ const { feeUnit } = require('../constants/fees');
 const formatInitialFees = require('../utils/formatInitialFees');
 const { invoiceStatus, invoiceType } = require('../constants/invoices');
 const getFieldUrl = require('../utils/getFileUrl');
-const redis = require('../config/redisClient');
+const { client: redis } = require('../config').redisDb;
 const withSignedUrls = require('../utils/withSignedUrls');
 
 exports.prepareGenerateContract = async (
