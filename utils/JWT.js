@@ -23,11 +23,15 @@ class JwtPayload {
 }
 
 async function readPublicKey() {
-	return promisify(readFile)(path.join(__dirname, '../Keys/public.pem'), 'utf8');
+	// return promisify(readFile)(path.join(__dirname, '../Keys/public.pem'), 'utf8');
+
+	return process.env.PUBLIC_KEY.replace(/\\n/g, '\n');
 }
 
 async function readPrivateKey() {
-	return promisify(readFile)(path.join(__dirname, '../Keys/private.pem'), 'utf8');
+	// return promisify(readFile)(path.join(__dirname, '../Keys/private.pem'), 'utf8');
+
+	return process.env.PRIVATE_KEY.replace(/\\n/g, '\n');
 }
 
 async function encode(payload) {
