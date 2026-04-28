@@ -40,3 +40,10 @@ exports.Connect = function (dbName) {
 			});
 	});
 };
+
+exports.Disconnect = function () {
+	if (db) {
+		console.log('Close database [' + db.name + ']');
+		db.close();
+	}
+};

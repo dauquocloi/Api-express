@@ -8,13 +8,13 @@ const { calculateReceiptStatusAfterModified } = require('../service/receipts.hel
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const { invoiceStatus } = require('../constants/invoices');
 const ROLES = require('../constants/userRoles');
-const { NotiPaymentJob } = require('../jobs/Notifications');
 const { getTransactionManager } = require('../instance');
 const { TRANS_STATUS } = require('../constants/transactions');
 const { billType: BILL_TYPE } = require('../constants/bills');
 const { checkoutCostStatus: CHECKOUT_COST_STATUS, receiptToCheckoutCostStatusMap } = require('../constants/checkoutCosts');
 const { receiptToDepositRefundStatusMap } = require('../constants/deposits');
 const { SepayError, sepayErrorTypes } = require('../infrastructure/Sepay/SepayError');
+const { notiPaymentJob } = require('../jobs/notification/notification.job');
 
 exports.handleSepayIPN = (data) => {
 	let session;
@@ -32,7 +32,8 @@ exports.collectCashFromEmployee = async (data, cb, next) => {
 		const transactionObjectId = new mongoose.Types.ObjectId(data.transactionId);
 		const ownerObjectId = new mongoose.Types.ObjectId(data.userId);
 
-		const transaction = await Entity.TransactionsEntity.findOne({ _id: transactionObjectId });
+		// const transaction = await Entity.TransactionsEntity.findOne({ _id: transactionObjectId });
+		const transaction = await Services.transactions.findById(transactionObjectId);
 		if (!transaction) {
 			throw new AppError(errorCodes.notExist, `Giao dịch không tồn tại!`, 200);
 		}
@@ -162,7 +163,7 @@ exports.webhookPayment = async (sepayData) => {
 					},
 				});
 
-				await new NotiPaymentJob().enqueue({
+				await notiPaymentJob({
 					managementIds: listManagementIds,
 					amount: sepayData.transferAmount,
 					paymentContent: sepayData.content.trim(),
@@ -251,7 +252,7 @@ exports.webhookPayment = async (sepayData) => {
 						if (m.role === ROLES['OWNER'] || m.role === ROLES['MANAGER']) return m.user;
 					})
 					.filter(Boolean);
-				await new NotiPaymentJob().enqueue({
+				await notiPaymentJob({
 					managementIds: listManagementIds,
 					amount: sepayData.transferAmount,
 					paymentContent: sepayData.content.trim(),

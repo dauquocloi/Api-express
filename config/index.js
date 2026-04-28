@@ -4,7 +4,7 @@
  */
 var configType = 0;
 var cloudinary = require('./cloudinary');
-var redis = require('./redisClient');
+var { client, subscriber, opts } = require('./redisClient');
 require('dotenv').config;
 
 switch (configType) {
@@ -42,7 +42,9 @@ switch (configType) {
 		};
 		exports.redisDb = {
 			url: process.env.REDIS_URL,
-			client: redis,
+			client: client,
+			subscriber: subscriber,
+			opts: opts,
 		};
 		exports.cloudinary = cloudinary;
 		break;

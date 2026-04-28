@@ -1,6 +1,6 @@
 const { NotFoundError, InternalError } = require('../AppError');
 const Entity = require('../models');
-const { withSignedUrls } = require('../utils/withSignedUrls');
+const withSignedUrls = require('../utils/withSignedUrls');
 const generateContractCode = require('../utils/generateContractCode');
 const { contractStatus } = require('../constants/contracts');
 

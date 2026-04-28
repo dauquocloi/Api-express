@@ -24,7 +24,6 @@ class JwtPayload {
 
 async function readPublicKey() {
 	// return promisify(readFile)(path.join(__dirname, '../Keys/public.pem'), 'utf8');
-
 	return process.env.PUBLIC_KEY.replace(/\\n/g, '\n');
 }
 

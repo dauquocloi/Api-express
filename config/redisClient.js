@@ -1,22 +1,45 @@
 // FILE: src/config/redisClient.js
 const Redis = require('ioredis');
 
-const redis = new Redis(process.env.REDIS_URL);
+var REDIS_CONFIG = {
+	host: process.env.REDIS_HOST,
+	port: process.env.REDIS_PORT,
+	user: process.env.REDIS_USER,
+	password: process.env.REDIS_PASSWORD,
+	maxRetriesPerRequest: null, // Since bull v4
+	enableReadyCheck: false, // Since bull v4
+};
+var client = new Redis(REDIS_CONFIG);
+var subscriber = new Redis(REDIS_CONFIG);
 
-redis.on('connect', () => {
+client.on('connect', () => {
 	console.log('✅ Redis connected');
 });
 
-redis.on('ready', () => {
+client.on('ready', () => {
 	console.log('🚀 Redis ready');
 });
 
-redis.on('error', (err) => {
+client.on('error', (err) => {
 	console.error('❌ Redis error:', err);
 });
 
-redis.on('reconnecting', () => {
+client.on('reconnecting', () => {
 	console.log('🔄 Redis reconnecting...');
 });
 
-module.exports = redis;
+const opts = {
+	createClient: function (type) {
+		switch (type) {
+			case 'client':
+				return client;
+			case 'subscriber':
+				return subscriber;
+
+			default:
+				return new Redis(REDIS_CONFIG);
+		}
+	},
+};
+
+module.exports = { client, subscriber, opts };

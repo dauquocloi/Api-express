@@ -9,7 +9,7 @@
 	"scripts": {
 		"test": "jest",
 		"prettyme": "prettier --write \"./**/*.{js,jsx,json}\"",
-		"start": "nodemon server.js"
+		"start": "node server.js"
 	},
 	"keywords": [
 		"fpo",

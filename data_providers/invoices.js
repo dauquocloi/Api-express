@@ -19,6 +19,7 @@ const { NotiManagerCollectCashInvoiceJob } = require('../jobs/Notifications');
 const { ZNSNewInvoiceNotiJob } = require('../jobs/ZNSJob');
 const Roles = require('../constants/userRoles');
 const { billType } = require('../constants/bills');
+const { notiManagerCollectCashInvoiceJob } = require('../jobs/notification/notification.job');
 
 exports.getInvoicesPaymentStatus = async (buildingId, month, year) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -343,7 +344,7 @@ exports.checkout = async (invoiceId, buildingId, date, amount, collectorInfo, ve
 
 			//=========== NOTIFICATION ==========//
 			if (collectorInfo.role !== Roles['OWNER']) {
-				await new NotiManagerCollectCashInvoiceJob().enqueue({
+				await notiManagerCollectCashInvoiceJob({
 					collectorId: collectorObjectId,
 					invoiceId: invoiceId.toString(),
 					amount: amount,

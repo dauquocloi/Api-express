@@ -1,6 +1,8 @@
-const { NotFoundError } = require('../AppError');
+const { default: mongoose } = require('mongoose');
+const { NotFoundError, BadRequestError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
+const dayjs = require('dayjs');
 
 exports.findById = (taskId) => Entity.TasksEntity.findById(taskId);
 
@@ -10,9 +12,14 @@ exports.createTask = async ({ taskContent, performers, detail, managements, exec
 	return newTask;
 };
 
-exports.getTasks = async (userObjectId, page = 1, daysPerPage, search, startDate, endDate) => {
-	const tasks = await Entity.TasksEntity.aggregate(Pipelines.tasks.getTasks(userObjectId, page, daysPerPage, search, startDate, endDate));
+exports.getTasks = async (userObjectId, page = 1, daysPerPage, startDate, endDate) => {
+	const tasks = await Entity.TasksEntity.aggregate(Pipelines.tasks.getTasks(userObjectId, page, daysPerPage, startDate, endDate));
+
 	return tasks;
+};
+
+exports.getTasksCaseQuery = async (userObjectId, page = 1, search, startDate, endDate, scope) => {
+	return await Entity.TasksEntity.aggregate(Pipelines.tasks.getTasksWithQuery(userObjectId, page, search, startDate, endDate, scope));
 };
 
 exports.getTaskById = async (taskObjectId) => {

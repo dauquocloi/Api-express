@@ -4,7 +4,7 @@ const { NotiForm } = require('./NotiForm');
 const mongoose = require('mongoose');
 const Entity = require('../models');
 
-const expo = new Expo();
+const expo = new Expo(); //instance
 
 exports.sendNotification = async (notiType, data) => {
 	console.log('log of data from sendNotification: ', data);

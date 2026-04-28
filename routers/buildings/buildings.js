@@ -1,6 +1,7 @@
 const UseCase = require('../../data_providers/buildings');
 const asyncHandler = require('../../utils/asyncHandler');
 const { SuccessResponse, SuccessMsgResponse, XlsxResponse } = require('../../utils/apiResponse');
+const delay = require('../../utils/delay');
 
 exports.getAll = asyncHandler(async (req, res) => {
 	const data = req.user;
@@ -12,11 +13,6 @@ exports.getAll = asyncHandler(async (req, res) => {
 exports.getRooms = asyncHandler(async (req, res) => {
 	const data = req.params;
 	console.log('This is log of rooms/getall', req.params);
-	// await new Promise((resolve, reject) => {
-	// 	// Thay vì throw, ta dùng reject
-	// 	reject(new Error('Lỗi sau 5 giây!'));
-	// });
-
 	const rooms = await UseCase.getRooms(data);
 	return new SuccessResponse('Success', rooms).send(res);
 });
@@ -31,6 +27,7 @@ exports.getBillCollectionProgress = asyncHandler(async (req, res) => {
 exports.getListSectingRooms = asyncHandler(async (req, res) => {
 	const data = req.params;
 	console.log('log of data from getListSectingRooms: ', data);
+	// await delay(5000, true);
 	const result = await UseCase.getListSelectingRoom(data.buildingId);
 	return new SuccessResponse('Success', result).send(res);
 });

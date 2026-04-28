@@ -1,3 +1,7 @@
+jest.mock('../../revenues.util', () => ({
+	processInvoiceAllocation: jest.fn(),
+}));
+
 const { processInvoiceAllocation } = require('../../revenues.util');
 
 describe('processInvoiceAllocation', () => {
@@ -12,6 +16,7 @@ describe('processInvoiceAllocation', () => {
 		];
 
 		const result = processInvoiceAllocation(invoice, fees);
+		console.log('result: ', result);
 
 		expect(result.totalAmount).toBe(300);
 		expect(result.periodicRevenue).toEqual([

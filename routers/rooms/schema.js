@@ -40,9 +40,9 @@ module.exports = {
 
 		roomVersion: Joi.number().integer().min(1).required(),
 	}),
-	getDebtsAndReceiptUnpaid: Joi.object().keys({
-		buildingId: JoiObjectId().required(),
-	}),
+	// getDebtsAndReceiptUnpaid: Joi.object().keys({
+	// 	buildingId: JoiObjectId().required(),
+	// }),
 	getHistoryDetail: Joi.object().keys({
 		roomHistoryId: JoiObjectId().required(),
 	}),

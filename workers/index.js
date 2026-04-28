@@ -1,3 +1,2 @@
 require('./notifications.worker');
-
-console.log('✅ Worker started');
+require('./contract.worker');

@@ -84,7 +84,7 @@ router.get(
 	'/:roomId/debts-receipts-unpaid',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
-	validator(schema.getDebtsAndReceiptUnpaid, ValidateSource.QUERY),
+	// validator(schema.getDebtsAndReceiptUnpaid, ValidateSource.QUERY),
 	checkResourceAccess(RESOURCES['rooms']),
 	Rooms.getDebtsAndReceiptUnpaid,
 );

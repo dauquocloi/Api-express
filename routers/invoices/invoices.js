@@ -2,6 +2,7 @@ const UseCase = require('../../data_providers/invoices');
 const asyncHandler = require('../../utils/asyncHandler');
 const { generateQrCode } = require('../../utils/generateQrCode');
 const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
+const { NotFoundError } = require('../../AppError');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -22,6 +23,7 @@ exports.getInvoiceSendingStatus = asyncHandler(async (req, res) => {
 exports.getInvoiceDetail = asyncHandler(async (req, res) => {
 	const data = { ...req.params };
 	console.log('log of data from getInvoiceDetail: ', data);
+	// await new Promise((resolve, reject) => setTimeout(() => reject(new NotFoundError()), 5000));
 	const result = await UseCase.getInvoiceDetail(data.invoiceId, req.buildingId);
 	return new SuccessResponse('Success', result).send(res);
 });

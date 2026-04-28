@@ -3,8 +3,9 @@ const Services = require('../service');
 const { CREATED_BY, OWNER_CONFIRMED_STATUS } = require('../constants/transactions');
 const { BadRequestError, NoDataError, NotFoundError } = require('../AppError');
 const { getInvoiceStatus } = require('../service/invoices.helper');
-const { NotiTransactionDeclinedJob } = require('../jobs/Notifications');
+const { notiTransactionDeclinedJob } = require('../jobs/notification/notification.job');
 const { client: redis } = require('../config').redisDb;
+const { billType: BILL_TYPE } = require('../constants/bills');
 
 exports.confirmTransaction = async (transactionId, redisKey) => {
 	const currentTransaction = await Services.transactions.findById(transactionId).populate('invoice receipt').lean().exec();
@@ -73,8 +74,8 @@ exports.denyTransaction = async (transactionId, reason, redisKey) => {
 					await Services.transactions.removeTransaction(transactionId, session);
 				}
 
-				await new NotiTransactionDeclinedJob().enqueue({
-					billType: 'invoice',
+				await notiTransactionDeclinedJob({
+					billType: BILL_TYPE['INVOICE'],
 					id: invoice._id,
 					reason: reason ?? '',
 					receiverId: collector,
@@ -106,8 +107,8 @@ exports.denyTransaction = async (transactionId, reason, redisKey) => {
 					await Services.transactions.removeTransaction(transactionId, session);
 				}
 
-				await new NotiTransactionDeclinedJob().enqueue({
-					billType: 'receipt',
+				await notiTransactionDeclinedJob({
+					billType: BILL_TYPE['RECEIPT'],
 					id: receipt._id,
 					reason: reason ?? '',
 					receiverId: collector,

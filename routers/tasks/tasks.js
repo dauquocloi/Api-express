@@ -24,6 +24,11 @@ exports.getTasks = asyncHandler(async (req, res) => {
 exports.getTaskDetail = asyncHandler(async (req, res) => {
 	let data = req.params;
 	console.log('log of data from getTaskDetail: ', data);
+
+	// await new Promise((resolve) => {
+	// 	setTimeout(() => resolve(), 5000);
+	// });
+
 	const result = await UseCase.getTaskDetail(data.taskId);
 	return new SuccessResponse('Success', result).send(res);
 });
@@ -39,6 +44,9 @@ exports.modifyTask = asyncHandler(async (req, res) => {
 exports.deleteTask = asyncHandler(async (req, res, next) => {
 	let data = req.params;
 	console.log('log of data from deleteTask: ', data);
+	// await new Promise((resolve, reject) => {
+	// setTimeout(() => reject(new Error('SOMETHING WENT WRONG !')), 5000);
+	// });
 	await UseCase.deleteTask(data.taskId);
 	return new SuccessMsgResponse('Success').send(res);
 });

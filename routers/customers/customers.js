@@ -1,10 +1,12 @@
 const asyncHandler = require('../../utils/asyncHandler');
+const delay = require('../../utils/delay');
 const { SuccessResponse, SuccessMsgResponse, FileResponse } = require('../../utils/apiResponse');
 const UseCase = require('../../data_providers/customers');
 
 exports.getAllCustomers = asyncHandler(async (req, res) => {
 	let data = req.query;
 	console.log('log of data from getAllCustomers: ', data);
+	// await delay(5000, true);
 	const result = await UseCase.getAllCustomers(data.buildingId, data.status);
 	return new SuccessResponse('Success', result).send(res);
 });

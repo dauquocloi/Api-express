@@ -289,9 +289,12 @@ exports.generateCheckoutCost = async (roomId, buildingId, creatorId, feeIndexVal
 	}
 };
 
-exports.getDebtsAndReceiptUnpaid = async (roomId, buildingId) => {
+exports.getDebtsAndReceiptUnpaid = async (roomId) => {
 	const roomObjectId = new mongoose.Types.ObjectId(roomId);
-	const { currentMonth, currentYear } = await getCurrentPeriod(buildingId);
+	const currentRoom = await Services.rooms.findById(roomObjectId).populate({ path: 'building', select: '_id' }).lean().exec();
+	if (!currentRoom) throw new NotFoundError('Phòng không tồn tại !');
+
+	const { currentMonth, currentYear } = await getCurrentPeriod(currentRoom.building._id);
 	const result = await Services.debts.getDebtsAndReceiptUnpaid(roomObjectId, currentMonth, currentYear);
 	return result;
 };

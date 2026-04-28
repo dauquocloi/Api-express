@@ -1,3 +1,4 @@
+const { NotFoundError } = require('../../AppError');
 const UseCase = require('../../data_providers/receipts');
 const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
@@ -27,6 +28,7 @@ exports.createDepositReceipt = asyncHandler(async (req, res) => {
 exports.getReceiptDetail = asyncHandler(async (req, res) => {
 	const data = req.params;
 	console.log('log of getReceiptDetail', data);
+	// await new Promise((resolve, reject) => setTimeout(() => reject(new NotFoundError()), 5000));
 	const result = await UseCase.getReceiptDetail(data.receiptId, req.buildingId);
 	return new SuccessResponse('Success', result).send(res);
 });
@@ -53,7 +55,7 @@ exports.checkout = asyncHandler(async (req, res) => {
 	};
 
 	console.log('log of data from checkout', data);
-	await UseCase.checkout(data.receiptId, data.buildingId, data.amount, data.date, collectorInfo, data.version, data.redisKey, data.paymentMethod);
+	await UseCase.checkout(data.receiptId, data.amount, data.date, collectorInfo, data.version, data.redisKey, data.paymentMethod);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

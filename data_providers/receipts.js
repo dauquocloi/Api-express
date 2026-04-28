@@ -17,6 +17,7 @@ const Roles = require('../constants/userRoles');
 const { debtStatus, sourceType } = require('../constants/debts');
 const { ZNSNewInvoiceNotiJob } = require('../jobs/ZNSJob');
 const { billType } = require('../constants/bills');
+const { notiManagerCollectCashReceiptJob } = require('../jobs/notification/notification.job');
 
 exports.getListReceiptPaymentStatus = async (buildingId, month, year) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -260,7 +261,7 @@ exports.collectCashMoney = async (receiptId, buildingId, amount, date, collector
 	}
 };
 
-exports.checkout = async (receiptId, buildingId, amount, date, collectorInfo, version, redisKey, paymentMethod) => {
+exports.checkout = async (receiptId, amount, date, collectorInfo, version, redisKey, paymentMethod) => {
 	let session;
 	try {
 		session = await mongoose.startSession();
@@ -268,13 +269,24 @@ exports.checkout = async (receiptId, buildingId, amount, date, collectorInfo, ve
 
 		const receiptObjectId = new mongoose.Types.ObjectId(receiptId);
 		const collectorObjectId = new mongoose.Types.ObjectId(collectorInfo._id);
-		const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
-		const currentReceipt = await Services.receipts.findById(receiptObjectId).session(session).lean().exec();
+		const currentReceipt = await Services.receipts
+			.findById(receiptObjectId)
+			.populate({
+				path: 'room',
+				select: '_id',
+				populate: {
+					path: 'building',
+					select: '_id',
+				},
+			})
+			.session(session)
+			.lean()
+			.exec();
 		if (currentReceipt.version !== version) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 		if (amount > currentReceipt.amount) throw new InvalidInputError(`Số tiền thu không hợp lệ !`);
 
-		const currentPeriod = await getCurrentPeriod(buildingObjectId);
+		const currentPeriod = await getCurrentPeriod(currentReceipt.room.building._id);
 
 		let createTransaction;
 		if (paymentMethod === 'cash') {
@@ -295,7 +307,7 @@ exports.checkout = async (receiptId, buildingId, amount, date, collectorInfo, ve
 			//=========NOTIFICATION===============//
 
 			if (collectorInfo.role !== Roles['OWNER']) {
-				await new NotiManagerCollectCashReceiptJob().enqueue({
+				await notiManagerCollectCashReceiptJob({
 					collectorId: collectorObjectId,
 					receiptId: receiptId.toString(),
 					amount: amount,

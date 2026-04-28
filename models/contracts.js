@@ -100,10 +100,11 @@ const ContractsSchema = new Schema(
 		},
 		contractTerm: { type: String, required: true },
 		note: { type: String, default: '' },
-		contractPdfUrl: { type: String },
+		contractPdfUrl: { type: String, default: '' },
 		contractPdfFile: { type: ContractsPdfFileSchema },
 		contractCode: { type: String, required: true, unique: true },
 		isCustomerConfirmed: { type: Boolean, default: false },
+
 		//for contract extension
 		versions: [
 			{
@@ -126,7 +127,7 @@ const ContractsSchema = new Schema(
 		],
 		version: { type: Number, default: 1 },
 	},
-	{ timestamps: true },
+	{ timestamps: true, versionKey: false },
 );
 
 ContractsSchema.index(

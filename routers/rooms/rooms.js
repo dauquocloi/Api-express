@@ -1,6 +1,8 @@
 const UseCase = require('../../data_providers/rooms');
 const asyncHandler = require('../../utils/asyncHandler');
 const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
+const { NotFoundError } = require('../../AppError');
+const delay = require('../../utils/delay');
 
 exports.getRoom = asyncHandler(async (req, res) => {
 	let data = req.params;
@@ -82,14 +84,16 @@ exports.deleteDebts = asyncHandler(async (req, res) => {
 });
 
 exports.getDebtsAndReceiptUnpaid = asyncHandler(async (req, res) => {
-	const data = { ...req.params, ...req.query };
+	const data = req.params;
 	console.log('log of data from getDebtsAndReceiptUnpaid: ', data);
-	const result = await UseCase.getDebtsAndReceiptUnpaid(data.roomId, data.buildingId);
+	await delay(4000, false);
+	const result = await UseCase.getDebtsAndReceiptUnpaid(data.roomId);
 	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.getRoomFeesAndDebts = asyncHandler(async (req, res) => {
 	console.log('log of data from getRoomFeesAndDebts: ', req.params);
+	// await new Promise((resolve, reject) => setTimeout(() => reject(new NotFoundError()), 5000));
 	const result = await UseCase.getRoomFeesAndDebts(req.params.roomId, req.user._id);
 	return new SuccessResponse('Success', result).send(res);
 });

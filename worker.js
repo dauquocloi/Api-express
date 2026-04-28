@@ -1,12 +1,13 @@
-require('./workers');
 const { Connect: ConnectMongoDb } = require('./utils/MongoConnect');
 
-ConnectMongoDb('Qltro-test')
-	.then(() => {
+async function startWorker() {
+	try {
+		await ConnectMongoDb('Qltro-test');
 		console.log('✅ Đã kết nối MongoDB Atlas');
-	})
-	.catch((err) => {
+		require('./workers');
+	} catch (err) {
 		console.error('❌ Kết nối MongoDB thất bại:', err);
-	});
+	}
+}
 
-console.log('✅ Worker started');
+startWorker();

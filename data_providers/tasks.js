@@ -94,13 +94,24 @@ exports.createTask = async (performers, userId, taskContent, detail, executionDa
 };
 
 exports.getTasks = async (userId, page = 1, search, startDate, endDate) => {
-	console.log('log of data from getTasks: ', userId, page, search, startDate, endDate);
-	const userObjectId = new mongoose.Types.ObjectId(userId);
-	const daysPerPage = 5; //days;
-	const tasks = await Services.tasks.getTasks(userObjectId, page, daysPerPage, search, startDate, endDate);
-	const isListEnd = tasks.length <= daysPerPage; // like has more
+	console.log('getTasks Provider: ', userId, page, search, startDate, endDate);
+	if (!userId || !mongoose.isValidObjectId(new mongoose.Types.ObjectId(userId))) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ');
 
-	return { tasks, page, isListEnd };
+	const userObjectId = new mongoose.Types.ObjectId(userId);
+
+	if (search && search?.trim() !== '') {
+		const PAGE_SIZE = 10;
+		const tasks = await Services.tasks.getTasksCaseQuery(userObjectId, page, search, startDate, endDate, PAGE_SIZE);
+
+		return { tasks: tasks.slice(0, PAGE_SIZE), page, isListEnd: tasks.length <= PAGE_SIZE };
+	}
+
+	const DAYS_PER_PAGE = 5; //days;
+	const tasks = await Services.tasks.getTasks(userObjectId, page, DAYS_PER_PAGE, startDate, endDate);
+	const isListEnd = tasks.length <= DAYS_PER_PAGE; // like has more
+	console.log('Is tasks ended: ', isListEnd);
+
+	return { tasks: tasks.slice(0, DAYS_PER_PAGE), page, isListEnd };
 };
 
 exports.modifyTask = async (data) => {
