@@ -16,7 +16,7 @@ const { feeUnit } = require('../constants/fees');
 const { invoiceStatus } = require('../constants/invoices');
 const { client: redis } = require('../config').redisDb;
 const { NotiManagerCollectCashInvoiceJob } = require('../jobs/Notifications');
-const { ZNSNewInvoiceNotiJob } = require('../jobs/ZNSJob');
+const { znsNewInvoiceNotiJob } = require('../jobs/ZNS/zns.job');
 const Roles = require('../constants/userRoles');
 const { billType } = require('../constants/bills');
 const { notiManagerCollectCashInvoiceJob } = require('../jobs/notification/notification.job');
@@ -488,7 +488,7 @@ exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, cre
 			await Services.rooms.unLockedRoom(roomId, session);
 			await Services.rooms.bumpRoomVersion(roomId, roomVersion, session);
 
-			await new ZNSNewInvoiceNotiJob().enqueue({ billId: createdInvoice._id, type: billType.INVOICE });
+			await znsNewInvoiceNotiJob({ billId: createdInvoice._id, type: billType.INVOICE });
 
 			result = createdInvoice;
 			return 'Success';

@@ -15,7 +15,7 @@ const { TaskNotiJob, NotiManagerCollectCashReceiptJob } = require('../jobs/Notif
 const { getInvoiceStatus } = require('../service/invoices.helper');
 const Roles = require('../constants/userRoles');
 const { debtStatus, sourceType } = require('../constants/debts');
-const { ZNSNewInvoiceNotiJob } = require('../jobs/ZNSJob');
+const { znsNewInvoiceNotiJob } = require('../jobs/ZNS/zns.job');
 const { billType } = require('../constants/bills');
 const { notiManagerCollectCashReceiptJob } = require('../jobs/notification/notification.job');
 
@@ -105,7 +105,7 @@ exports.createReceipt = async (roomId, receiptAmount, receiptContent, date, user
 
 			await Services.rooms.bumpRoomVersionBlind(roomId, session);
 
-			await new ZNSNewInvoiceNotiJob().enqueue({
+			await znsNewInvoiceNotiJob({
 				billId: receiptCreated._id,
 				type: billType.RECEIPT,
 			});
