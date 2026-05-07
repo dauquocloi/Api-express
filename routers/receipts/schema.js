@@ -38,8 +38,6 @@ module.exports = {
 		amount: Joi.number().min(0).required(),
 		date: Joi.date().required(),
 		version: Joi.number().integer().min(1).required(),
-		// idempotencyKey: Joi.string().required(),
-		// buildingId: JoiObjectId().required(),
 		paymentMethod: Joi.string().valid('cash', 'transfer').required(),
 	}),
 	deleteReceipt: Joi.object().keys({

@@ -75,6 +75,13 @@ exports.getDepositTermFile = asyncHandler(async (req, res) => {
 	return new SuccessResponse('Success', result).send(res);
 });
 
+exports.upLoadDepositTermFile = asyncHandler(async (req, res) => {
+	const data = req.params;
+	console.log('log of upLoadDepositTermFile', req.file);
+	const result = await UseCase.upLoadDepositTermFile(data.buildingId, req.file);
+	return new SuccessResponse('Success', result).send(res);
+});
+
 exports.financeSettlement = asyncHandler(async (req, res) => {
 	const data = req.params;
 	console.log('log of financeSettlement', data);

@@ -34,7 +34,7 @@ exports.editFee = asyncHandler(async (req, res) => {
 });
 
 exports.getFeeInitial = (req, res) => {
-	const FeeInitial = listFeeInitial;
+	const FeeInitial = listFeeInitial.filter((f) => f.feeKey !== 'SPEC100PH');
 	return new SuccessResponse('Success', FeeInitial).send(res);
 };
 

@@ -125,6 +125,12 @@ exports.updateNoteRoom = asyncHandler(async (req, res) => {
 	return new SuccessMsgResponse('Success').send(res);
 });
 
+exports.getRoomImages = asyncHandler(async (req, res) => {
+	console.log('log of data from getRoomImages: ', req.params);
+	const result = await UseCase.getRoomImages(req.params.roomId);
+	return new SuccessResponse('Success', result).send(res);
+});
+
 //============================ UN REFACTED =====================================//
 
 exports.create = (req, res) => {

@@ -140,4 +140,6 @@ router.patch(
 	Rooms.updateNoteRoom,
 );
 
+router.get('/:roomId/images', validator(schema.id, ValidateSource.PARAM), checkResourceAccess(RESOURCES['rooms']), Rooms.getRoomImages);
+
 module.exports = router;

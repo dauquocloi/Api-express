@@ -1,18 +1,11 @@
 const generateRandomFileName = require('./randomFileName');
 const optimizedImage = require('./optimizeImage');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { PutObjectCommand } = require('@aws-sdk/client-s3');
+const { client: s3, bucketName, region } = require('../config').S3;
 
 const uploadFile = async (filePath) => {
 	console.log('log of filePath in uploadFile util: ', filePath);
 	try {
-		const s3 = new S3Client({
-			credentials: {
-				accessKeyId: process.env.ACCESS_KEY,
-				secretAccessKey: process.env.SECRET_ACCESS_KEY,
-			},
-			region: process.env.BUCKET_REGION,
-		});
-
 		let randomFileName = generateRandomFileName(filePath.originalname);
 		let fileBuffer;
 
@@ -23,7 +16,7 @@ const uploadFile = async (filePath) => {
 		}
 
 		const params = {
-			Bucket: process.env.BUCKET_NAME,
+			Bucket: bucketName,
 			Key: randomFileName,
 			Body: fileBuffer,
 			ContentType: filePath.mimetype,
@@ -37,7 +30,7 @@ const uploadFile = async (filePath) => {
 		return {
 			...sendFile,
 			Key: randomFileName,
-			url: `https://${process.env.BUCKET_NAME}.s3.${process.env.BUCKET_REGION}.amazonaws.com/${randomFileName}`,
+			url: `https://${bucketName}.s3.${region}.amazonaws.com/${randomFileName}`,
 		};
 	} catch (error) {
 		console.log('Lỗi trong quá trình upload image: ', error);

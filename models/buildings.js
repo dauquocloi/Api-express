@@ -47,9 +47,9 @@ const BuildingsSchema = new Schema(
 			type: [String],
 		},
 
-		contractDocxUrl: { type: String },
-		contractPdfUrl: { type: String },
-		depositTermUrl: { type: String },
+		contractDocxUrl: { type: String, default: '' },
+		contractPdfUrl: { type: String, default: '' },
+		depositTermUrl: { type: String, default: '' },
 
 		management: [
 			{

@@ -68,7 +68,7 @@ exports.contractExtention = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.body };
 	console.log('log of data from contractExtention: ', data);
 	await UseCase.contractExtention(data.contractId, data.extentionDate, data.newRent, data.newDepositAmount, data.version, req.redisKey);
-	return SuccessMsgResponse('Success').send(res);
+	return new SuccessMsgResponse('Success').send(res);
 });
 
 // exports.terminateContractUnRefund = async

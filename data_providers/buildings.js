@@ -17,6 +17,9 @@ const {
 	styleExcel,
 } = require('./buildings.util');
 const ExcelJS = require('exceljs');
+const uploadFile = require('../utils/uploadFile');
+const { FailureMsgResponse } = require('../utils/apiResponse');
+const deleteFileFromS3 = require('../utils/deleteFileFromS3');
 
 //  get all buildings by managername
 exports.getAll = async (userId) => {
@@ -142,9 +145,25 @@ exports.getStatisticGeneral = async (buildingId, year) => {
 exports.getDepositTermFile = async (buildingId) => {
 	const building = await Services.buildings.findById(buildingId).lean().exec();
 	if (!building) throw new NotFoundError('Dữ liệu không tồn tại');
-	if (!building.depositTermUrl) throw new NotFoundError('Tòa nhà không tồn tại điều khoản đặt cọc');
+	if (!building.depositTermUrl) return { depositTermFileUrl: '' };
 	const depositTermFileUrl = await getFileUrl(building.depositTermUrl);
+	if (!depositTermFileUrl) throw new NotFoundError('Không tìm thấy file điều khoản đặt cọc !');
 	return { depositTermFileUrl: depositTermFileUrl };
+};
+
+exports.upLoadDepositTermFile = async (buildingId, depositTermFile) => {
+	const building = await Services.buildings.findById(buildingId);
+	if (!building) throw new NotFoundError('Dữ liệu không tồn tại');
+
+	if (building.depositTermUrl) {
+		await deleteFileFromS3(building.depositTermUrl);
+	}
+	const result = await uploadFile(depositTermFile);
+	if (!result || !result.Key) throw new FailureMsgResponse('Upload file thất bại');
+
+	building.depositTermUrl = result.Key;
+	await building.save();
+	return { depositTermFileUrl: result.url };
 };
 
 exports.prepareFinanceSettlement = async (buildingId, userId) => {

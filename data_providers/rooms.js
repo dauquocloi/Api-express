@@ -12,6 +12,7 @@ const { debtStatus } = require('../constants/debts');
 const { feeUnit } = require('../constants/fees');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
 const { sourceType } = require('../constants/debts');
+const getFileUrl = require('../utils/getFileUrl');
 const { client: redis } = require('../config').redisDb;
 
 exports.getRoom = async (roomId) => {
@@ -364,6 +365,23 @@ exports.deleteDebts = async (roomId) => {
 	await Services.debts.terminateDebts(findDebts.map((item) => item._id));
 
 	return 'Success';
+};
+
+exports.getRoomImages = async (roomId) => {
+	const room = await Services.rooms.findById(roomId).lean().exec();
+	if (!room) throw new NotFoundError('Dữ liệu không tồn tại !');
+	if (!room.roomImage || room.roomImage?.ref?.length === 0) return { roomImageUrl: [], lastUpload: null };
+
+	const roomImageUrl = [];
+	for (const key of room.roomImage.ref) {
+		const signalUrl = await getFileUrl(key);
+		roomImageUrl.push(signalUrl);
+	}
+
+	return {
+		roomImageUrl,
+		lastUpload: room.roomImage.lastUpload,
+	};
 };
 
 //================================ UN REFACTED =====================================//

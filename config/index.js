@@ -5,6 +5,7 @@
 var configType = 0;
 var cloudinary = require('./cloudinary');
 var { client, subscriber, opts } = require('./redisClient');
+const S3Client = require('./S3Client');
 require('dotenv').config;
 
 switch (configType) {
@@ -47,5 +48,12 @@ switch (configType) {
 			opts: opts,
 		};
 		exports.cloudinary = cloudinary;
+		exports.S3 = {
+			accessKeyId: process.env.ACCESS_KEY,
+			secretAccessKey: process.env.SECRET_ACCESS_KEY,
+			region: process.env.BUCKET_REGION,
+			bucketName: process.env.BUCKET_NAME,
+			client: S3Client,
+		};
 		break;
 }

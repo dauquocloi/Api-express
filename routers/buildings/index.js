@@ -9,6 +9,8 @@ const checkResourceAccess = require('../../auth/checkResourceAccess');
 const { checkIdempotency } = require('../../middleware/idempotency');
 const router = express.Router();
 const { RESOURCES } = require('../../constants/resources');
+const upload = require('../../middleware/multer');
+const validateDepositTermFile = require('../../utils/validateDepositTermFile');
 
 router.get('/:buildingId/contract-term-url', validator(schema.id, ValidateSource.PARAM), Buildings.getContractTermUrl);
 
@@ -114,6 +116,14 @@ router.get(
 	Buildings.getBuildingReportXlsx,
 );
 
-// VERY IMPORTANT API !!!
+router.post(
+	'/:buildingId/deposit-term-file',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	upload.single('file'),
+	validateDepositTermFile,
+	validator(schema.id, ValidateSource.PARAM),
+	checkResourceAccess(RESOURCES['buildings']),
+	Buildings.upLoadDepositTermFile,
+);
 
 module.exports = router;
