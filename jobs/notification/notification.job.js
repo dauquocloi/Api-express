@@ -5,6 +5,8 @@ const {
 	notiPayment,
 	notiContractNearExpired,
 	notiTransactionDeclined,
+	notiRoomDeposited,
+	notiDepositTerminated,
 } = require('./notification.queue');
 
 const notiTaskCompletedJob = async (data) => {
@@ -31,6 +33,14 @@ const notiTransactionDeclinedJob = async (data) => {
 	return notiTransactionDeclined.enqueue(data);
 };
 
+const notiRoomDepositedJob = async (data) => {
+	return notiRoomDeposited.enqueue(data);
+};
+
+const notiDepositTerminatedJob = async (data) => {
+	return notiDepositTerminated.enqueue(data);
+};
+
 module.exports = {
 	notiTaskCompletedJob,
 	notiManagerCollectCashInvoiceJob,
@@ -38,4 +48,6 @@ module.exports = {
 	notiPaymentJob,
 	notiContractNearExpiredJob,
 	notiTransactionDeclinedJob,
+	notiRoomDepositedJob,
+	notiDepositTerminatedJob,
 };

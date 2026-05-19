@@ -37,7 +37,7 @@ const DepositsSchema = new Schema(
 	{
 		room: { type: Schema.Types.ObjectId, ref: 'RoomsEntity' },
 		building: { type: Schema.Types.ObjectId, ref: 'BuildingsEntity' },
-		receipt: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity' },
+		receipt: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity', required: true },
 		contract: { type: Schema.Types.ObjectId, ref: 'ContractsEntity' },
 		rent: { type: Number, required: true },
 		depositAmount: { type: Number, required: true },

@@ -193,8 +193,8 @@ exports.getNotiSettings = async (userId, role) => {
 	return responseData;
 };
 
-exports.setSettingNotification = async (userId, type, enabled) => {
-	const notiSettings = await Entity.NotiSettingsEntity.findOneAndUpdate({ user: userId }, { $set: { [type]: enabled } });
+exports.setSettingNotification = async (userId, type, newStatus) => {
+	const notiSettings = await Entity.NotiSettingsEntity.findOneAndUpdate({ user: userId }, { $set: { [type]: { enabled: newStatus } } });
 	if (!notiSettings) throw new NotFoundError('Không tìm thấy tài khoản!');
 	return 'Success';
 };

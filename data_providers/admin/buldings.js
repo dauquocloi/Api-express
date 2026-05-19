@@ -8,71 +8,54 @@ const uploadFile = require('../../utils/uploadFile');
 
 exports.importBuilding = async (data) => {
 	let session;
-	let result;
-	const { ownerInfo } = data;
+
 	try {
 		session = await mongoose.startSession();
-		await session.withTransaction(async () => {
-			const user = await Services.users.findUserByPhone(ownerInfo.phone, session);
-			if (user) throw new BadRequestError('User already registered');
+		return await session.withTransaction(async () => {
+			const user = await Services.users.findUserByPhone(data.ownerId, session);
+			if (!user) throw new BadRequestError('User not found !');
 
-			const passwordHash = await bcrypt.hash(ownerInfo.phone.trim(), 10);
+			const company = await Services.companies.findById(data.companyId, session).lean().exec();
+			if (!company) throw new BadRequestError('Company not fond !');
 
-			const userCreated = await Services.users.importUser(
-				{
-					username: ownerInfo.phone.trim(),
-					role: ROLES['OWNER'],
-					password: passwordHash,
-					fullName: ownerInfo.fullName,
-					phone: ownerInfo.phone.trim(),
-					dob: ownerInfo.dob,
-					cccd: ownerInfo.cccd,
-					cccdIssueDate: ownerInfo.cccdIssueDate,
-					cccdIssueAt: ownerInfo.cccdIssueAt.trim(),
-					permanentAddress: ownerInfo.permanentAddress.trim(),
-				},
-				session,
-			);
+			const notificationSettingCreated = await Services.notifications.createNotificationSetting(user._id, session);
+			await Services.users.setNotificationSetting(user._id, notificationSettingCreated._id, session);
 
-			const notificationSettingCreated = await Services.notifications.createNotificationSetting(userCreated._id, session);
-			await Services.users.setNotificationSetting(userCreated._id, notificationSettingCreated._id, session);
+			const [contractDocxUrlKey, contractPdfUrlKey, depositTermUrlKey] = await Promise.all([
+				data.contractDocxUrl?.[0] ? uploadFile(data.contractDocxUrl[0]) : null,
 
-			const contractDocxUrlKey = (await uploadFile(data.contractDocxUrl[0])).Key;
-			const contractPdfUrlKey = (await uploadFile(data.contractPdfUrl[0])).Key;
-			const depositTermUrlKey = await uploadFile(data.depositTermUrl[0]).Key;
+				data.contractPdfUrl?.[0] ? uploadFile(data.contractPdfUrl[0]) : null,
+
+				data.depositTermUrl?.[0] ? uploadFile(data.depositTermUrl[0]) : null,
+			]);
 
 			const buildingCreated = await Services.buildings.importBuilding(
 				{
-					buildingSortName: data.buildingName.trim(),
-					buildingAddress: data.buildingAddress.trim(),
+					buildingSortName: data.buildingName,
+					buildingAddress: data.buildingAddress,
 					roomQuantity: data.roomQuantity,
-					invoiceNotes: data.invoiceNotes?.trim() ?? '',
+					invoiceNotes: data?.invoiceNotes ?? '',
 
-					contractDocxUrl: contractDocxUrlKey,
-					contractPdfUrl: contractPdfUrlKey,
-					depositTermUrl: depositTermUrlKey,
+					contractDocxUrl: contractDocxUrlKey ?? '',
+					contractPdfUrl: contractPdfUrlKey ?? '',
+					depositTermUrl: depositTermUrlKey ?? '',
 
 					management: [
 						{
 							role: ROLES['OWNER'],
-							user: userCreated._id,
+							user: user._id,
 						},
 					],
+					companyId: company._id,
 				},
 				session,
 			);
 
-			result = {
+			return {
 				buildingId: buildingCreated._id,
-				userId: userCreated._id,
+				userId: user._id,
 			};
-
-			return result;
 		});
-
-		return result;
-	} catch (error) {
-		throw error;
 	} finally {
 		if (session) session.endSession();
 	}

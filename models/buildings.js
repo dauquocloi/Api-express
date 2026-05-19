@@ -2,19 +2,31 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const Roles = require('../constants/userRoles');
 const { paymentConfirmationMode } = require('../constants/buildings');
+const { PERMISSIONS } = require('../constants/permissions');
 
-const PermissionsSchema = new Schema(
-	{
-		managerCollectCash: { type: Boolean, default: true },
-		managerEditRoomFee: { type: Boolean, default: true },
-		managerEditInvoice: { type: Boolean, default: true },
-		managerDeleteInvoice: { type: Boolean, default: true },
-		managerAddExpenditure: { type: Boolean, default: true },
-		managerAddIncidentalIncome: { type: Boolean, default: true },
-		managerEditContract: { type: Boolean, default: true },
-	},
-	{ _id: false },
-);
+// const PermissionsSchema = new Schema(
+// 	{
+// 		managerCollectCash: { type: Boolean, default: true },
+// 		managerEditRoomFee: { type: Boolean, default: true },
+// 		managerEditInvoice: { type: Boolean, default: true },
+// 		managerDeleteInvoice: { type: Boolean, default: true },
+// 		managerAddExpenditure: { type: Boolean, default: true },
+// 		managerAddIncidentalIncome: { type: Boolean, default: true },
+// 		managerEditContract: { type: Boolean, default: true },
+// 	},
+// 	{ _id: false },
+// );
+
+// const PermissionsSchema = new Schema(
+// 	{
+// 		[PERMISSIONS['COLLECT_CASH']]: { type: Boolean, default: true },
+// 		[PERMISSIONS['EDIT_FEE']]: { type: Boolean, default: true },
+// 		[PERMISSIONS['EDIT_BILL']]: { type: Boolean, default: true },
+// 		[PERMISSIONS['DELETE_BILL']]: { type: Boolean, default: true },
+// 		[PERMISSIONS['EDIT_CONTRACT']]: { type: Boolean, default: true },
+// 	},
+// 	{ _id: false },
+// );
 
 // Create a Mongoose Schema
 const BuildingsSchema = new Schema(
@@ -59,9 +71,10 @@ const BuildingsSchema = new Schema(
 			},
 		],
 		invoiceNotes: { type: String, default: '' },
-		settings: PermissionsSchema,
+		// settings: PermissionsSchema,
 		paymentInfo: { type: Schema.Types.ObjectId, ref: 'BankAccountsEntity' },
 		version: { type: Number, default: 1 },
+		company: { type: Schema.Types.ObjectId, ref: 'CompaniesEntity', required: true },
 	},
 	{
 		versionKey: false,

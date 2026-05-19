@@ -1,15 +1,26 @@
-var mongoose = require('mongoose');
-// (Schema = mongoose.Schema), (ObjectId = Schema.ObjectId);
-require('mongoose-double')(mongoose);
+const mongoose = require('mongoose');
+const { COMPANIES_STATUS } = require('../constants/companies');
+const { PERMISSIONS } = require('../constants/permissions');
 
 const Schema = mongoose.Schema;
-// Create a Mongoose Schema
-var CompaniesSchema = new Schema(
+const PermissionsSchema = new Schema(
+	{
+		[PERMISSIONS['COLLECT_CASH']]: { type: Boolean, default: true },
+		[PERMISSIONS['EDIT_FEE']]: { type: Boolean, default: true },
+		[PERMISSIONS['EDIT_BILL']]: { type: Boolean, default: true },
+		[PERMISSIONS['DELETE_BILL']]: { type: Boolean, default: true },
+		[PERMISSIONS['EDIT_CONTRACT']]: { type: Boolean, default: true },
+	},
+	{ _id: false, versionKey: false },
+);
+
+const CompaniesSchema = new Schema(
 	{
 		companyId: {
+			// from sepay create companies response.
 			type: String,
 			trim: true,
-			required: true,
+			// required: true,
 		},
 		fullName: {
 			type: String,
@@ -23,25 +34,22 @@ var CompaniesSchema = new Schema(
 		},
 		status: {
 			type: String,
-			enum: ['Pending', 'Active', 'Suspended', 'Terminated', 'Cancelled', 'Fraud'],
+			enum: Object.values(COMPANIES_STATUS),
+			default: COMPANIES_STATUS.PENDING,
 		},
-		createdAt: {
-			type: Date,
-			default: () => Date.now(),
-		},
-		updatedAt: {
-			type: Date,
-			default: () => Date.now(),
-		},
-		owner: {
+		user: {
 			type: Schema.Types.ObjectId,
-			ref: 'users',
+			ref: 'UsersEntity',
+		},
+		permissions: {
+			type: PermissionsSchema,
+			default: () => ({}),
 		},
 	},
 	{
 		versionKey: false,
 		collation: { locale: 'vi' },
-		timestamps: true, // Thêm thời gian tạo và cập nhật
+		timestamps: true,
 	},
 );
 

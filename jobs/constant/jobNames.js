@@ -6,5 +6,7 @@ module.exports = {
 	NOTI_PAYMENT: 'notiPayment',
 	NOTI_CONTRACT_NEAR_EXPIRATION: 'notiContractNearExpiration',
 	NOTI_TRANSACTION_DECLINED: 'notiTransactionDeclined',
+	NOTI_ROOM_DEPOSITED: 'notiRoomDeposited',
 	ZNS_NEW_INVOICE_NOTI: 'znsNewInvoiceNoti',
+	NOTI_DEPOSIT_TERMINATED: 'notiDepositTerminated',
 };

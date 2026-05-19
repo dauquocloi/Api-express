@@ -33,13 +33,13 @@ exports.importRooms = async (data) => {
 			let feesData = [];
 			// let interiorData;
 
-			jsonData.forEach((data) => {
+			jsonData.forEach((room) => {
 				roomData.push({
 					building: building._id,
-					roomIndex: data.roomIndex.toString().trim(),
-					roomPrice: Number(data.roomPrice),
-					roomState: data.roomState,
-					interior: parseInteriors(data),
+					roomIndex: room.roomIndex?.toString()?.trim() || '',
+					roomPrice: Number(room.roomPrice),
+					roomState: room.roomState,
+					interior: parseInteriors(room),
 				});
 			});
 			const roomsCreated = await Services.rooms.importRooms(roomData, session);
@@ -48,16 +48,16 @@ exports.importRooms = async (data) => {
 				roomMap.set(room.roomIndex.trim(), room._id);
 			});
 
-			jsonData.forEach((data, index) => {
-				if (data.roomState === 0) return;
+			jsonData.forEach((room, index) => {
+				if (room.roomState === 0) return;
 				depositReceiptData.push({
 					room: roomMap.get(data.roomIndex.trim()),
-					roomIndex: data.roomIndex.trim(),
-					amount: Number(data.deposit),
-					paidAmount: Number(data.depositPaidAmount),
-					date: data.depositPaidDate,
-					month: new Date(data.signDate).getMonth() + 1,
-					year: new Date(data.signDate).getFullYear(),
+					roomIndex: room.roomIndex.trim(),
+					amount: Number(room.deposit),
+					paidAmount: Number(room.depositPaidAmount),
+					date: room.depositPaidDate,
+					month: new Date(room.signDate).getMonth() + 1,
+					year: new Date(room.signDate).getFullYear(),
 				});
 			});
 			const receiptDepositCreated = await Services.receipts.importReceiptsDeposit(depositReceiptData, session);
@@ -80,13 +80,13 @@ exports.importRooms = async (data) => {
 			});
 			console.log('log of createdTransaction: ', createdTransaction);
 
-			jsonData.forEach((data) => {
-				const fees = parseFees(data);
+			jsonData.forEach((room) => {
+				const fees = parseFees(room);
 
 				fees.forEach((i) => {
 					feesData.push({
 						...i,
-						room: roomMap.get(data.roomIndex.trim()),
+						room: roomMap.get(room.roomIndex?.trim()),
 					});
 				});
 			});
@@ -108,19 +108,19 @@ exports.importRooms = async (data) => {
 			console.log('feeIndexHistoryResult: ', result);
 			// console.log('log of createdFees: ', createdFees);
 
-			for (const data of jsonData) {
-				if (data.roomState === 0) continue;
+			for (const room of jsonData) {
+				if (room.roomState === 0) continue;
 
-				const roomId = roomMap.get(data.roomIndex.trim());
+				const roomId = roomMap.get(room.roomIndex?.trim());
 
 				contractData.push({
 					room: roomId,
-					rent: Number(data.rent),
+					rent: Number(room.rent),
 					depositReceiptId: depositReceiptMap.get(roomId.toString()),
-					contractSignDate: new Date(data.signDate),
-					contractEndDate: new Date(data.endDate),
-					contractTerm: data.contractTerm.trim(),
-					note: data.contractNote?.trim() ?? '',
+					contractSignDate: new Date(room.signDate),
+					contractEndDate: new Date(room.endDate),
+					contractTerm: room.contractTerm.trim(),
+					note: room.contractNote?.trim() ?? '',
 					status: contractStatus['ACTIVE'],
 					contractCode: await generateContractCode(process.env.CONTRACT_CODE_LENGTH),
 				});
@@ -133,12 +133,12 @@ exports.importRooms = async (data) => {
 				contractMap.set(contract.room.toString(), contract._id);
 			});
 
-			jsonData.forEach((data, rowIndex) => {
-				if (data.roomState === 0) return;
+			jsonData.forEach((room, rowIndex) => {
+				if (room.roomState === 0) return;
 
-				const roomId = roomMap.get(data.roomIndex.trim());
+				const roomId = roomMap.get(room.roomIndex.trim());
 				const contractId = contractMap.get(roomId.toString());
-				const customers = parseCustomers(data, roomId, contractId);
+				const customers = parseCustomers(room, roomId, contractId);
 
 				customers.forEach((c, clientIndex) => {
 					customerData.push({

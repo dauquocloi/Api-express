@@ -7,13 +7,13 @@ const { Expo } = require('expo-server-sdk');
 const { transfromBillStatus } = require('../constants/bills');
 const Roles = require('../constants/userRoles');
 const dayjs = require('dayjs');
+const formatCurrency = require('../utils/formatCurrency');
 
 exports.getNotifications = async (receiverObjectId, pages, limit) => {
 	const notifications = await Entity.NotisEntity.aggregate(Pipelines.notifications.getNotifications(receiverObjectId, pages, limit));
 	return notifications;
 };
 
-// background job
 exports.createTaskNotification = async ({ taskTitle, receiverIds, performersName, taskId }) => {
 	const taskDoneDataFormat = {
 		taskTitle,
@@ -21,7 +21,7 @@ exports.createTaskNotification = async ({ taskTitle, receiverIds, performersName
 	};
 	const createNotiForm = NotiForm('task', taskDoneDataFormat);
 	const createNoti = await Entity.NotisEntity.create({
-		type: notiTypes['TASK'],
+		type: notiTypes['TASK_COMPLETED'],
 		content: createNotiForm.content,
 		title: createNotiForm.title,
 		receivers: receiverIds,
@@ -35,10 +35,11 @@ exports.createTaskNotification = async ({ taskTitle, receiverIds, performersName
 };
 
 exports.createTransactionNotification = async ({ roomIndex, buildingName, amount, billContent, paymentContent, billStatus, receiverIds }) => {
+	const formatAmount = formatCurrency(amount);
 	const transactionDoneDataFormat = {
 		roomIndex,
 		buildingName,
-		amount,
+		amount: formatAmount,
 		billContent,
 		paymentContent,
 		billStatus,
@@ -69,12 +70,13 @@ exports.createManagerCollectCashNotification = async ({
 	collectorName,
 }) => {
 	const transformBillStatus = transfromBillStatus[billStatus];
+	const formatAmount = formatCurrency(amount);
 	const collectCashDataFormat = {
 		roomIndex: roomIndex,
 		buildingName: buildingName,
 		billStatus: transformBillStatus,
 		billContent: billContent,
-		amount: amount, // Số tiền nhân viên thu
+		amount: formatAmount, // Số tiền nhân viên thu
 		collector: collectorName,
 	};
 
@@ -109,16 +111,17 @@ exports.createPaymentNotification = async ({
 	billId,
 }) => {
 	const transfromStatus = transfromBillStatus[billStatus];
+	const formatAmount = formatCurrency(amount);
 	const createNotiForm = NotiForm(notiTypes['TRANSACTION'], {
-		amount,
+		amount: formatAmount,
 		paymentContent,
 		billContent,
 		buildingName,
 		roomIndex,
-		billType,
 		billStatus: transfromStatus,
 	});
 
+	const url = `qltro://${billType === 'invoice' ? `invoice-detail` : `receipt-detail`}/${billId}`;
 	const result = await Entity.NotisEntity.create({
 		type: notiTypes['TRANSACTION'],
 		title: createNotiForm.title,
@@ -128,6 +131,7 @@ exports.createPaymentNotification = async ({
 		metaData: {
 			billType: billType,
 			billId: billId,
+			url: url,
 		},
 	});
 
@@ -167,13 +171,14 @@ exports.createTransactionDeclinedNotification = async ({
 	creatorName,
 	receiverIds,
 }) => {
+	const formatTranscationAmount = formatCurrency(transactionAmount);
 	const createNotiForm = NotiForm(notiTypes['TRANSACTION_DECLINED'], {
 		roomIndex,
 		billContent,
 		reason,
 		buildingName,
 		creatorName,
-		transactionAmount,
+		transactionAmount: formatTranscationAmount,
 	});
 
 	const result = await Entity.NotisEntity.create({
@@ -191,6 +196,70 @@ exports.createTransactionDeclinedNotification = async ({
 	return result.toObject();
 };
 
+exports.createNotificationRoomDeposited = async ({
+	roomIndex,
+	buildingName,
+	rent,
+	depositAmount,
+	paidAmount,
+	checkinDate,
+	depositId,
+	depositCompletionDate,
+	receiverIds,
+}) => {
+	const formatCompletionDate = dayjs(depositCompletionDate).format('DD/MM/YYYY');
+	const formatCheckinDate = dayjs(checkinDate).format('DD/MM/YYYY');
+	const formatDepositAmount = formatCurrency(depositAmount);
+	const formatPaidAmount = formatCurrency(paidAmount);
+	const formatRent = formatCurrency(rent);
+
+	const createNotiForm = NotiForm(notiTypes['ROOM_DEPOSITED'], {
+		roomIndex,
+		buildingName,
+		rent: formatRent,
+		depositAmount: formatDepositAmount,
+		paidAmount: formatPaidAmount,
+		checkinDate: formatCheckinDate,
+		depositCompletionDate: formatCompletionDate,
+	});
+
+	const result = await Entity.NotisEntity.create({
+		type: notiTypes['ROOM_DEPOSITED'],
+		title: createNotiForm.title,
+		content: createNotiForm.content,
+		receivers: receiverIds,
+		isRead: false,
+		metaData: {
+			depositId: depositId,
+		},
+	});
+
+	return result.toObject();
+};
+
+exports.createNotificationDepositTerminated = async ({ roomIndex, buildingName, depositAmount, depositId, receiverIds }) => {
+	const formatDepositAmount = formatCurrency(depositAmount);
+	const createNotiForm = NotiForm(notiTypes['DEPOSIT_TERMINATED'], {
+		roomIndex,
+		buildingName,
+		paidAmount: formatDepositAmount,
+	});
+
+	const result = await Entity.NotisEntity.create({
+		type: notiTypes['DEPOSIT_TERMINATED'],
+		title: createNotiForm.title,
+		content: createNotiForm.content,
+		receivers: receiverIds,
+		isRead: false,
+		metaData: {
+			depositId: depositId,
+		},
+	});
+
+	return result.toObject();
+};
+
+// should remove this function to utils.js
 exports.sendNotification = async (notiType, data) => {
 	console.log('log of data from sendNotification: ', data);
 	const { expoPushTokens = [], title, content, metaData } = data;

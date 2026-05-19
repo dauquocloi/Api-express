@@ -53,7 +53,7 @@ exports.createDepositReceipt = async (roomId, buildingId, receipAmount, payerNam
 
 		receiptContent: `Tiền cọc phòng ${roomInfo.roomIndex}`,
 		receiptType: receiptTypes['DEPOSIT'],
-		status: receiptStatus['PENDING'],
+		initialStatus: receiptStatus['PENDING'],
 		creater: userId,
 	};
 	const depositReceiptCreated = await Services.receipts.createReceipt(newReceipt, null);

@@ -21,7 +21,7 @@ const handleNotiTaskCompletedJob = async (payload) => {
 
 		const createTaskNoti = await Services.notifications.createTaskNotification({ taskTitle, receiverIds, performersName, taskId });
 		if (!createTaskNoti) throw new Error('Có lỗi trong quá trình tạo thông báo !');
-		const notiSended = await Services.notifications.sendNotification(notiTypes['TASK'], {
+		const notiSended = await Services.notifications.sendNotification(notiTypes['TASK_COMPLETED'], {
 			expoPushTokens: expoPushTokens,
 			title: createTaskNoti.title,
 			content: createTaskNoti.content,
@@ -359,6 +359,135 @@ const handleNotiTransactionDeclined = async (payload) => {
 	}
 };
 
+const handleNotiRoomDeposited = async (payload) => {
+	try {
+		const { depositId } = payload;
+		const depositInfo = await Services.deposits
+			.findById(depositId)
+			.populate({
+				path: 'room',
+				select: 'roomIndex',
+			})
+			.populate({
+				path: 'building',
+				select: 'buildingName',
+				populate: {
+					path: 'management.user',
+					populate: 'notificationSetting',
+				},
+			})
+			.lean()
+			.exec();
+		if (!depositInfo) throw new Error('Deposit not found');
+
+		const { management } = depositInfo.building;
+		console.log('log of management: ', management);
+
+		const receivers = management.filter((m) => [ROLES['MANAGER'], ROLES['OWNER']].includes(m.user.role));
+		console.log('log of receivers: ', receivers);
+		const receiverIds = receivers.map((m) => m.user._id.toString());
+
+		const notificationSettings = receivers.map((m) => m.user?.notificationSetting);
+		console.log('log of notificationSettings: ', notificationSettings);
+
+		const userEnabledNoti = receivers
+			.filter((m) => m.user?.notificationSetting?.[notiTypes['ROOM_DEPOSITED']]?.enabled ?? true)
+			.map((m) => m.user?.expoPushToken)
+			.filter((token) => Expo.isExpoPushToken(token));
+
+		console.log('log of userEnabledNoti: ', userEnabledNoti);
+
+		const notiCreated = await Services.notifications.createNotificationRoomDeposited({
+			depositId,
+			roomIndex: depositInfo.room.roomIndex,
+			buildingName: depositInfo.building.buildingName,
+			rent: depositInfo.rent,
+			depositAmount: depositInfo.depositAmount,
+			paidAmount: depositInfo.actualDepositAmount,
+			checkinDate: depositInfo.checkinDate,
+			receiverIds: receiverIds,
+			depositCompletionDate: depositInfo.depositCompletionDate,
+		});
+
+		const notiSended = await Services.notifications.sendNotification(notiTypes['ROOM_DEPOSITED'], {
+			...notiCreated,
+			expoPushTokens: userEnabledNoti,
+		});
+
+		return {
+			success: true,
+			created: true,
+			pushSent: true,
+			notificationId: notiCreated._id,
+			totalReceivers: receivers.length,
+			pushSentTo: userEnabledNoti,
+			result: notiSended ?? null,
+		};
+	} catch (error) {
+		console.error(error);
+		throw error;
+	}
+};
+
+const handleNotiDepositTerminated = async (payload) => {
+	try {
+		const { depositId } = payload;
+		const depositInfo = await Services.deposits
+			.findById(depositId)
+			.populate({
+				path: 'room',
+				select: 'roomIndex',
+			})
+			.populate({
+				path: 'building',
+				select: 'buildingName',
+				populate: {
+					path: 'management.user',
+					populate: 'notificationSetting',
+				},
+			})
+			.lean()
+			.exec();
+		if (!depositInfo) throw new Error('Deposit not found');
+
+		const { management } = depositInfo.building;
+		console.log('log of management: ', management);
+		const receivers = management.filter((m) => [ROLES['MANAGER'], ROLES['OWNER']].includes(m.user.role));
+		const receiverIds = receivers.map((m) => m.user._id.toString());
+
+		const userEnabledNoti = receivers
+			.filter((m) => m.user?.notificationSetting?.[notiTypes['DEPOSIT_TERMINATED']]?.enabled ?? true)
+			.map((m) => m.user?.expoPushToken)
+			.filter((token) => Expo.isExpoPushToken(token));
+
+		const notiCreated = await Services.notifications.createNotificationDepositTerminated({
+			roomIndex: depositInfo.room.roomIndex,
+			buildingName: depositInfo.building.buildingName,
+			depositAmount: depositInfo.depositAmount,
+			depositId: depositId,
+			receiverIds: receiverIds,
+		});
+
+		const notiSended = await Services.notifications.sendNotification(notiTypes['DEPOSIT_TERMINATED'], {
+			...notiCreated,
+			expoPushTokens: userEnabledNoti,
+		});
+
+		return {
+			success: true,
+			created: true,
+			pushSent: true,
+			notificationId: notiCreated._id,
+			totalReceivers: receivers.length,
+			pushSentTo: userEnabledNoti,
+			result: notiSended ?? null,
+		};
+	} catch (error) {
+		console.error(error);
+		throw error;
+	}
+};
+
 module.exports = {
 	handleNotiTaskCompletedJob,
 	handleNotiManagerCollectCashInvoice,
@@ -366,4 +495,6 @@ module.exports = {
 	handleNotiPayment,
 	handleNotiContractNearExpired,
 	handleNotiTransactionDeclined,
+	handleNotiRoomDeposited,
+	handleNotiDepositTerminated,
 };

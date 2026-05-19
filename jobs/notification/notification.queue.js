@@ -6,6 +6,8 @@ const {
 	NOTI_CONTRACT_NEAR_EXPIRATION,
 	NOTI_TRANSACTION_DECLINED,
 	NOTI_MANAGER_COLLECT_CASH_RECEIPT,
+	NOTI_ROOM_DEPOSITED,
+	NOTI_DEPOSIT_TERMINATED,
 } = require('../constant/jobNames');
 
 const notiTaskCompleted = new BaseQueue(NOTI_TASK_COMPLETED);
@@ -20,6 +22,10 @@ const notiContractNearExpired = new BaseQueue(NOTI_CONTRACT_NEAR_EXPIRATION);
 
 const notiTransactionDeclined = new BaseQueue(NOTI_TRANSACTION_DECLINED);
 
+const notiRoomDeposited = new BaseQueue(NOTI_ROOM_DEPOSITED);
+
+const notiDepositTerminated = new BaseQueue(NOTI_DEPOSIT_TERMINATED);
+
 module.exports = {
 	notiTaskCompleted,
 	notiManagerCollectCashInvoice,
@@ -27,4 +33,6 @@ module.exports = {
 	notiPayment,
 	notiContractNearExpired,
 	notiTransactionDeclined,
+	notiRoomDeposited,
+	notiDepositTerminated,
 };

@@ -1,11 +1,13 @@
 const UseCase = require('../../data_providers/admin');
 const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
+const { client: redis } = require('../../config').redisDb;
 
 exports.importBuilding = asyncHandler(async (req, res) => {
 	const data = { ...req.body, ...req.files };
 	console.log('log of data from importBuilding: ', req.files);
 	const result = await UseCase.buildings.importBuilding(data);
+	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 	return new SuccessResponse('Import building successfully', result).send(res);
 });
 
@@ -25,12 +27,6 @@ exports.importFirstStatistic = asyncHandler(async (req, res) => {
 
 exports.getAllBanks = asyncHandler(async (req, res) => {
 	const result = await UseCase.banks.getAll();
-	return new SuccessResponse('Success', result).send(res);
-});
-
-exports.getUserDetail = asyncHandler(async (req, res) => {
-	const data = req.query;
-	const result = await UseCase.users.getUserDetail(data.phone);
 	return new SuccessResponse('Success', result).send(res);
 });
 

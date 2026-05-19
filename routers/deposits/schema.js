@@ -57,7 +57,7 @@ module.exports = {
 	}),
 	modifyDeposit: Joi.object().keys({
 		room: roomDepositSchema.required(),
-		interior: Joi.array().items(InteriorSchema.required()).optional(),
+		interiors: Joi.array().items(InteriorSchema.required()).optional(),
 		fees: Joi.array().items(feeSchema.required()).optional(),
 		customer: customerSchema.required(),
 	}),

@@ -8,6 +8,7 @@ const Services = require('../service');
 const { depositStatus } = require('../constants/deposits');
 const { client: redis } = require('../config').redisDb;
 const { feeUnit } = require('../constants/fees');
+const { notiRoomDepositedJob, notiDepositTerminatedJob } = require('../jobs/notification/notification.job');
 
 exports.getDeposits = async (buildingId) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -30,7 +31,6 @@ exports.createDeposit = async (data, redisKey) => {
 			const currentRoom = await Services.rooms.findById(data.roomId).session(session).lean().exec();
 			if (!currentRoom) {
 				throw new BadRequestError(`Phòng với Id: ${data.roomId} không tồn tại !`);
-				p;
 			}
 			if (currentRoom.roomState === 1) throw new BadRequestError(`Không thể đặt cọc cho phòng đang thuê !`);
 			const depositReceipt = await Services.receipts.findById(data.receiptId).session(session).lean().exec();
@@ -103,6 +103,8 @@ exports.createDeposit = async (data, redisKey) => {
 				},
 				session,
 			);
+
+			await notiRoomDepositedJob({ depositId: newDeposit._id });
 
 			await Services.rooms.setRoomDeposited({ roomId: data.roomId, isDeposited: true, session });
 
@@ -325,6 +327,8 @@ exports.terminateDeposit = async (depositId, version) => {
 			await Entity.ReceiptsEntity.updateOne({ _id: deposit.receipt }, { $set: { month, year, locked: true } }, { session });
 
 			await Services.rooms.setRoomDeposited({ roomId: deposit.room, isDeposited: false, session });
+
+			await notiDepositTerminatedJob({ depositId });
 
 			return 'Success';
 		});

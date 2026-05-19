@@ -126,4 +126,12 @@ router.post(
 	Buildings.upLoadDepositTermFile,
 );
 
+router.get(
+	'/:buildingId/contract-pdf-url',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	validator(schema.id, ValidateSource.PARAM),
+	checkResourceAccess(RESOURCES['buildings']),
+	Buildings.getBuildingContractPdfUrl,
+);
+
 module.exports = router;

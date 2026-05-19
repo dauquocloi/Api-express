@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const { NotFoundError, BadRequestError } = require('../AppError');
 const Services = require('../service');
 const { client: redis } = require('../config').redisDb;
+const generateHashPassword = require('../utils/generateHashPassword');
 
 exports.getAll = async () => {
 	return await Services.users.getAllUsers();
@@ -18,7 +19,7 @@ exports.create = async (data, redisKey) => {
 		const { buildingIds } = data;
 		session = await mongoose.startSession();
 		await session.withTransaction(async () => {
-			const encryptedPassword = await bcrypt.hash(data.phone.trim(), 5);
+			const encryptedPassword = await generateHashPassword(data.phone.trim(), 10);
 			const userInfo = {
 				fullName: data.fullName.trim(),
 				phone: data.phone.trim(),

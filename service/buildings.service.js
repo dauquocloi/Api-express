@@ -71,7 +71,7 @@ const getStatisticGeneral = async (buildingObjectId, year) => {
 };
 
 const importBuilding = async (
-	{ buildingSortName, buildingAddress, roomQuantity, invoiceNotes, contractDocxUrl, contractPdfUrl, depositTermUrl, management },
+	{ buildingSortName, buildingAddress, roomQuantity, invoiceNotes, contractDocxUrl, contractPdfUrl, depositTermUrl, management, companyId },
 	session,
 ) => {
 	const [result] = await Entity.BuildingsEntity.create(
@@ -86,6 +86,7 @@ const importBuilding = async (
 				contractDocxUrl,
 				contractPdfUrl,
 				depositTermUrl,
+				company: companyId,
 			},
 		],
 		{ session },

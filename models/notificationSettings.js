@@ -4,13 +4,13 @@ const ROLES = require('../constants/userRoles');
 
 const NotificationSettingsSchema = new Schema(
 	{
-		user: { type: Schema.Types.ObjectId, ref: 'UsersEntity' },
-		paymentReceived: {
-			// 1. Khách thanh toán hoặc có giao dịch
+		user: { type: Schema.Types.ObjectId, ref: 'UsersEntity', required: true },
+		transaction: {
+			// 1. Khách thanh toán hoặc có giao dịch, (Sepay)
 			enabled: { type: Boolean, default: true },
 			allowedRoles: { type: [String], default: [ROLES['MANAGER'], ROLES['OWNER']], required: true, enum: [ROLES['MANAGER'], ROLES['OWNER']] },
 		},
-		staffTaskCompleted: {
+		taskCompleted: {
 			// 2. Nhân viên hoàn thành công việc
 			enabled: { type: Boolean, default: true },
 			allowedRoles: { type: [String], default: [ROLES['OWNER']], required: true, enum: [ROLES['OWNER']] },
@@ -25,7 +25,7 @@ const NotificationSettingsSchema = new Schema(
 			enabled: { type: Boolean, default: true },
 			allowedRoles: { type: [String], default: [ROLES['OWNER']], required: true, enum: [ROLES['OWNER']] },
 		},
-		cashCollected: {
+		collectCash: {
 			// 5. Nhân viên thu tiền mặt -> CHỈ OWNER
 			enabled: { type: Boolean, default: true },
 			allowedRoles: { type: [String], default: [ROLES['OWNER']], required: true, enum: [ROLES['OWNER']] },
@@ -35,13 +35,28 @@ const NotificationSettingsSchema = new Schema(
 			enabled: { type: Boolean, default: true },
 			allowedRoles: { type: [String], default: [ROLES['MANAGER']], required: true, enum: [ROLES['MANAGER']] },
 		},
-		contractExpiring: {
+		contractExpire: {
 			// 7. Phòng sắp hết hạn hợp đồng
 			enabled: { type: Boolean, default: true },
 			allowedRoles: { type: [String], default: [ROLES['OWNER']], required: true, enum: [ROLES['OWNER']] },
 		},
 		roomDeposited: {
 			// 8. Phòng được đặt cọc
+			enabled: { type: Boolean, default: true },
+			allowedRoles: { type: [String], default: [ROLES['OWNER'], ROLES['MANAGER']], required: true, enum: [ROLES['OWNER'], ROLES['MANAGER']] },
+		},
+		requestTransactionConfirmation: {
+			//9. Nhân viên lập giao dịch, cần chủ nhà xác nhận.
+			enabled: { type: Boolean, default: true },
+			allowedRoles: { type: [String], default: [ROLES['OWNER']], required: true, enum: [ROLES['OWNER']] },
+		},
+		contractRenewal: {
+			//10: Phòng gia hạn vợp đồng.
+			enabled: { type: Boolean, default: true },
+			allowedRoles: { type: [String], default: [ROLES['OWNER']], required: true, enum: [ROLES['OWNER']] },
+		},
+		depositTerminated: {
+			//11: Hủy cọc.
 			enabled: { type: Boolean, default: true },
 			allowedRoles: { type: [String], default: [ROLES['OWNER'], ROLES['MANAGER']], required: true, enum: [ROLES['OWNER'], ROLES['MANAGER']] },
 		},

@@ -9,6 +9,7 @@ const schema = require('./schema');
 const crypto = require('crypto');
 const { createTokens } = require('../../auth/authUtils');
 const Services = require('../../service');
+const resolvePermissions = require('../../utils/resolvePermissions');
 
 const router = express.Router();
 
@@ -30,6 +31,13 @@ router.post(
 		console.log('log of keyStore from login: ', keyStore);
 		const tokens = await createTokens(user._id, accessTokenKey, refreshTokenKey);
 
+		const building = await Services.buildings.findByManagementId(user._id).lean().exec();
+		if (!building || building.length === 0) throw new AuthFailureError('User does not belong to any building !');
+
+		const company = await Services.companies.findById(building[0].company).lean().exec();
+		if (!company) throw new AuthFailureError('User does not belong to any company, ple make sure you have been invited to a company');
+		const permissions = resolvePermissions({ role: user.role, policies: company.permissions });
+
 		return new SuccessResponse('Login Success', {
 			user: {
 				_id: user._id,
@@ -39,6 +47,7 @@ router.post(
 				avatar: user.avatar,
 			},
 			tokens: tokens,
+			permissions,
 		}).send(res);
 	}),
 );

@@ -80,6 +80,7 @@ const UsersSchema = new Schema(
 	{
 		versionKey: false,
 		collation: { locale: 'vi' },
+		timestamps: true,
 		// toJSON: { virtuals: true },
 	},
 );

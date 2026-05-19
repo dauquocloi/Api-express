@@ -293,3 +293,12 @@ exports.getBuildingReportXlsx = async (buildingId, month, year) => {
 
 	return workbook;
 };
+
+exports.getBuildingContractPdfUrl = async (buildingId) => {
+	const building = await Services.buildings.findById(buildingId).lean().exec();
+	if (!building) throw new BadRequestError('Tòa nhà không tồn tại');
+	if (!building.contractPdfUrl) return { contractPdfUrl: '' };
+	const result = await getFileUrl(building.contractPdfUrl);
+	if (!result || !result.url) return { contractTermFileUrl: '' };
+	return { contractTermFileUrl: result.url };
+};

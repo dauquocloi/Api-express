@@ -107,3 +107,10 @@ exports.getBuildingReportXlsx = asyncHandler(async (req, res) => {
 	const workbook = await UseCase.getBuildingReportXlsx(data.buildingId, data.month, data.year);
 	new XlsxResponse(workbook, `report.xlsx`).send(res);
 });
+
+exports.getBuildingContractPdfUrl = asyncHandler(async (req, res) => {
+	const data = req.params;
+	console.log('log of getBuildingContractPdfUrl', data);
+	const result = await UseCase.getBuildingContractPdfUrl(data.buildingId);
+	return new SuccessResponse('Success', result).send(res);
+});
