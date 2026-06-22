@@ -5,7 +5,7 @@ const { client: redis } = require('../../config').redisDb;
 
 exports.importBuilding = asyncHandler(async (req, res) => {
 	const data = { ...req.body, ...req.files };
-	console.log('log of data from importBuilding: ', req.files);
+	console.log('log of data from importBuilding: ', data);
 	const result = await UseCase.buildings.importBuilding(data);
 	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 	return new SuccessResponse('Import building successfully', result).send(res);
@@ -13,14 +13,14 @@ exports.importBuilding = asyncHandler(async (req, res) => {
 
 exports.importRooms = asyncHandler(async (req, res) => {
 	const data = { ...req.body, roomFile: req.file };
-	console.log('log of data from importBuilding: ', req.file);
+	console.log('log of data from importRooms: ', data);
 	await UseCase.rooms.importRooms(data);
 	return new SuccessMsgResponse('Import rooms successfully').send(res);
 });
 
 exports.importFirstStatistic = asyncHandler(async (req, res) => {
 	const data = req.body;
-	console.log('log of data from importBuilding: ', req.file);
+	console.log('log of data from importBuilding: ', data);
 	await UseCase.statistics.importFirstStatistics(data);
 	return new SuccessMsgResponse('Import first statistic successfully').send(res);
 });

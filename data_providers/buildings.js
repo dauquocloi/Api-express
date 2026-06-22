@@ -24,8 +24,8 @@ const deleteFileFromS3 = require('../utils/deleteFileFromS3');
 //  get all buildings by managername
 exports.getAll = async (userId) => {
 	const userObjectId = new mongoose.Types.ObjectId(userId);
-	const buildings = await Services.buildings.getAllByManagementId(userObjectId);
-	if (!buildings || buildings.length === 0) throw new NotFoundError('Không tìm thấy tòa nhà');
+	const buildings = await await Services.buildings.getAllBuildingsByManagementId(userObjectId);
+	if (!buildings || buildings.length === 0) throw new NotFoundError('Dữ liệu không tồn tại');
 	return buildings;
 };
 
@@ -107,7 +107,7 @@ exports.getStatistics = async (buildingId, month, year) => {
 	return statistics;
 };
 
-// owner only
+// owner only // REFACTORED !
 exports.getBuildingPermissions = async (userId) => {
 	const buildingSettings = await Entity.BuildingsEntity.find(
 		{ 'management.user': userId },
@@ -119,7 +119,7 @@ exports.getBuildingPermissions = async (userId) => {
 	return buildingSettings;
 };
 
-// owner only
+// owner only // REFACTORED !
 exports.setBuildingPermission = async (buildingId, type, enabled) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 	const result = await Entity.BuildingsEntity.findOneAndUpdate({ _id: buildingObjectId }, { $set: { [`settings.${type}`]: enabled } });

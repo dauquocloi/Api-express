@@ -29,7 +29,7 @@ const ReceiptsSchema = new Schema(
 		receiptType: {
 			type: String,
 			enum: Object.values(receiptTypes),
-			default: 'incidental',
+			default: receiptTypes['INCIDENTAL'],
 		},
 		// if receiptType === deposit => isContractCreated required.
 		isContractCreated: {

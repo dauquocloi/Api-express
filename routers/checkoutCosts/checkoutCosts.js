@@ -10,6 +10,7 @@ exports.getCheckoutCost = asyncHandler(async (req, res) => {
 });
 
 exports.getModifyCheckoutCostInfo = asyncHandler(async (req, res) => {
+	console.log('log of data from getModifyCheckoutCostInfo: ', req.params);
 	const result = await UseCase.getModifyCheckoutCostInfo(req.params.checkoutCostId);
 	return new SuccessResponse('Success', result).send(res);
 });

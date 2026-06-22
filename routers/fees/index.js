@@ -4,11 +4,11 @@ const schema = require('./schema');
 const Fees = require('./fees');
 const authentication = require('../../auth/authentication');
 const authorization = require('../../auth/authorization');
-const { buildingPermissions: POLICY } = require('../../constants/buildings');
 const checkResourceAccess = require('../../auth/checkResourceAccess');
 const ROLES = require('../../constants/userRoles');
 const { checkIdempotency } = require('../../middleware/idempotency');
 const { RESOURCES, VALIDATE_SOURCE: RESOURCE_VS } = require('../../constants/resources');
+const { PERMISSIONS } = require('../../constants/permissions');
 
 const router = express.Router();
 
@@ -22,7 +22,7 @@ router.post(
 	'/',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.addFee, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['rooms'], POLICY['MANAGER_EDIT_ROOM_FEE'], RESOURCE_VS['BODY']),
+	checkResourceAccess(RESOURCES['rooms'], PERMISSIONS['EDIT_FEE'], RESOURCE_VS['BODY']),
 	checkIdempotency,
 
 	Fees.addFee,
@@ -33,7 +33,7 @@ router.patch(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.editFee, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['fees'], POLICY['MANAGER_EDIT_ROOM_FEE']),
+	checkResourceAccess(RESOURCES['fees'], PERMISSIONS['EDIT_FEE']),
 	checkIdempotency,
 	Fees.editFee,
 );
@@ -42,7 +42,7 @@ router.delete(
 	'/:feeId',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
-	checkResourceAccess(RESOURCES['fees'], POLICY['MANAGER_EDIT_ROOM_FEE']),
+	checkResourceAccess(RESOURCES['fees'], PERMISSIONS['EDIT_FEE']),
 	Fees.deleteFee,
 );
 

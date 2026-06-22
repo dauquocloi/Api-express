@@ -1,140 +1,115 @@
+const mongoose = require('mongoose');
 const { vehicleStatus } = require('../../../constants/vehicle');
 
-const getAllVehicles = (buildingId, status) => {
-	const matchStage = {
-		$match: {
-			$expr: {
-				$and: [
-					{
-						$in: ['$owner', '$$customerId'],
-					},
-				],
-			},
-		},
-	};
-
-	if (status === vehicleStatus['ACTIVE']) {
-		matchStage.$match.$expr.$and.push({
-			$or: [{ $eq: ['$status', 'active'] }, { $eq: ['$status', 'suspended'] }],
-		});
-	} else if (status === vehicleStatus['TERMINATED']) {
-		matchStage.$match.$expr.$and.push({
-			$eq: ['$status', 'terminated'],
-		});
-	}
+const getAllVehicles = (buildingObjectId, status) => {
+	console.log('Log of status from getAllVehicles: ', status);
 	return [
 		{
 			$match: {
-				_id: buildingId,
+				_id: new mongoose.Types.ObjectId(buildingObjectId),
 			},
 		},
 		{
 			$lookup: {
 				from: 'rooms',
-				localField: '_id',
-				foreignField: 'building',
+				let: {
+					buildingId: '$_id',
+				},
 				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$eq: ['$$buildingId', '$building'],
+							},
+						},
+					},
+					{
+						$lookup: {
+							from: 'customers',
+							let: {
+								roomId: '$_id',
+								roomState: '$roomState',
+							},
+							pipeline: [
+								{
+									$match: {
+										$expr: {
+											$and: [
+												{
+													$ne: ['$$roomState', 0],
+												},
+												{
+													$eq: ['$$roomId', '$room'],
+												},
+												{
+													$in: ['$status', [1, 2]],
+												},
+											],
+										},
+									},
+								},
+								{
+									$lookup: {
+										from: 'vehicles',
+										localField: '_id',
+										foreignField: 'owner',
+										pipeline: [
+											{
+												$match: {
+													status: {
+														$in:
+															status === vehicleStatus['ACTIVE']
+																? [vehicleStatus['ACTIVE'], vehicleStatus['SUSPENDED']]
+																: [vehicleStatus['TERMINATED']],
+													},
+												},
+											},
+										],
+										as: 'vehicles',
+									},
+								},
+								{
+									$match: {
+										'vehicles.0': {
+											$exists: true,
+										},
+									},
+								},
+								{
+									$project: {
+										_id: 0,
+										customerId: '$_id',
+										status: 1,
+										fullName: 1,
+										vehicles: 1,
+									},
+								},
+							],
+							as: 'customers',
+						},
+					},
+					{
+						$project: {
+							_id: 0,
+							roomId: '$_id',
+							roomIndex: 1,
+							roomState: 1,
+							data: '$customers',
+						},
+					},
 					{
 						$sort: {
 							roomIndex: 1,
 						},
 					},
 				],
-				as: 'roomInfo',
-			},
-		},
-		{
-			$unwind: {
-				path: '$roomInfo',
-				preserveNullAndEmptyArrays: true,
-			},
-		},
-		{
-			$lookup: {
-				from: 'customers',
-				localField: 'roomInfo._id',
-				foreignField: 'room',
-				as: 'customerInfo',
-			},
-		},
-
-		{
-			$lookup: {
-				from: 'vehicles',
-				let: {
-					customerId: {
-						$map: {
-							input: '$customerInfo',
-							as: 'customer',
-							in: '$$customer._id',
-						},
-					},
-				},
-				pipeline: [matchStage],
-				as: 'vehicleInfo',
+				as: 'rooms',
 			},
 		},
 		{
 			$project: {
-				_id: {
-					_id: '$_id',
-					buildingName: '$buildingName',
-				},
-				roomInfo: {
-					_id: '$roomInfo._id',
-					roomIndex: '$roomInfo.roomIndex',
-					roomState: '$roomInfo.roomState',
-				},
-				data: {
-					$filter: {
-						input: {
-							$map: {
-								input: '$customerInfo',
-								as: 'customer',
-								in: {
-									customerId: '$$customer._id',
-									fullName: '$$customer.fullName',
-									vehicleInfo: {
-										$ifNull: [
-											{
-												$arrayElemAt: [
-													{
-														$filter: {
-															input: '$vehicleInfo',
-															as: 'vehicle',
-															cond: {
-																$eq: ['$$vehicle.owner', '$$customer._id'],
-															},
-														},
-													},
-													0,
-												],
-											},
-											null,
-										],
-									},
-								},
-							},
-						},
-						as: 'item',
-						cond: {
-							$ne: ['$$item.vehicleInfo', null],
-						},
-					},
-				},
-			},
-		},
-		{
-			$group: {
-				_id: '$_id',
-				data: {
-					$push: {
-						roomId: '$roomInfo._id',
-						roomIndex: '$roomInfo.roomIndex',
-						roomState: '$roomInfo.roomState',
-						data: '$data',
-					},
-				},
+				_id: 1,
+				rooms: 1,
 			},
 		},
 	];

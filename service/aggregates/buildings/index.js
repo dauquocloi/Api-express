@@ -2,6 +2,50 @@ const { vehicleStatus } = require('../../../constants/vehicle');
 const { debtStatus } = require('../../../constants/debts');
 const { invoiceStatus } = require('../../../constants/invoices');
 const { receiptStatus } = require('../../../constants/receipt');
+const mongoose = require('mongoose');
+
+const getAllBuildingsByManagementId = (userId) => {
+	return [
+		{
+			$match: {
+				'management.user': new mongoose.Types.ObjectId(userId),
+			},
+		},
+		{
+			$lookup: {
+				from: 'statistics',
+				localField: '_id',
+				foreignField: 'building',
+				pipeline: [
+					{
+						$sort: {
+							month: -1,
+							year: -1,
+						},
+					},
+					{
+						$limit: 1,
+					},
+					{
+						$project: {
+							_id: 0,
+							month: 1,
+							year: 1,
+						},
+					},
+				],
+				as: 'period',
+			},
+		},
+		{
+			$addFields: {
+				period: {
+					$arrayElemAt: ['$period', 0],
+				},
+			},
+		},
+	];
+};
 
 const getAllBillsPipeline = (buildingId, month, year) => {
 	return [
@@ -888,6 +932,7 @@ const getExcelData = (buildingObjectId, month, year) => {
 };
 
 module.exports = {
+	getAllBuildingsByManagementId,
 	getAllBillsPipeline,
 	getStatisticGeneral,
 	getFinanceSettlementData,

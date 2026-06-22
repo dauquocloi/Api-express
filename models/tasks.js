@@ -1,11 +1,12 @@
 var mongoose = require('mongoose');
 const getFileUrl = require('../utils/getFileUrl');
+const { TASK_STATUS } = require('../constants/tasks');
 
 const Schema = mongoose.Schema;
 
 const TasksSchema = new Schema(
 	{
-		status: { type: String, enum: ['pending', 'completed'], default: 'pending' },
+		status: { type: String, enum: Object.values(TASK_STATUS), default: TASK_STATUS.PENDING },
 		taskContent: { type: String, required: true },
 		detail: { type: String },
 		executionDate: { type: Date, default: Date.now },
@@ -20,23 +21,6 @@ const TasksSchema = new Schema(
 		timestamps: true, // Thêm thời gian tạo và cập nhật
 	},
 );
-
-TasksSchema.post('findOne', async function (doc) {
-	try {
-		if (doc?.images && doc.images?.length > 0) {
-			const { images } = doc;
-			const taskImageUrl = [];
-			for (const key of images) {
-				const signalUrl = await getFileUrl(key);
-				console.log('log of signalUrl: ', signalUrl);
-				taskImageUrl.push({ uri: signalUrl });
-			}
-			doc.images = taskImageUrl;
-		}
-	} catch (error) {
-		throw error;
-	}
-});
 
 // TasksSchema.index(
 // 	{ taskContent: 'text', detail: 'text' },

@@ -23,11 +23,21 @@ router.post(
 		{ name: 'depositTermUrl', maxCount: 1 },
 	]),
 	validator(schema.importBuilding, ValidateSource.BODY),
+	validator(schema.importBuildingFiles, ValidateSource.FILES),
 	checkIdempotency,
 	Admins.importBuilding,
 );
 
-router.post('/import-rooms', upload.single('roomFile'), checkIdempotency, Admins.importRooms);
+router.post(
+	'/import-rooms',
+	upload.single('roomFile'),
+	validator(schema.importRooms, ValidateSource.BODY),
+
+	validator(schema.roomFile, ValidateSource.FILE),
+
+	checkIdempotency,
+	Admins.importRooms,
+);
 
 router.post('/import-first-statistic', Admins.importFirstStatistic);
 

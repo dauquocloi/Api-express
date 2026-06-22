@@ -1,18 +1,20 @@
 const mongoose = require('mongoose');
 const Entity = require('../models');
 const uploadFile = require('../utils/uploadFile');
+const getFileUrl = require('../utils/getFileUrl');
 const { errorCodes } = require('../constants/errorCodes');
 const Services = require('../service');
-// const { NotiTaskCompletedJob } = require('../jobs/Notifications');
 const { notiTaskCompletedJob } = require('../jobs/notification/notification.job');
 const { BadRequestError } = require('../AppError');
 const ROLES = require('../constants/userRoles');
+const { TASK_STATUS } = require('../constants/tasks');
+const deleteFileFromS3 = require('../utils/deleteFileFromS3');
 const dayjs = require('dayjs');
 
 exports.createTask = async (performers, userId, taskContent, detail, executionDate) => {
 	let performerObjectIds = [];
 
-	const buildings = await Services.buildings.getAllByManagementId(userId);
+	const buildings = await Services.buildings.findByManagementId(userId);
 	if (!Array.isArray(buildings) || buildings.length === 0) {
 		throw new BadRequestError('Dữ liệu người dùng không tồn tại trong hệ thống!');
 	}
@@ -94,7 +96,6 @@ exports.createTask = async (performers, userId, taskContent, detail, executionDa
 };
 
 exports.getTasks = async (userId, page = 1, search, startDate, endDate) => {
-	console.log('getTasks Provider: ', userId, page, search, startDate, endDate);
 	if (!userId || !mongoose.isValidObjectId(new mongoose.Types.ObjectId(userId))) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ');
 
 	const userObjectId = new mongoose.Types.ObjectId(userId);
@@ -109,7 +110,6 @@ exports.getTasks = async (userId, page = 1, search, startDate, endDate) => {
 	const DAYS_PER_PAGE = 5; //days;
 	const tasks = await Services.tasks.getTasks(userObjectId, page, DAYS_PER_PAGE, startDate, endDate);
 	const isListEnd = tasks.length <= DAYS_PER_PAGE; // like has more
-	console.log('Is tasks ended: ', isListEnd);
 
 	return { tasks: tasks.slice(0, DAYS_PER_PAGE), page, isListEnd };
 };
@@ -118,6 +118,9 @@ exports.modifyTask = async (data) => {
 	const existingTask = await Services.tasks.findById(data.taskId).lean().exec();
 	if (!existingTask) {
 		return new BadRequestError('Dữ liệu không tồn tại!');
+	}
+	if (data.taskImages?.length > 0 && data.removeAllImages) {
+		throw new BadRequestError('Dữ liệu đầu vào không hợp lệ!');
 	}
 
 	// Prepare update data
@@ -129,11 +132,21 @@ exports.modifyTask = async (data) => {
 		status: data.status,
 	};
 
-	// Handle image upload if needed
 	if (data.taskImages?.length > 0) {
-		const imageUploadPromises = data.taskImages.map((image) => uploadFile(image));
-		const uploadResults = await Promise.all(imageUploadPromises);
-		updateData.images = uploadResults.map((result) => result.Key);
+		const uploadResults = await Promise.all(data.taskImages.map((image) => uploadFile(image)));
+
+		updateData.images = uploadResults.map((r) => r.Key);
+
+		if (existingTask.images?.length > 0) {
+			await Promise.all(existingTask.images.map((image) => deleteFileFromS3(image)));
+		}
+	}
+	if (data.removeAllImages) {
+		if (existingTask.images?.length > 0) {
+			await Promise.all(existingTask.images.map((image) => deleteFileFromS3(image)));
+		}
+
+		updateData.images = [];
 	}
 
 	// Update task and return populated document in one query
@@ -141,7 +154,7 @@ exports.modifyTask = async (data) => {
 	console.log('taskModified: ', taskModified);
 
 	// Enqueue notification if task completed
-	if (data.status === 'completed') {
+	if (data.status === TASK_STATUS['COMPLETED'] && existingTask.status !== TASK_STATUS['COMPLETED']) {
 		await notiTaskCompletedJob({
 			managementIds: taskModified.managements.map((m) => m._id),
 			performerIds: data.performers,
@@ -172,6 +185,20 @@ exports.deleteTask = async (taskId) => {
 };
 
 exports.getTaskDetail = async (taskId) => {
-	const taskInfo = await Services.tasks.getTaskById(taskId);
-	return taskInfo;
+	const task = await Services.tasks.getTaskById(taskId);
+	console.log('log of task: ', task);
+	if (task.images && task.images?.length > 0) {
+		const imageKeys = task.images;
+
+		const imageDownloadPromises = imageKeys.map((image) => getFileUrl(image));
+
+		const downloadResults = await Promise.all(imageDownloadPromises);
+
+		task.images = downloadResults.map((url, index) => ({
+			key: imageKeys[index],
+			uri: url,
+		}));
+	}
+
+	return task;
 };

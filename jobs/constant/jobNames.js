@@ -9,4 +9,6 @@ module.exports = {
 	NOTI_ROOM_DEPOSITED: 'notiRoomDeposited',
 	ZNS_NEW_INVOICE_NOTI: 'znsNewInvoiceNoti',
 	NOTI_DEPOSIT_TERMINATED: 'notiDepositTerminated',
+	LOCK_INVOICE: 'lockInvoice',
+	LOCK_RECEIPT: 'lockReceipt',
 };

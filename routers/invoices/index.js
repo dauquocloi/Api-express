@@ -6,9 +6,10 @@ const authentication = require('../../auth/authentication');
 const authorization = require('../../auth/authorization');
 const ROLES = require('../../constants/userRoles');
 const checkResourceAccess = require('../../auth/checkResourceAccess');
-const { buildingPermissions: POLICY } = require('../../constants/buildings');
 const { checkIdempotency } = require('../../middleware/idempotency');
 const { RESOURCES, VALIDATE_SOURCE: RESOURCE_VS } = require('../../constants/resources');
+const { PERMISSIONS } = require('../../constants/permissions');
+const { PAYMENT_METHOD } = require('../../constants/transactions');
 const router = express.Router();
 
 //====================//
@@ -52,7 +53,7 @@ router.patch(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.modifyInvoice, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['invoices'], POLICY['MANAGER_EDIT_INVOICE']),
+	checkResourceAccess(RESOURCES['invoices'], PERMISSIONS['EDIT_BILL']),
 	checkIdempotency,
 	Invoices.modifyInvoice,
 );
@@ -62,7 +63,7 @@ router.delete(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.deleteInvoice, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['invoices'], POLICY['MANAGER_DELETE_INVOICE']),
+	checkResourceAccess(RESOURCES['invoices'], PERMISSIONS['DELETE_BILL']),
 	Invoices.deleteInvoice,
 );
 
@@ -81,7 +82,14 @@ router.post(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.checkout, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['invoices'], POLICY['MANAGER_COLLECT_CASH']),
+	(req, res, next) => {
+		const permissionByPaymentMethod = {
+			[PAYMENT_METHOD.CASH]: PERMISSIONS['COLLECT_CASH'],
+			[PAYMENT_METHOD.TRANSFER]: PERMISSIONS['PAYMENT_REQUEST'],
+		};
+
+		return checkResourceAccess(RESOURCES['invoices'], permissionByPaymentMethod[req.body.paymentMethod]);
+	},
 	checkIdempotency,
 	Invoices.checkout,
 );

@@ -25,7 +25,7 @@ exports.getTasksCaseQuery = async (userObjectId, page = 1, search, startDate, en
 exports.getTaskById = async (taskObjectId) => {
 	const task = await Entity.TasksEntity.findById(taskObjectId);
 	if (!task) throw new NotFoundError('Dữ liệu không tồn tại');
-	return task;
+	return task.toObject();
 };
 
 exports.deleteTask = async (taskId) => {

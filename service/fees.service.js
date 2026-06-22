@@ -183,6 +183,32 @@ exports.createFeeIndexHistory = async (listFeeIndexInitials, session) => {
 	return result;
 };
 
+exports.updateFeeIndexHistory = async ({ feeId, lastIndex, editorId }, session) => {
+	const feeIndexHistory = await Entity.FeeIndexHistoryEntity.findOne({ fee: feeId }).session(session);
+	if (!feeIndexHistory) {
+		throw new NotFoundError('Fee index history not found');
+	}
+
+	const result = await Entity.FeeIndexHistoryEntity.updateOne(
+		{ fee: feeId },
+		{
+			$set: {
+				prevIndex: feeIndexHistory.lastIndex,
+				lastIndex: lastIndex,
+				prevEditor: feeIndexHistory.lastEditor,
+				lastEditor: editorId,
+				prevUpdated: feeIndexHistory.lastUpdated,
+				lastUpdated: new Date(),
+			},
+		},
+		{ session },
+	);
+	if (result.matchedCount === 0) {
+		throw new NotFoundError('Fee index history not found !');
+	}
+	return result;
+};
+
 exports.updateFeeIndexHistoryMany = async ({ payloads = [], editorId }, session) => {
 	if (!payloads.length) return [];
 

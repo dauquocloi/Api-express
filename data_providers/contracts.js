@@ -77,6 +77,7 @@ exports.prepareGenerateContract = async (
 						receiptContent: `Tiền cọc phòng ${currentRoom.roomIndex}`,
 						receiptType: receiptTypes['DEPOSIT'],
 						initialStatus: receiptStatus['PENDING'],
+						creater: createrId,
 					},
 					session,
 				);

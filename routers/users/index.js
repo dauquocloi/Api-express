@@ -15,6 +15,19 @@ router.use(authentication);
 //==================//
 
 router.patch(
+	'/notifications',
+	(req, res, next) =>
+		(req.user.role === ROLES['OWNER']
+			? validator(schema.setNotiOwner, ValidateSource.BODY)
+			: validator(schema.setNotiManager, ValidateSource.BODY))(req, res, next),
+
+	checkIdempotency,
+	Users.setNotification,
+);
+
+router.patch('/info', validator(schema.modifyUserInfo, ValidateSource.Body), checkIdempotency, Users.modifyUserInfo);
+
+router.patch(
 	'/:userId',
 	authorization(ROLES['OWNER']),
 	validator(schema.id, ValidateSource.PARAM),

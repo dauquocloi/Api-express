@@ -1,6 +1,7 @@
-var mongoose = require('mongoose');
+const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const ROLES = require('../constants/userRoles');
+const { ownerNotiSettings, managerNotiSettings } = require('../constants/notifications');
 
 const NotificationSettingsSchema = new Schema(
 	{

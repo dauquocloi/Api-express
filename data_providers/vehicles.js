@@ -78,3 +78,12 @@ exports.getVehicle = async (vehicleId) => {
 
 	return vehicle;
 };
+
+exports.getVehicleImage = async (vehicleId) => {
+	const vehicle = await Services.vehicles.findById(vehicleId).lean().exec();
+	if (!vehicle) throw new NotFoundError('Dữ liệu không tồn tại');
+	if (!vehicle.image) return { image: '' };
+
+	const url = await getFileUrl(vehicle.image);
+	return { image: url };
+};

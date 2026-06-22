@@ -164,6 +164,7 @@ exports.importCashTransactions = async (data, session) => {
 		year: data.year,
 		isTransactionDetected: true,
 		createdBy: CREATED_BY['OWNER'],
+		ownerConfirmed: OWNER_CONFIRMED_STATUS['CONFIRMED'],
 	}));
 	const result = await Entity.TransactionsEntity.insertMany(transactionData, { session, timestamps: false });
 	return result;

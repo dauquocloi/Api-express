@@ -50,4 +50,12 @@ router.patch(
 	Vehicles.editVehicle,
 );
 
+router.get(
+	'/:vehicleId/image',
+	authorization(ROLES['MANAGER'], ROLES['OWNER'], ROLES['STAFF']),
+	validator(schema.id, ValidateSource.PARAM),
+	checkResourceAccess(RESOURCES['vehicles']),
+	Vehicles.getVehicleImage,
+);
+
 module.exports = router;

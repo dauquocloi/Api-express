@@ -1,6 +1,7 @@
 const UseCase = require('../../data_providers/tasks');
 const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
+const delay = require('../../utils/delay');
 
 exports.createTask = asyncHandler(async (req, res) => {
 	let data = req.body;
@@ -25,16 +26,14 @@ exports.getTaskDetail = asyncHandler(async (req, res) => {
 	let data = req.params;
 	console.log('log of data from getTaskDetail: ', data);
 
-	// await new Promise((resolve) => {
-	// 	setTimeout(() => resolve(), 5000);
-	// });
+	// await delay(5000, false);
 
 	const result = await UseCase.getTaskDetail(data.taskId);
 	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.modifyTask = asyncHandler(async (req, res) => {
-	const taskImages = req.files;
+	const taskImages = req.files ?? null;
 	let data = { ...req.body, ...req.params, taskImages };
 	console.log('log of data from modifyTask: ', data);
 	const result = await UseCase.modifyTask(data);
@@ -44,9 +43,6 @@ exports.modifyTask = asyncHandler(async (req, res) => {
 exports.deleteTask = asyncHandler(async (req, res, next) => {
 	let data = req.params;
 	console.log('log of data from deleteTask: ', data);
-	// await new Promise((resolve, reject) => {
-	// setTimeout(() => reject(new Error('SOMETHING WENT WRONG !')), 5000);
-	// });
 	await UseCase.deleteTask(data.taskId);
 	return new SuccessMsgResponse('Success').send(res);
 });

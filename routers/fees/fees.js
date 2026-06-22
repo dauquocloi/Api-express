@@ -39,8 +39,8 @@ exports.getFeeInitial = (req, res) => {
 };
 
 exports.getFeeIndexHistory = asyncHandler(async (req, res) => {
+	console.log('log of data from getFeeIndexHistory: ', req.params);
 	const result = await UseCase.getFeeIndexHistory(req.params.feeId);
-	setTimeout(() => {
-		return new SuccessResponse('Success', result).send(res);
-	}, 1000);
+
+	return new SuccessResponse('Success', result).send(res);
 });

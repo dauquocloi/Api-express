@@ -5,8 +5,8 @@ const calculateTotalReceipts = (receipts) => {
 
 const calculateReceiptStatusAfterModified = (paidAmount, amount) => {
 	if (paidAmount === 0) return receiptStatus[`UNPAID`];
-	if (paidAmount < amount) return receiptStatus[`PARTIAL`];
 	if (paidAmount >= amount) return receiptStatus[`PAID`];
+	return receiptStatus[`PARTIAL`];
 };
 
 module.exports = {

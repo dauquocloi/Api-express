@@ -1,7 +1,12 @@
 const { BadRequestError } = require('../../AppError');
-const { feeUnit } = require('../../constants/fees');
+const { feeUnit: FEE_UNIT } = require('../../constants/fees');
 const { vehicleStatus } = require('../../constants/vehicle');
 const feesInitial = require('../../utils/getListFeeInital');
+const { roomState: ROOM_STATE } = require('../../constants/rooms');
+const Services = require('../../service');
+const { contractStatus: CONTRACT_STATUS } = require('../../constants/contracts');
+const generateContractCode = require('../../utils/generateContractCode');
+
 function parseInteriors(row) {
 	const interiorsMap = {};
 
@@ -85,7 +90,7 @@ function parseFees(row) {
 				feeAmount: i.feeAmount,
 			};
 
-			if (feeInfo.unit === feeUnit['INDEX']) {
+			if (feeInfo.unit === FEE_UNIT['INDEX']) {
 				result.lastIndex = i.lastIndex ?? 0;
 			}
 
@@ -210,4 +215,231 @@ function parseVehicles(data, roomId, contractId, rowIndex, customerMap) {
 	return vehicles;
 }
 
-module.exports = { parseInteriors, parseFees, parseCustomers, parseVehicles };
+const createRooms = async ({ data, buildingId, session }) => {
+	const roomData = data.map((room) => ({
+		building: buildingId,
+		roomIndex: room.roomIndex?.toString()?.trim() || '',
+		roomPrice: Number(room.roomPrice),
+		roomState: room.roomState,
+		interior: parseInteriors(room),
+	}));
+
+	const roomsCreated = await Services.rooms.importRooms(roomData, session);
+
+	const roomMap = new Map();
+
+	roomsCreated.forEach((room) => {
+		roomMap.set(room.roomIndex, room._id);
+	});
+
+	return {
+		roomsCreated,
+		roomMap,
+	};
+};
+
+const createDepositReceipts = async ({ data, roomMap, session, ownerId }) => {
+	const depositReceiptData = data
+		.filter((room) => room.roomState !== ROOM_STATE['UN_HIRED'])
+		.map((room) => ({
+			room: roomMap.get(room.roomIndex.trim()),
+			roomIndex: room.roomIndex.trim(),
+			amount: Number(room.deposit),
+			paidAmount: Number(room.depositPaidAmount),
+			date: new Date(room.depositPaidDate),
+			month: new Date(room.signDate).getMonth() + 1,
+			year: new Date(room.signDate).getFullYear(),
+			creater: ownerId,
+		}));
+
+	const receipts = await Services.receipts.importReceiptsDeposit(depositReceiptData, session);
+
+	const depositReceiptMap = new Map();
+
+	receipts.forEach((receipt) => {
+		depositReceiptMap.set(receipt.room.toString(), receipt._id);
+	});
+
+	return {
+		receipts,
+		depositReceiptMap,
+	};
+};
+
+const createDepositTransactions = async ({ receipts, ownerId, session }) => {
+	const payload = receipts.map((receipt) => ({
+		collector: ownerId,
+		receipt: receipt._id,
+		amount: receipt.paidAmount,
+		createdAt: receipt.createdAt,
+		month: receipt.month,
+		year: receipt.year,
+	}));
+
+	return Services.transactions.importCashTransactions(payload, session);
+};
+
+const createFees = async ({ data, roomMap, ownerId, session }) => {
+	const feesData = [];
+
+	data.forEach((room) => {
+		const fees = parseFees(room);
+
+		fees.forEach((fee) => {
+			feesData.push({
+				...fee,
+				room: roomMap.get(room.roomIndex.trim()),
+			});
+		});
+	});
+
+	const createdFees = await Services.fees.importFees(feesData, session);
+
+	const feeIndexHistoryPayload = createdFees
+		.filter((fee) => fee.unit === FEE_UNIT['INDEX'])
+		.map((fee) => ({
+			feeKey: fee.feeKey,
+			fee: fee._id,
+			room: fee.room,
+			lastIndex: fee.lastIndex,
+			prevIndex: fee.lastIndex,
+			lastUpdated: new Date(),
+			prevUpdated: new Date(),
+			lastEditor: ownerId,
+			prevEditor: ownerId,
+		}));
+
+	await Services.fees.createFeeIndexHistory(feeIndexHistoryPayload, session);
+
+	return createdFees;
+};
+
+const createContracts = async ({ data, roomMap, depositReceiptMap, session }) => {
+	const contractData = [];
+
+	for (const room of data) {
+		if (room.roomState === ROOM_STATE['UN_HIRED']) continue;
+
+		const roomId = roomMap.get(room.roomIndex.trim());
+
+		contractData.push({
+			room: roomId,
+			rent: Number(room.rent),
+			depositReceiptId: depositReceiptMap.get(roomId.toString()),
+			contractSignDate: new Date(room.signDate),
+			contractEndDate: new Date(room.endDate),
+			contractTerm: room.contractTerm.trim(),
+			note: room.contractNote?.trim() ?? '',
+			status: CONTRACT_STATUS['ACTIVE'],
+			contractCode: await generateContractCode(process.env.CONTRACT_CODE_LENGTH),
+		});
+	}
+
+	const contracts = await Services.contracts.importContracts(contractData, session);
+
+	const contractMap = new Map();
+
+	contracts.forEach((contract) => {
+		contractMap.set(contract.room.toString(), contract._id);
+	});
+
+	return {
+		contracts,
+		contractMap,
+	};
+};
+
+const createCustomers = async ({ data, roomMap, contractMap, session }) => {
+	const customerData = [];
+	const customerMap = new Map();
+
+	data.forEach((room, rowIndex) => {
+		if (room.roomState === ROOM_STATE['UN_HIRED']) return;
+
+		const roomId = roomMap.get(room.roomIndex.trim());
+
+		const contractId = contractMap.get(roomId.toString());
+
+		const customers = parseCustomers(room, roomId, contractId);
+
+		customers.forEach((customer, index) => {
+			customerData.push({
+				_rowIndex: rowIndex,
+				_clientIndex: index + 1,
+				data: customer,
+			});
+		});
+	});
+
+	const createdCustomers = await Services.customers.importCustomers(
+		customerData.map((c) => c.data),
+		session,
+	);
+
+	createdCustomers.forEach((customer, i) => {
+		const { _rowIndex, _clientIndex } = customerData[i];
+		const key = `${_rowIndex}_${_clientIndex}`;
+		customerMap.set(key, customer._id);
+	});
+
+	return {
+		customerData,
+		createdCustomers,
+		customerMap,
+	};
+};
+
+const linkContractOwners = async ({ contracts, createdCustomers, session }) => {
+	const ownerCustomers = createdCustomers.filter((c) => c.isContractOwner);
+
+	const ownerByContract = new Map();
+
+	for (const customer of ownerCustomers) {
+		const contractId = customer.contract.toString();
+
+		if (ownerByContract.has(contractId)) {
+			throw new BadRequestError(`Contract ${contractId} có nhiều chủ hợp đồng`);
+		}
+
+		ownerByContract.set(contractId, customer._id);
+	}
+
+	contracts.forEach((contract) => {
+		if (!ownerByContract.has(contract._id.toString())) {
+			throw new BadRequestError(`Contract ${contract._id} không có chủ hợp đồng`);
+		}
+	});
+
+	await Services.contracts.importManyCustomerRef(ownerByContract, session);
+};
+
+const createVehicles = async ({ data, roomMap, contractMap, customerMap, session }) => {
+	const vehicleData = [];
+
+	data.forEach((row, rowIndex) => {
+		if (row.roomState === ROOM_STATE['UN_HIRED']) return;
+
+		const roomId = roomMap.get(row.roomIndex.trim());
+
+		const contractId = contractMap.get(roomId.toString());
+
+		vehicleData.push(...parseVehicles(row, roomId, contractId, rowIndex, customerMap));
+	});
+
+	return Services.vehicles.importVehicles(vehicleData, session);
+};
+
+module.exports = {
+	parseInteriors,
+	parseFees,
+	parseCustomers,
+	parseVehicles,
+	createRooms,
+	createFees,
+	createContracts,
+	createCustomers,
+	linkContractOwners,
+	createVehicles,
+	createDepositReceipts,
+	createDepositTransactions,
+};

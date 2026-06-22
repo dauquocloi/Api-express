@@ -13,34 +13,32 @@ const notificationTypes = {
 	DEPOSIT_TERMINATED: 'depositTerminated',
 };
 
-const notiSettingTypes = {
-	STAFF_TASK_COMPLETED: 'staffTaskCompleted',
-	ROOM_CHECKOUT: 'roomCheckout',
-	ROOM_CHECKOUT_EARLY: 'roomCheckoutEarly',
-	PAYMENT_RECEIVED: 'paymentReceived',
-	CASH_COLLECTED: 'cashCollected',
-	CONTRACT_EXPIRING: 'contractExpiring',
-	ROOM_DEPOSITED: 'roomDeposited',
-	ASIGNED_TASK: 'assignedTask',
-};
+// const notiSettingTypes = {
+// 	STAFF_TASK_COMPLETED: 'staffTaskCompleted',
+// 	ROOM_CHECKOUT: 'roomCheckout',
+// 	ROOM_CHECKOUT_EARLY: 'roomCheckoutEarly',
+// 	PAYMENT_RECEIVED: 'paymentReceived',
+// 	CASH_COLLECTED: 'cashCollected',
+// 	CONTRACT_EXPIRING: 'contractExpiring',
+// 	ROOM_DEPOSITED: 'roomDeposited',
+// 	ASIGNED_TASK: 'assignedTask',
+// };
 
-const ownerNotificationTypes = [
-	notificationTypes['STAFF_TASK_COMPLETED'],
+const ownerNotiSettings = [
+	notificationTypes['TASK_COMPLETED'],
 	notificationTypes['ROOM_CHECKOUT'],
-	notificationTypes['ROOM_CHECKOUT_EARLY'],
-	notificationTypes['PAYMENT_RECEIVED'],
-	notificationTypes['CASH_COLLECTED'],
-	notificationTypes['CONTRACT_EXPIRING'],
-	notificationTypes['ROOM_DEPOSITED'],
+	notificationTypes['TRANSACTION'],
+	notificationTypes['COLLECT_CASH'],
+	notificationTypes['CONTRACT_EXPIRE'],
+	notificationTypes['CONTRACT_RENEWAL'],
 ];
 
-const managerNotiticationTypes = [
-	notificationTypes['ROOM_CHECKOUT'],
-	notificationTypes['ROOM_CHECKOUT_EARLY'],
-	notificationTypes['PAYMENT_RECEIVED'],
-	notificationTypes['CASH_COLLECTED'],
-	notificationTypes['CONTRACT_EXPIRING'],
+const managerNotiSettings = [
+	notificationTypes['ASIGNED_TASK'],
+	notificationTypes['TRANSACTION'],
+	notificationTypes['CONTRACT_EXPIRE'],
 	notificationTypes['ROOM_DEPOSITED'],
+	notificationTypes['TASK_COMPLETED'],
 ];
 
-module.exports = { notificationTypes };
+module.exports = { notificationTypes, ownerNotiSettings, managerNotiSettings };

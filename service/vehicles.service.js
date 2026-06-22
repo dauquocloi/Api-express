@@ -8,7 +8,7 @@ exports.findById = (vehicleId) => Entity.VehiclesEntity.findById(vehicleId);
 exports.getAllVehicles = async (buildingObjectId, status) => {
 	const [vehicles] = await Entity.BuildingsEntity.aggregate(Pipelines.vehicles.getAllVehicles(buildingObjectId, status));
 
-	return vehicles?.data ?? [];
+	return vehicles?.rooms ?? [];
 };
 exports.createVehicle = async ({ licensePlate, owner, room, fromDate, status, image, contract }) => {
 	const vehicle = await Entity.VehiclesEntity.create({ licensePlate, owner, room, fromDate, status, image, contract });

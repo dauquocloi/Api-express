@@ -170,12 +170,12 @@ exports.createNotification = async (notiType, data) => {
 exports.getNotifications = async (receiverId, page) => {
 	const receiverObjectId = new mongoose.Types.ObjectId(receiverId);
 	const pages = page || 1;
-	const limit = 10; // Ngày
+	const limit = 10; // days
 
 	const listNoti = await Services.notifications.getNotifications(receiverObjectId, pages, limit);
 	const isListEnd = listNoti.length <= limit;
 
-	return { notis: listNoti, isListEnd };
+	return { notis: listNoti.slice(0, limit), isListEnd };
 };
 
 exports.getNotiSettings = async (userId, role) => {

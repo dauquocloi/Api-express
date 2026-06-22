@@ -1,31 +1,23 @@
 const mongoose = require('mongoose');
-const MongoConnect = require('../utils/MongoConnect');
-const axios = require('axios');
-var Entity = require('../models');
+const Services = require('../service');
+const { NotFoundError, ConflictError } = require('../AppError');
 
-exports.createCompany = async (data, cb, next) => {
-	try {
-		const companyInfo = {
-			full_name: data.fullName,
-			short_name: data.shortName,
-		};
+exports.getCompanyPermissions = async (ownerId) => {
+	const company = await Services.companies.findByUserId(ownerId).lean().exec();
+	if (!company) throw new NotFoundError('User does not belong to any company, please make sure you have been invited to a company');
+	return {
+		permissions: company.permissions,
+		version: company.version,
+	};
+};
 
-		const response = await axios.post('http://localhost:8080/sepay/company/create', companyInfo);
-		console.log('log of response: ', response.data);
-
-		if (response.status == 201) {
-			const newCompany = {
-				companyId: response.data.id,
-				fullName: data.fullName,
-				shortName: data.shortName,
-				status: 'Active',
-			};
-			const createCompany = await Entity.CompaniesEntity.create(newCompany);
-			cb(null, createCompany);
-		} else {
-			throw new Error('Thông tin đầu vào không hợp lệ');
-		}
-	} catch (error) {
-		next(error);
-	}
+exports.setCompanyPermission = async (ownerId, permission, enabled, version) => {
+	const company = await Services.companies.findByUserId(ownerId).lean().exec();
+	if (!company) throw new NotFoundError('Company not found !');
+	if (company.version !== version) throw new ConflictError('Dữ liệu đã bị thay đổi, vui lòng reload trang');
+	const result = await Services.companies.setCompanyPermission({ companyId: company._id, permission, enabled, version });
+	return {
+		[permission]: result.permissions[permission],
+		version: result.version,
+	};
 };

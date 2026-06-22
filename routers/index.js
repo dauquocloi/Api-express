@@ -51,6 +51,7 @@ const IncidentalRevenues = require('./incidentalRevenues');
 const Payments = require('./payments');
 const Admintations = require('./admin');
 const Transactions = require('./transactions');
+const Companies = require('./companies');
 
 const express = require('express');
 const router = express.Router();
@@ -413,5 +414,6 @@ router.use('/vehicles', Vehicles);
 router.use('/tasks', Tasks);
 router.use('/api/v1/clients', Clients);
 router.use('/api/v1/transactions', Transactions);
+router.use('/companies', Companies);
 
 module.exports = router;

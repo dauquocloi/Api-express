@@ -3,8 +3,9 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const asyncHandler = require('../../utils/asyncHandler');
 const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
+const { client: redis } = require('../../config').redisDb;
 
-global.config = require('../../config');
+// global.config = require('../../config');
 
 exports.getAll = asyncHandler(async (req, res) => {
 	const data = req.query;
@@ -152,4 +153,21 @@ exports.addDevice = asyncHandler(async (req, res) => {
 	console.log('log of data from addDevice: ', data);
 	await UseCase.addDevice(req.user._id, data.deviceId, data.platform, data.expoPushToken, req.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
+});
+
+exports.setNotification = asyncHandler(async (req, res) => {
+	const data = req.body;
+	console.log('log of data from setNotification: ', data);
+	const result = await UseCase.setNotification(req.user._id, data.type, data.enabled);
+	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
+	return new SuccessResponse('Success', result).send(res);
+});
+
+exports.modifyUserInfo = asyncHandler(async (req, res) => {
+	let data = req.body;
+	console.log('log of data from modifyUserInfo: ', data);
+	const result = await UseCase.modifyUserInfo(req.body, req.user._id);
+	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
+
+	return new SuccessResponse('Success', result).send(res);
 });

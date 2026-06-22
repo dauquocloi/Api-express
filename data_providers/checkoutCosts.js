@@ -7,7 +7,9 @@ const { calculateTotalFeeAmount, calculateTotalFeesOther } = require('../utils/c
 const { feeUnit } = require('../constants/fees');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
 const { receiptStatus } = require('../constants/receipt');
-const { LockInvoiceJob } = require('../jobs/Invoices');
+// const { LockInvoiceJob } = require('../jobs/Invoices');
+const { lockInvoiceJob } = require('../jobs/invoice/invoice.job');
+const { lockReceiptJob } = require('../jobs/receipt/receipt.job');
 const { LockReceiptsJob } = require('../jobs/Receipts');
 
 exports.getCheckoutCostDetail = async (checkoutCostId, buildingId) => {
@@ -36,22 +38,36 @@ exports.getModifyCheckoutCostInfo = async (checkoutCostId, userId) => {
 		return await session.withTransaction(async () => {
 			const checkoutCostObjectId = new mongoose.Types.ObjectId(checkoutCostId);
 			const checkoutCost = await Services.checkoutCosts.getCheckoutCostDetail(checkoutCostObjectId, session);
+			console.log('Log of checkoutCost: ', checkoutCost);
 
 			if (checkoutCost.invoiceUnpaid) {
 				await Services.invoices.unLockInvoice(checkoutCost.invoiceUnpaid._id, session, userId);
-				await new LockInvoiceJob().enqueue({ invoiceId: checkoutCost.invoiceUnpaid._id }, checkoutCost.invoiceUnpaid._id, {
-					delay: 10 * 60 * 1000,
-				});
+				// await new LockInvoiceJob().enqueue({ invoiceId: checkoutCost.invoiceUnpaid._id }, checkoutCost.invoiceUnpaid._id, {
+				// 	delay: 10 * 60 * 1000,
+				// });
+				await lockInvoiceJob(
+					{ invoiceId: checkoutCost.invoiceUnpaid._id },
+					{
+						delay: 10 * 60 * 1000,
+					},
+				);
 			}
 			if (checkoutCost?.receiptsUnpaid && checkoutCost?.receiptsUnpaid?.length > 0) {
 				await Services.receipts.unlockManyReceipts(
 					checkoutCost.receiptsUnpaid.map((r) => r._id),
 					session,
 				);
-				await new LockReceiptsJob().enqueue(
+				// await new LockReceiptsJob().enqueue(
+				// 	{ receiptIds: checkoutCost.receiptsUnpaid.map((r) => r._id.toString()) },
+				// 	checkoutCost.receiptsUnpaid.map((r) => r._id),
+				// 	{ delay: 10 * 60 * 1000 },
+				// );
+
+				await lockReceiptJob(
 					{ receiptIds: checkoutCost.receiptsUnpaid.map((r) => r._id.toString()) },
-					checkoutCost.receiptsUnpaid.map((r) => r._id),
-					{ delay: 10 * 60 * 1000 },
+					{
+						delay: 10 * 60 * 1000,
+					},
 				);
 			}
 			return checkoutCost;

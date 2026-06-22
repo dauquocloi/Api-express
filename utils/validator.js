@@ -7,6 +7,8 @@ const ValidateSource = {
 	HEADER: 'headers',
 	QUERY: 'query',
 	PARAM: 'params',
+	FILE: 'file',
+	FILES: 'files',
 };
 
 const validator = (schema, source) => (req, res, next) => {
@@ -16,6 +18,7 @@ const validator = (schema, source) => (req, res, next) => {
 		if (!error) return next();
 
 		const { details } = error;
+		console.log('detail error:', details);
 		const message = details.map((i) => i.message.replace(/['"]+/g, '')).join(',');
 
 		next(new InvalidInputError(message));
@@ -37,9 +40,26 @@ const JoiObjectId = () =>
 		return value;
 	}, 'Object Id Validation');
 
+const JoiFile = (fieldName, mimeTypes = []) =>
+	Joi.object({
+		fieldname: Joi.string().valid(fieldName).required(),
+
+		originalname: Joi.string().required(),
+
+		mimetype:
+			mimeTypes.length > 0
+				? Joi.string()
+						.valid(...mimeTypes)
+						.required()
+				: Joi.string().required(),
+
+		size: Joi.number().positive().required(),
+	}).unknown(true);
+
 module.exports = {
 	JoiAuthBearer,
 	validator,
 	ValidateSource,
 	JoiObjectId,
+	JoiFile,
 };

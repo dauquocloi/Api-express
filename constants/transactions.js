@@ -17,4 +17,9 @@ const OWNER_CONFIRMED_STATUS = {
 	DECLINED: 'declined',
 };
 
-module.exports = { TRANS_STATUS, CREATED_BY, OWNER_CONFIRMED_STATUS };
+const PAYMENT_METHOD = {
+	CASH: 'cash',
+	TRANSFER: 'transfer',
+};
+
+module.exports = { TRANS_STATUS, CREATED_BY, OWNER_CONFIRMED_STATUS, PAYMENT_METHOD };

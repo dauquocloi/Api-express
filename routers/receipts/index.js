@@ -8,7 +8,13 @@ const ROLES = require('../../constants/userRoles');
 const checkResourceAccess = require('../../auth/checkResourceAccess');
 const { checkIdempotency } = require('../../middleware/idempotency');
 const { RESOURCES, VALIDATE_SOURCE: RESOURCE_VS } = require('../../constants/resources');
-const { buildingPermissions: POLICY } = require('../../constants/buildings');
+const { PERMISSIONS } = require('../../constants/permissions');
+const { PAYMENT_METHOD } = require('../../constants/transactions');
+
+const permissionByPaymentMethod = {
+	[PAYMENT_METHOD.CASH]: PERMISSIONS['COLLECT_CASH'],
+	[PAYMENT_METHOD.TRANSFER]: PERMISSIONS['PAYMENT_REQUEST'],
+};
 
 const router = express.Router();
 //======================//
@@ -62,7 +68,7 @@ router.patch(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.modifyReceipt, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['receipts'], POLICY['MANAGER_EDIT_INVOICE']),
+	checkResourceAccess(RESOURCES['receipts'], PERMISSIONS['EDIT_BILL']),
 	checkIdempotency,
 	Receipts.modifyReceipt,
 );
@@ -83,7 +89,8 @@ router.post(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.checkout, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['receipts'], POLICY['MANAGER_COLLECT_CASH']),
+	(req, res, next) => checkResourceAccess(RESOURCES['receipts'], permissionByPaymentMethod[req.body.paymentMethod])(req, res, next),
+
 	checkIdempotency,
 	Receipts.checkout,
 );
@@ -93,7 +100,7 @@ router.delete(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.deleteReceipt, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['receipts'], POLICY['MANAGER_DELETE_INVOICE']),
+	checkResourceAccess(RESOURCES['receipts'], PERMISSIONS['DELETE_BILL']),
 	Receipts.deleteReceipt,
 );
 router.post(

@@ -47,6 +47,14 @@ const getInvoicePaymentStatus = (buildingId, month, year) => {
 							},
 						},
 					},
+					{
+						$lookup: {
+							from: 'transactions',
+							localField: '_id',
+							foreignField: 'invoice',
+							as: 'transactions',
+						},
+					},
 				],
 				as: 'invoiceInfo',
 			},
@@ -63,6 +71,21 @@ const getInvoicePaymentStatus = (buildingId, month, year) => {
 				buildingName: 1,
 				roomInfo: 1,
 				invoiceInfo: 1,
+				transactions: {
+					$map: {
+						input: '$invoiceInfo.transactions',
+						as: 'trans',
+						in: {
+							_id: '$$trans._id',
+							paymentMethod: '$$trans.paymentMethod',
+							collector: {
+								$ifNull: ['$$trans.collector', null],
+							},
+							ownerConfirmed: '$$trans.ownerConfirmed',
+							createdBy: '$$trans.createdBy',
+						},
+					},
+				},
 			},
 		},
 		{
@@ -82,6 +105,7 @@ const getInvoicePaymentStatus = (buildingId, month, year) => {
 						month: '$invoiceInfo.month',
 						year: '$invoiceInfo.year',
 						status: '$invoiceInfo.status',
+						transactions: '$transactions',
 					},
 				},
 			},

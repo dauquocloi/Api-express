@@ -8,7 +8,6 @@ const checkResourceAccess = require('../../auth/checkResourceAccess');
 const { checkIdempotency } = require('../../middleware/idempotency');
 const ROLES = require('../../constants/userRoles');
 const { RESOURCES } = require('../../constants/resources');
-const { buildingPermissions: POLICY } = require('../../constants/buildings');
 const { VALIDATE_SOURCE: RESOURCE_VS } = require('../../constants/resources');
 
 const router = express.Router();
@@ -28,7 +27,7 @@ router.post(
 	'/',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.createExpenditure, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['buildings'], POLICY['MANAGER_ADD_EXPENDITURE'], RESOURCE_VS['BODY']),
+	checkResourceAccess(RESOURCES['buildings'], null, RESOURCE_VS['BODY']),
 	checkIdempotency,
 	Expenditures.createExpenditure,
 );

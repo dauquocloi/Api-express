@@ -66,7 +66,7 @@ const RoomsSchema = new Schema({
 		type: String,
 		default: '',
 	},
-	version: { type: Number, default: 1, required: true },
+	version: { type: Number, default: 1 },
 	writeLock: {
 		ownerId: { type: Schema.Types.ObjectId, ref: 'UsersEntity' },
 		locked: { type: Boolean, default: false },

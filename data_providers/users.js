@@ -34,13 +34,9 @@ exports.create = async (data, redisKey) => {
 				gender: data.gender,
 			};
 			const userCreated = await Services.users.createManagement({ ...userInfo }, session);
-			const notificationSettingCreated = await Services.notifications.createNotificationSetting(userCreated._id, session);
-			await Services.users.setNotificationSetting(userCreated._id, notificationSettingCreated._id, session);
-			console.log('log of notificationSettingCreated: ', notificationSettingCreated);
 
-			const pushUserCreated = await Services.buildings.addManagement(userCreated._id, buildingIds, userCreated.role, session);
+			await Services.buildings.addManagement(userCreated._id, buildingIds, userCreated.role, session);
 
-			throw new BadRequestError('stop for testing');
 			return 'Success';
 		});
 
@@ -227,4 +223,42 @@ exports.addDevice = async (userId, deviceId, platform, expoPushToken, redisKey) 
 	await Services.users.addDevice(userId, deviceId, platform, expoPushToken);
 	await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
 	return 'Success';
+};
+
+exports.setNotification = async (userId, type, enabled) => {
+	const user = await Services.users.findById(userId).lean().exec();
+	if (!user) throw new NotFoundError('Người dùng không tồn tại !');
+	const result = await Services.users.setNotificationSetting(userId, type, enabled);
+	return {
+		[type]: enabled,
+	};
+};
+
+exports.modifyUserInfo = async (payload, userId) => {
+	const user = await Services.users.findById(userId);
+	if (!user) throw new NotFoundError('Người dùng không tồn tại!');
+
+	const userInfo = {
+		fullName: payload.fullName.trim(),
+		phone: payload.phone.trim(),
+		cccd: payload.cccd,
+		cccdIssueDate: payload.cccdIssueDate,
+		cccdIssueAt: payload.cccdIssueAt.trim(),
+		permanentAddress: payload.permanentAddress,
+		role: payload.role,
+		dob: payload.dob ?? null,
+		gender: payload.gender,
+	};
+	const result = await Services.users.modifyManagementInfo({ ...userInfo }, user._id);
+
+	return {
+		fullName: result.fullName,
+		phone: result.phone,
+		CCCD: result.cccd,
+		cccdIssueDate: result.cccdIssueDate,
+		cccdIssueAt: result.cccdIssueAt,
+		address: result.permanentAddress,
+		dob: result.birthdate,
+		gender: result.gender,
+	};
 };

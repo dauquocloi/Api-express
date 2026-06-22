@@ -9,7 +9,7 @@ const ROLES = require('../../constants/userRoles');
 const router = express.Router();
 const { checkIdempotency } = require('../../middleware/idempotency');
 const { RESOURCES, VALIDATE_SOURCE: RESOURCE_VS } = require('../../constants/resources');
-const { buildingPermissions: POLICY } = require('../../constants/buildings');
+const { PERMISSIONS } = require('../../constants/permissions');
 
 router.get(
 	'/customer/contract-pdf-url',
@@ -45,7 +45,7 @@ router.patch(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.setMoveOutDate, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['contracts'], POLICY['MANAGER_EDIT_CONTRACT']),
+	checkResourceAccess(RESOURCES['contracts'], PERMISSIONS['EDIT_CONTRACT']),
 	checkIdempotency,
 	Contracts.setExpectedMoveOutDate,
 );
@@ -55,7 +55,7 @@ router.patch(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.cancelTerminateEarly, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['contracts'], POLICY['MANAGER_EDIT_CONTRACT']),
+	checkResourceAccess(RESOURCES['contracts'], PERMISSIONS['EDIT_CONTRACT']),
 	checkIdempotency,
 	Contracts.cancelIsEarlyTermination,
 );
@@ -65,7 +65,7 @@ router.patch(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.terminateEarly, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['contracts'], POLICY['MANAGER_EDIT_CONTRACT']),
+	checkResourceAccess(RESOURCES['contracts'], PERMISSIONS['EDIT_CONTRACT']),
 	checkIdempotency,
 	Contracts.terminateContractUnRefund,
 );
@@ -76,7 +76,7 @@ router.patch(
 	checkIdempotency,
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.contractExtention, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['contracts'], POLICY['MANAGER_EDIT_CONTRACT']),
+	checkResourceAccess(RESOURCES['contracts'], PERMISSIONS['EDIT_CONTRACT']),
 	Contracts.contractExtention,
 );
 

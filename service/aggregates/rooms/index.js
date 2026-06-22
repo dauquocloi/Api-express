@@ -480,6 +480,8 @@ const getRoomHistoryDetail = (roomHistoryObjectId) => {
 							paidAmount: 1,
 							status: 1,
 							createdAt: 1,
+							month: 1,
+							year: 1,
 						},
 					},
 				],

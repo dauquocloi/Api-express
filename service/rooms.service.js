@@ -1,4 +1,4 @@
-const { NotFoundError, ConflictError } = require('../AppError');
+const { NotFoundError, ConflictError, NoDataError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
 const { ROOM_LOCK_TTL_MS, LOCK_REASON, roomState } = require('../constants/rooms');

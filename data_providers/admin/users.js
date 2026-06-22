@@ -38,11 +38,6 @@ exports.createUser = async (data) => {
 
 			if (!userCreated) throw new InternalError('Create user fail');
 
-			const notificationSettingCreated = await Services.notifications.createNotificationSetting(userCreated._id, session);
-			if (!notificationSettingCreated) throw new InternalError('Create notification setting fail');
-
-			await Services.users.setNotificationSetting(userCreated._id, notificationSettingCreated._id, session);
-
 			return {
 				_id: userCreated._id,
 				fullName: userCreated.fullName,

@@ -1,5 +1,5 @@
 const Joi = require('joi');
-const { JoiObjectId } = require('../../utils/validator');
+const { JoiObjectId, JoiFile } = require('../../utils/validator');
 const ROLES = require('../../constants/userRoles');
 
 module.exports = {
@@ -17,6 +17,23 @@ module.exports = {
 		buildingAddress: Joi.string().required(),
 		roomQuantity: Joi.number().optional(),
 		invoiceNotes: Joi.string().optional(),
+	}),
+	importBuildingFiles: Joi.object().keys({
+		contractPdfUrl: Joi.array()
+			.items(JoiFile('contractPdfUrl', ['application/pdf']))
+			.length(1)
+			.required(),
+		contractDocxUrl: Joi.array()
+			.items(JoiFile('contractDocxUrl', ['application/vnd.openxmlformats-officedocument.wordprocessingml.document']))
+			.length(1)
+			.required()
+			.messages({
+				'any.required': 'Vui lòng tải lên file hợp đồng thuê',
+			}),
+		depositTermUrl: Joi.array()
+			.items(JoiFile('depositTermUrl', ['application/pdf']))
+			.length(1)
+			.optional(),
 	}),
 
 	buildingId: Joi.object().keys({
@@ -52,4 +69,15 @@ module.exports = {
 		role: Joi.string().valid(ROLES['MANAGER'], ROLES['STAFF'], ROLES['CUSTOMER'], ROLES['OWNER']).required(),
 		gender: Joi.string().valid('nam', 'nữ').required(),
 	}),
+
+	importRooms: Joi.object().keys({
+		buildingId: JoiObjectId().required(),
+		ownerId: JoiObjectId().required(),
+	}),
+
+	roomFile: JoiFile('roomFile', ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
+		.required()
+		.messages({
+			'any.required': 'Vui lòng tải lên file Excel',
+		}),
 };

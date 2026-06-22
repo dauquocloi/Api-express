@@ -1,6 +1,6 @@
 const Services = require('../../service');
 const getLastName = require('../../utils/getLastName');
-const { notificationTypes: notiTypes } = require('../../constants/notifications');
+const { notificationTypes: notiTypes, ownerNotiSettings, managerNotiSettings } = require('../../constants/notifications');
 const { Expo } = require('expo-server-sdk');
 const ROLES = require('../../constants/userRoles');
 const { billType: BILL_TYPE } = require('../../constants/bills');
@@ -8,16 +8,16 @@ const mongoose = require('mongoose');
 
 const handleNotiTaskCompletedJob = async (payload) => {
 	try {
-		throw new Error('Error for testing');
+		// throw new Error('Error for testing');
 		const { managementIds, taskTitle, performerIds, taskId } = payload;
 
 		const receiverInfo = await Services.users.findUserByIds(managementIds).lean().exec();
-		if (!receiverInfo) throw new Error('Không tìm thấy người nhận');
+		if (!receiverInfo || receiverInfo.length === 0) throw new Error('Không tìm thấy người nhận');
 		const performers = await Services.users.findUserByIds(performerIds).select('fullName').lean().exec();
 		const performersName = performers?.map((performer) => getLastName(performer.fullName)).join(', ');
 
-		let receiverIds = receiverInfo?.map((r) => r._id);
-		let expoPushTokens = receiverInfo?.map((r) => r.expoPushToken).filter((token) => Expo.isExpoPushToken(token));
+		let receiverIds = receiverInfo.map((r) => r._id);
+		const expoPushTokens = receiverInfo.filter((r) => r.notificationSetting?.[notiTypes['TASK_COMPLETED']] !== false).map((r) => r.expoPushToken);
 
 		const createTaskNoti = await Services.notifications.createTaskNotification({ taskTitle, receiverIds, performersName, taskId });
 		if (!createTaskNoti) throw new Error('Có lỗi trong quá trình tạo thông báo !');
@@ -47,16 +47,16 @@ const handleNotiManagerCollectCashInvoice = async (payload) => {
 			throw new Error(`No receivers found for invoice: ${invoiceId}`);
 		}
 
-		const collectorInfo = await Services.users.findById(collectorId).populate('notificationSetting').lean().exec();
+		const collectorInfo = await Services.users.findById(collectorId).lean().exec();
 		if (!collectorInfo) {
 			throw new Error(`Collector not found: ${collectorId}`);
 		}
 
 		// Lọc receivers có bật cashCollected notification
-		const enabledReceivers = data.receiver?.notificationSetting?.cashCollected?.enabled ?? true;
+		const enabledReceivers = data.receiver?.notificationSetting?.[notiTypes['COLLECT_CASH']] ?? true;
 
 		const createdNoti = await Services.notifications.createManagerCollectCashNotification({
-			receiverIds: [data.receiver._id], // Gửi cho tất cả owner/manager
+			receiverIds: [data.receiver._id],
 			roomIndex: data.room.roomIndex,
 			buildingName: data.building.buildingName,
 			buildingId: data.building._id,
@@ -135,7 +135,7 @@ const handleNotiManagerCollectCashReceipt = async (payload) => {
 		}
 
 		// Lọc receivers có bật cashCollected notification
-		const enabledReceivers = data.receiver?.notificationSetting?.cashCollected?.enabled ?? true;
+		const enabledReceivers = data.receiver?.notificationSetting?.[notiTypes['COLLECT_CASH']] ?? true;
 
 		const createdNoti = await Services.notifications.createManagerCollectCashNotification({
 			receiverIds: [data.receiver._id],
@@ -210,7 +210,10 @@ const handleNotiPayment = async (payload) => {
 		console.log('log of notiCreated: ', notiCreated);
 
 		const managementsInfo = await Services.users.findUserByIds(managementIds).lean().exec();
-		const expoPushTokens = managementsInfo?.map((r) => r.expoPushToken).filter((token) => Expo.isExpoPushToken(token));
+		const expoPushTokens = managementsInfo
+			?.filter((r) => r.notificationSetting?.[notiTypes['TRANSACTION']] !== false)
+			.map((r) => r.expoPushToken);
+
 		const notiSended = await Services.notifications.sendNotification(notiTypes['TRANSACTION'], {
 			title: notiCreated.title,
 			content: notiCreated.content,
@@ -227,11 +230,7 @@ const handleNotiPayment = async (payload) => {
 const handleNotiContractNearExpired = async (payload) => {
 	try {
 		const { contractId, buildingId, roomIndex, roomId, contractEndDate } = payload;
-		const data = await Services.buildings
-			.findById(buildingId)
-			.populate({ path: 'management.user', populate: 'notificationSetting' })
-			.lean()
-			.exec();
+		const data = await Services.buildings.findById(buildingId).populate({ path: 'management.user' }).lean().exec();
 		console.log('log of data from NotiContractNearExpiJob: ', data);
 
 		if (!data || !data.management) {
@@ -249,7 +248,7 @@ const handleNotiContractNearExpired = async (payload) => {
 		if (!notiCreated) throw new Error('Create Notification Failed');
 
 		const userEnabledNoti = receivers
-			.filter((m) => m.user?.notificationSetting?.contractExpiring?.enabled ?? true)
+			.filter((m) => m.user?.notificationSetting?.[notiTypes['CONTRACT_EXPIRE']] !== false)
 			.map((m) => m.user?.expoPushToken)
 			.filter((token) => Expo.isExpoPushToken(token));
 
@@ -266,7 +265,7 @@ const handleNotiContractNearExpired = async (payload) => {
 			};
 		}
 
-		const notiSended = await Services.notifications.sendNotification(notiTypes['CONTRACT_EXPIRING'], {
+		const notiSended = await Services.notifications.sendNotification(notiTypes['CONTRACT_EXPIRE'], {
 			...notiCreated,
 			expoPushTokens: userEnabledNoti,
 		});
@@ -373,7 +372,6 @@ const handleNotiRoomDeposited = async (payload) => {
 				select: 'buildingName',
 				populate: {
 					path: 'management.user',
-					populate: 'notificationSetting',
 				},
 			})
 			.lean()
@@ -387,13 +385,9 @@ const handleNotiRoomDeposited = async (payload) => {
 		console.log('log of receivers: ', receivers);
 		const receiverIds = receivers.map((m) => m.user._id.toString());
 
-		const notificationSettings = receivers.map((m) => m.user?.notificationSetting);
-		console.log('log of notificationSettings: ', notificationSettings);
-
 		const userEnabledNoti = receivers
-			.filter((m) => m.user?.notificationSetting?.[notiTypes['ROOM_DEPOSITED']]?.enabled ?? true)
-			.map((m) => m.user?.expoPushToken)
-			.filter((token) => Expo.isExpoPushToken(token));
+			.filter((m) => m.user?.notificationSetting?.[notiTypes['ROOM_DEPOSITED']] !== false)
+			.map((m) => m.user?.expoPushToken);
 
 		console.log('log of userEnabledNoti: ', userEnabledNoti);
 
@@ -455,10 +449,7 @@ const handleNotiDepositTerminated = async (payload) => {
 		const receivers = management.filter((m) => [ROLES['MANAGER'], ROLES['OWNER']].includes(m.user.role));
 		const receiverIds = receivers.map((m) => m.user._id.toString());
 
-		const userEnabledNoti = receivers
-			.filter((m) => m.user?.notificationSetting?.[notiTypes['DEPOSIT_TERMINATED']]?.enabled ?? true)
-			.map((m) => m.user?.expoPushToken)
-			.filter((token) => Expo.isExpoPushToken(token));
+		const userEnabledNoti = receivers.map((m) => m.user?.expoPushToken).filter((token) => Expo.isExpoPushToken(token));
 
 		const notiCreated = await Services.notifications.createNotificationDepositTerminated({
 			roomIndex: depositInfo.room.roomIndex,

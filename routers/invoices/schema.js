@@ -1,5 +1,6 @@
 const Joi = require('joi');
 const { JoiObjectId } = require('../../utils/validator');
+const { PAYMENT_METHOD } = require('../../constants/transactions');
 
 const indexValueSchema = Joi.object({
 	firstIndex: Joi.number().required(),
@@ -42,7 +43,7 @@ module.exports = {
 		date: Joi.date().required(),
 		version: Joi.number().integer().min(1).required(),
 		buildingId: JoiObjectId().required(),
-		paymentMethod: Joi.string().valid('transfer', 'cash').required(),
+		paymentMethod: Joi.string().valid(PAYMENT_METHOD.CASH, PAYMENT_METHOD.TRANSFER).required(),
 	}),
 	deleteInvoice: Joi.object().keys({
 		// roomVersion: Joi.number().integer().min(1).required(),

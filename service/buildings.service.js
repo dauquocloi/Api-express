@@ -11,8 +11,10 @@ const findUserInBuilding = async ({ userId, buildingId }) => {
 	return await Entity.BuildingsEntity.findOne({ _id: buildingId, 'management.user': userId }).lean().exec();
 };
 
-const getAllByManagementId = async (userId) => {
-	return await Entity.BuildingsEntity.find({ 'management.user': userId }).lean().exec();
+const getAllBuildingsByManagementId = async (userId) => {
+	const result = await Entity.BuildingsEntity.aggregate(Pipelines.buildings.getAllBuildingsByManagementId(userId));
+	if (!result || result.length === 0) throw new NotFoundError('Dữ liệu không tồn tại');
+	return result;
 };
 
 const getOwnerInfo = (buildingId) => {
@@ -208,7 +210,7 @@ const getExcelData = async (buildingId, month, year) => {
 };
 
 module.exports = {
-	getAllByManagementId,
+	getAllBuildingsByManagementId,
 	getAllBills,
 	getListSelectingRooms,
 	getStatisticGeneral,

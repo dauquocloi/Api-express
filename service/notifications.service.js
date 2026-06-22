@@ -19,7 +19,7 @@ exports.createTaskNotification = async ({ taskTitle, receiverIds, performersName
 		taskTitle,
 		performersName: performersName,
 	};
-	const createNotiForm = NotiForm('task', taskDoneDataFormat);
+	const createNotiForm = NotiForm(notiTypes['TASK_COMPLETED'], taskDoneDataFormat);
 	const createNoti = await Entity.NotisEntity.create({
 		type: notiTypes['TASK_COMPLETED'],
 		content: createNotiForm.content,

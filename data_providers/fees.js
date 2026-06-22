@@ -72,6 +72,7 @@ exports.editFee = async (feeId, roomId, userId, feeAmount, lastIndex, version, r
 			if (feeRecent.unit === feeUnit['INDEX']) {
 				// feeRecent.lastIndex = data.lastIndex;
 				await Services.fees.modifyFeeUnitIndex(feeId, lastIndex, feeAmount, version, session);
+				await Services.fees.updateFeeIndexHistory({ feeId, lastIndex, editorId: userId }, session);
 			} else {
 				await Services.fees.modifyFeeAmount(feeId, feeAmount, version, session);
 			}

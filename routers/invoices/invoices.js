@@ -52,7 +52,6 @@ exports.checkout = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.body, redisKey: req.redisKey };
 	const collectorInfo = { _id: req.user._id, role: req.user.role };
 	await UseCase.checkout(data.invoiceId, data.buildingId, data.date, data.amount, collectorInfo, data.version, data.redisKey, data.paymentMethod);
-	// await sleep(5000);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

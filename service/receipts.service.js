@@ -121,7 +121,7 @@ exports.getCurrentReceiptAndTransaction = async (receiptObjectId, session) => {
 	return result;
 };
 
-exports.modifyReceipt = async ({ receiptObjectId, receiptVersion, receiptAmount, receiptContent }, session) => {
+exports.modifyReceipt = async ({ receiptObjectId, receiptVersion, receiptAmount, receiptContent, date }, session) => {
 	const currentReceipt = await this.findById(receiptObjectId).session(session).lean().exec();
 	if (!currentReceipt) throw new NotFoundError('Hóa đơn không tồn tại');
 	const newReceiptStatus = getInvoiceStatus(currentReceipt.paidAmount, receiptAmount);
@@ -135,11 +135,13 @@ exports.modifyReceipt = async ({ receiptObjectId, receiptVersion, receiptAmount,
 				receiptContent: receiptContent ?? currentReceipt.receiptContent,
 				amount: Number(receiptAmount),
 				status: newReceiptStatus,
+				date: date ?? currentReceipt.date,
 			},
 			$inc: { version: 1 },
 		},
 		{
 			session,
+			new: true,
 		},
 	);
 
@@ -147,7 +149,7 @@ exports.modifyReceipt = async ({ receiptObjectId, receiptVersion, receiptAmount,
 		throw new ConflictError('Hóa đơn đã bị thay đổi hoặc dữ liệu không hợp lệ');
 	}
 
-	return 'Success';
+	return result.toObject();
 };
 
 exports.updateReceiptPaidAmount = async ({ receiptId, paidAmount, receiptStatus }, session) => {
@@ -284,6 +286,7 @@ exports.importReceiptsDeposit = async (receiptData, session) => {
 				carriedOverPaidAmount: paidAmount,
 				createdAt,
 				updatedAt: createdAt,
+				creater: data.creater,
 			};
 		}),
 	);

@@ -38,6 +38,7 @@ const UsersSchema = new Schema(
 			type: String,
 			trim: true,
 			required: false,
+			unique: true,
 		},
 		cccdIssueDate: {
 			type: Date,
@@ -69,11 +70,15 @@ const UsersSchema = new Schema(
 			enum: ['active', 'inactive'],
 			default: 'active',
 		},
+		// notificationSetting: {
+		// 	type: Schema.Types.ObjectId,
+		// 	ref: 'NotificationSettingsEntity',
+		// 	default: null,
+		// 	// required: true,
+		// },
 		notificationSetting: {
-			type: Schema.Types.ObjectId,
-			ref: 'NotificationSettingsEntity',
-			default: null,
-			// required: true,
+			type: Map,
+			of: Boolean,
 		},
 	},
 

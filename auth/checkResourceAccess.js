@@ -6,8 +6,8 @@ const resourceOwnershipPolicy = require('./resourceOwnerShipPolicy');
 const resolveResourceId = require('../utils/resolveResourceId');
 const { VALIDATE_SOURCE } = require('../constants/resources');
 
-const checkResourceAccess = (resourceType, permissionKey = null, validateSource = VALIDATE_SOURCE['PARAMS']) => {
-	return asyncHandler(async (req, res, next) => {
+const checkResourceAccess = (resourceType, permissionKey = null, validateSource = VALIDATE_SOURCE['PARAMS']) =>
+	asyncHandler(async (req, res, next) => {
 		const { user } = req;
 		const resourceId = resolveResourceId(req, resourceType, validateSource);
 		console.log('log of resourceId: ', resourceId);
@@ -22,13 +22,18 @@ const checkResourceAccess = (resourceType, permissionKey = null, validateSource 
 		// Owner && Admin full quyền
 		if (user.role === ROLES[`ADMIN`]) return next();
 
-		const buildingUser = await Services.buildings.findUserInBuilding({ userId: user._id, buildingId });
-		if (!buildingUser) {
-			throw new ForbiddenError('Bạn không có quyền truy cập tài nguyên này');
-		}
-
 		if (permissionKey && ![ROLES.ADMIN, ROLES.OWNER].includes(user.role)) {
-			const permissions = buildingUser.settings || {};
+			const buildingUser = await Services.buildings.findUserInBuilding({ userId: user._id, buildingId });
+			if (!buildingUser) {
+				throw new ForbiddenError('Bạn không có quyền truy cập tài nguyên này');
+			}
+			const company = await Services.companies.findById(buildingUser.companyId).lean().exec();
+			if (!company) {
+				throw new NotFoundError('Company not found !');
+			}
+
+			const { permissions } = company || {};
+
 			if (!permissions[permissionKey]) {
 				throw new ForbiddenError('Bạn không có quyền thực hiện tác vụ này');
 			}
@@ -36,6 +41,5 @@ const checkResourceAccess = (resourceType, permissionKey = null, validateSource 
 
 		next();
 	});
-};
 
 module.exports = checkResourceAccess;

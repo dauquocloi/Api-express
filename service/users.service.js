@@ -2,6 +2,7 @@ const Entity = require('../models');
 const Roles = require('../constants/userRoles');
 const Pipelines = require('./aggregates');
 const { NotFoundError } = require('../AppError');
+const { ownerNotiSettings, managerNotiSettings, notificationTypes } = require('../constants/notifications');
 
 exports.findById = (userId) => {
 	return Entity.UsersEntity.findById(userId);
@@ -59,9 +60,7 @@ exports.getListSelectionManagements = async (userObjectId) => {
 	return listSelectionManagements.listManagements;
 };
 
-exports.findUserByIds = (userIds) => {
-	return Entity.UsersEntity.find({ _id: { $in: userIds } });
-};
+exports.findUserByIds = (userIds) => Entity.UsersEntity.find({ _id: { $in: userIds } });
 
 // this for generate owner
 exports.importUser = async ({ username, role, fullName, password, permanentAddress, phone, dob, cccd, cccdIssueDate, cccdIssueAt }, session) => {
@@ -90,6 +89,17 @@ exports.createManagement = async (
 	{ fullName, phone, dob, cccd, cccdIssueDate, cccdIssueAt, permanentAddress, role, gender, password, username },
 	session,
 ) => {
+	const notificationSetting =
+		role === Roles.OWNER
+			? ownerNotiSettings.reduce((acc, key) => {
+					acc[key] = true;
+					return acc;
+			  }, {})
+			: managerNotiSettings.reduce((acc, key) => {
+					acc[key] = true;
+					return acc;
+			  }, {});
+
 	const [result] = await Entity.UsersEntity.create(
 		[
 			{
@@ -104,6 +114,7 @@ exports.createManagement = async (
 				gender,
 				username: username,
 				password: password,
+				notificationSetting: notificationSetting,
 			},
 		],
 		{ session },
@@ -114,7 +125,7 @@ exports.createManagement = async (
 exports.modifyManagementInfo = async (
 	{ fullName, phone, dob, cccd, cccdIssueDate, cccdIssueAt, permanentAddress, gender, role },
 	userId,
-	session,
+	session = null,
 ) => {
 	const result = await Entity.UsersEntity.findOneAndUpdate(
 		{ _id: userId },
@@ -134,13 +145,21 @@ exports.modifyManagementInfo = async (
 		{ session, new: true },
 	);
 	if (!result) throw new NotFoundError('User not found');
-	return result;
+	return result.toObject();
 };
 
-exports.setNotificationSetting = async (userId, notificationSettingId, session) => {
-	const result = await Entity.UsersEntity.findOneAndUpdate({ _id: userId }, { notificationSetting: notificationSettingId }, { session });
+exports.setNotificationSetting = async (userId, type, enabled, session = null) => {
+	const result = await Entity.UsersEntity.findOneAndUpdate(
+		{ _id: userId },
+		{
+			$set: {
+				[`notificationSetting.${type}`]: enabled,
+			},
+		},
+		{ session },
+	);
 	if (!result) throw new NotFoundError('User not found');
-	return true;
+	return result.toObject();
 };
 
 exports.addDevice = async (userId, deviceId, platform, expoPushToken) => {

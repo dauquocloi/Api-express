@@ -124,7 +124,6 @@ exports.createReceipt = async (roomId, receiptAmount, receiptContent, date, user
 };
 
 exports.getReceiptDetail = async (receiptId, buildingId) => {
-	console.log('log of building id: ', buildingId);
 	// const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 	const receiptObjectId = new mongoose.Types.ObjectId(receiptId);
 
@@ -456,31 +455,60 @@ exports.deleteReceipt = async (receiptId, userId, version) => {
 	}
 };
 
-exports.modifyReceipt = async (receiptId, newReceiptAmount, receiptContent, userId, redisKey) => {
+// exports.modifyReceipt = async (receiptId, newReceiptAmount, receiptContent, userId, redisKey) => {
+// 	let session;
+// 	try {
+// 		session = await mongoose.startSession();
+// 		await session.withTransaction(async () => {
+// 			const currentReceipt = await Services.receipts.findById(receiptId).session(session).lean().exec();
+// 			if (!currentReceipt) throw new NotFoundError('Hóa đơn không tồn tại');
+
+// 			await Services.rooms.assertRoomWritable({ roomId: currentReceipt.room, userId, session });
+
+// 			currentReceipt.amount = newReceiptAmount;
+// 			currentReceipt.receiptContent = currentReceipt.receiptType === receiptTypes['DEPOSIT'] ? currentReceipt.receiptContent : receiptContent;
+// 			currentReceipt.status = calculateReceiptStatusAfterModified(currentReceipt.paidAmount, newReceiptAmount);
+// 			currentReceipt.version = currentReceipt.version + 1;
+// 			await currentReceipt.save({ session });
+// 			return;
+// 		});
+
+// 		await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
+// 		return 'Success';
+// 	} catch (error) {
+// 		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
+// 		throw error;
+// 	} finally {
+// 		if (session) session.endSession();
+// 	}
+// };
+
+exports.modifyReceipt = async (receiptId, newReceiptAmount, receiptContent, date, userId, version) => {
 	let session;
 	try {
 		session = await mongoose.startSession();
-		await session.withTransaction(async () => {
-			const currentReceipt = await Entity.ReceiptsEntity.findOne({ _id: receiptId }).session(session);
+		return await session.withTransaction(async () => {
+			const currentReceipt = await Services.receipts.findById(receiptId).session(session).lean().exec();
 			if (!currentReceipt) throw new NotFoundError('Hóa đơn không tồn tại');
 
 			await Services.rooms.assertRoomWritable({ roomId: currentReceipt.room, userId, session });
 
-			currentReceipt.amount = newReceiptAmount;
-			currentReceipt.receiptContent = receiptContent;
-			currentReceipt.status = calculateReceiptStatusAfterModified();
-			currentReceipt.version = currentReceipt.version + 1;
-			await currentReceipt.save({ session });
-			return;
-		});
+			const result = await Services.receipts.modifyReceipt(
+				{
+					receiptObjectId: currentReceipt._id,
+					receiptVersion: version,
+					receiptAmount: newReceiptAmount,
+					receiptContent: currentReceipt.receiptType === receiptTypes['DEPOSIT'] ? currentReceipt.receiptContent : receiptContent,
+					date: date,
+				},
+				session,
+			);
 
-		await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
-		return 'Success';
+			return result;
+		});
 	} catch (error) {
-		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
-		throw error;
 	} finally {
-		if (session) session.endSession();
+		if (session) await session.endSession();
 	}
 };
 

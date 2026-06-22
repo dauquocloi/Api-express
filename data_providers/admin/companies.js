@@ -1,8 +1,8 @@
 const Services = require('../../service');
 const { COMPANIES_STATUS } = require('../../constants/companies');
-const { BadRequestError } = require('../../AppError');
+const { BadRequestError, NotFoundError } = require('../../AppError');
 
-const createCompany = async (data) => {
+exports.createCompany = async (data) => {
 	const user = await Services.users.findById(data.userId).lean().exec();
 	if (!user) throw new BadRequestError('User not found');
 
@@ -14,5 +14,3 @@ const createCompany = async (data) => {
 	});
 	return result;
 };
-
-module.exports = { createCompany };

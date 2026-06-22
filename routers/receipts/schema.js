@@ -1,5 +1,6 @@
 const Joi = require('joi');
 const { JoiObjectId } = require('../../utils/validator');
+const { PAYMENT_METHOD } = require('../../constants/transactions');
 
 module.exports = {
 	id: Joi.object().keys({
@@ -26,6 +27,8 @@ module.exports = {
 	modifyReceipt: Joi.object().keys({
 		amount: Joi.number().required(),
 		receiptContent: Joi.string().required(),
+		version: Joi.number().integer().min(1).required(),
+		date: Joi.date().required(),
 	}),
 	collectCash: Joi.object().keys({
 		amount: Joi.number().min(0).required(),
@@ -38,7 +41,7 @@ module.exports = {
 		amount: Joi.number().min(0).required(),
 		date: Joi.date().required(),
 		version: Joi.number().integer().min(1).required(),
-		paymentMethod: Joi.string().valid('cash', 'transfer').required(),
+		paymentMethod: Joi.string().valid(PAYMENT_METHOD.CASH, PAYMENT_METHOD.TRANSFER).required(),
 	}),
 	deleteReceipt: Joi.object().keys({
 		version: Joi.number().integer().min(1).required(),

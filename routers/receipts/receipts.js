@@ -3,6 +3,8 @@ const UseCase = require('../../data_providers/receipts');
 const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
 const { sendNotification } = require('../../utils/notificationUtils');
+const { client: redis } = require('../../config').redisDb;
+const delay = require('../../utils/delay');
 
 exports.getListReceiptPaymentStatus = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.query };
@@ -76,6 +78,7 @@ exports.createDebtsReceipt = asyncHandler(async (req, res) => {
 exports.modifyReceipt = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.body };
 	console.log('log of data from modifyReceipt: ', data);
-	await UseCase.modifyReceipt(data.receiptId, data.amount, data.receiptContent, req.user._id, req.redisKey);
+	const result = await UseCase.modifyReceipt(data.receiptId, data.amount, data.receiptContent, data.date, req.user._id, data.version);
+	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 	return new SuccessMsgResponse('Success').send(res);
 });

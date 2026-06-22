@@ -45,6 +45,7 @@ const CompaniesSchema = new Schema(
 			type: PermissionsSchema,
 			default: () => ({}),
 		},
+		version: { type: Number, default: 1 },
 	},
 	{
 		versionKey: false,

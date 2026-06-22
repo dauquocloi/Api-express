@@ -19,7 +19,11 @@ const CustomersSchema = new Schema(
 		},
 		birthdate: Date,
 		permanentAddress: String,
-		phone: String,
+		phone: {
+			type: String,
+			required: true,
+			unique: true,
+		},
 
 		avatar: {
 			type: String,
@@ -36,6 +40,7 @@ const CustomersSchema = new Schema(
 		},
 		cccdIssueAt: {
 			type: String,
+			default: 'ccs', //cuc canh sat
 		},
 		status: {
 			type: Number,

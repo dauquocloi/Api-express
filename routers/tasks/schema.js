@@ -1,5 +1,6 @@
 const Joi = require('joi');
 const { JoiObjectId } = require('../../utils/validator');
+const { TASK_STATUS } = require('../../constants/tasks');
 
 module.exports = {
 	id: Joi.object().keys({
@@ -23,6 +24,9 @@ module.exports = {
 		performers: Joi.array().items(JoiObjectId()).required(),
 		detail: Joi.string().allow('').required(),
 		executionDate: Joi.date().required(),
-		status: Joi.string().valid('pending', 'completed').required(),
+		status: Joi.string()
+			.valid(...Object.values(TASK_STATUS))
+			.required(),
+		removeAllImages: Joi.boolean().allow(null).optional(),
 	}),
 };
