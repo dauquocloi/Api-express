@@ -3,6 +3,7 @@ const Entity = require('../models');
 const withSignedUrls = require('../utils/withSignedUrls');
 const generateContractCode = require('../utils/generateContractCode');
 const { contractStatus } = require('../constants/contracts');
+const Pipelines = require('./aggregates');
 
 exports.findById = (contractId) => {
 	return Entity.ContractsEntity.findById(contractId);
@@ -220,4 +221,10 @@ exports.clientConfirmContract = async (contractId) => {
 	);
 	if (result.matchedCount === 0) throw new NotFoundError('Hợp đồng không tồn tại');
 	return true;
+};
+
+exports.getDebtsAndReceiptsUnpaid = async (contractId, session) => {
+	const [result] = await Entity.ContractsEntity.aggregate(Pipelines.contracts.getDebtsAndReceiptsUnpaid(contractId)).session(session);
+	if (!result) throw new NotFoundError('Hợp đồng không tồn tại');
+	return result;
 };

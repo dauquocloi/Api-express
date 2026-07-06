@@ -79,7 +79,7 @@ const ReceiptsSchema = new Schema(
 			type: Boolean,
 			default: false,
 		},
-		// for receiptType: deposit
+		// for receiptType: deposit vd: P101 Đã đặt cọc nhưng chưa làm hợp đồng !
 		isActive: {
 			type: Boolean,
 			default: true,
@@ -110,18 +110,17 @@ const ReceiptsSchema = new Schema(
 	},
 );
 
-// ReceiptsSchema.index(
-// 	{
-// 		roomObjectId: 1,
-// 		year: 1,
-// 		month: 1,
-// 	},
-// 	{
-// 		unique: true,
-// 		partialFilterExpression: {
-// 			receiptType: receiptTypes['DEPOSIT'],
-// 		},
-// 	},
-// );
+ReceiptsSchema.index(
+	{
+		room: 1,
+	},
+	{
+		unique: true,
+		partialFilterExpression: {
+			receiptType: receiptTypes['DEPOSIT'],
+			isActive: true,
+		},
+	},
+);
 
 exports.ReceiptsEntity = mongoose.model('ReceiptsEntity', ReceiptsSchema, 'receipts');

@@ -7,13 +7,6 @@ const delay = require('../../utils/delay');
 exports.getRoom = asyncHandler(async (req, res) => {
 	let data = req.params;
 	console.log('log of data from getRoom: ', data);
-	// await new Promise((resolve, reject) => {
-	// 	setTimeout(() => {
-	// 		// Thay vì throw, ta dùng reject
-	// 		reject(new Error('Lỗi sau 5 giây!'));
-	// 	}, 5000);
-	// });
-
 	const roomInfo = await UseCase.getRoom(data.roomId);
 	return new SuccessResponse('Success', roomInfo).send(res);
 });
@@ -86,14 +79,12 @@ exports.deleteDebts = asyncHandler(async (req, res) => {
 exports.getDebtsAndReceiptUnpaid = asyncHandler(async (req, res) => {
 	const data = req.params;
 	console.log('log of data from getDebtsAndReceiptUnpaid: ', data);
-	await delay(4000, false);
 	const result = await UseCase.getDebtsAndReceiptUnpaid(data.roomId);
 	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.getRoomFeesAndDebts = asyncHandler(async (req, res) => {
 	console.log('log of data from getRoomFeesAndDebts: ', req.params);
-	// await new Promise((resolve, reject) => setTimeout(() => reject(new NotFoundError()), 5000));
 	const result = await UseCase.getRoomFeesAndDebts(req.params.roomId, req.user._id);
 	return new SuccessResponse('Success', result).send(res);
 });

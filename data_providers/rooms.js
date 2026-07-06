@@ -88,7 +88,6 @@ exports.generateDepositReceiptAndFirstInvoice = async (roomId, buildingId, creat
 			session,
 		);
 
-		// add creater here
 		const createDepositReceipt = await Services.receipts.createReceipt(
 			{
 				roomObjectId: roomObjectId,
@@ -98,6 +97,7 @@ exports.generateDepositReceiptAndFirstInvoice = async (roomId, buildingId, creat
 				receiptContent: roomInfo.roomIndex,
 				receiptType: receiptTypes['DEPOSIT'],
 				initialStatus: receiptStatus['PENDING'],
+				creater: createrObjectId,
 			},
 			session,
 		);
@@ -131,7 +131,8 @@ exports.modifyRent = async (roomId, rentModify) => {
 			{ $set: { rent: rentModify } },
 			{ new: true, session },
 		);
-		if (!contract) throw new NotFoundError('Hợp đồng không tồn tại');
+		// Nếu phòng đang có hợp đồng thì sửa tt hợp đồng.
+		// cần làm thêm tính năng thông báo tới khách hàng về việc thay đổi giá thuê phòng.
 
 		room.roomPrice = rentModify;
 		await room.save({ session });
@@ -171,12 +172,11 @@ exports.generateCheckoutCost = async (roomId, buildingId, creatorId, feeIndexVal
 				session,
 			);
 			const { fees, receiptDeposit } = debtsAndReceiptUnpaid;
-			const roomFeeIndexIds = fees.map((fee) => (fee.unit === feeUnit['INDEX'] ? fee._id.toString() : null)).filter(Boolean);
 
-			if (roomFeeIndexIds.length > 0) {
-				validateFeeIndexMatch(roomFeeIndexIds, feeIndexValues);
-			}
 			const roomFeeIndex = fees.filter((f) => f.unit === feeUnit['INDEX']);
+			const roomFeeIndexIds = roomFeeIndex.map((fee) => fee._id.toString()) || [];
+
+			if (roomFeeIndexIds.length > 0) validateFeeIndexMatch(roomFeeIndexIds, feeIndexValues);
 
 			let formatRoomFees;
 			if (debtsAndReceiptUnpaid.invoiceUnpaid !== null) {
@@ -215,6 +215,8 @@ exports.generateCheckoutCost = async (roomId, buildingId, creatorId, feeIndexVal
 			} else {
 				checkoutCostReceipt = null;
 			}
+
+			await Services.receipts.closeReceiptDeposit({ receiptId: receiptDeposit }, session);
 
 			newCheckoutCost = await Services.checkoutCosts.generateCheckoutCost(
 				{
@@ -283,8 +285,6 @@ exports.generateCheckoutCost = async (roomId, buildingId, creatorId, feeIndexVal
 			return 'Success';
 		});
 		return newCheckoutCost;
-	} catch (error) {
-		throw error;
 	} finally {
 		if (session) session.endSession();
 	}

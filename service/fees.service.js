@@ -1,6 +1,7 @@
 const { NotFoundError, ConflictError, BadRequestError } = require('../AppError');
 const Entity = require('../models');
 const pipelines = require('./aggregates');
+const { feeUnit: FEE_UNIT } = require('../constants/fees');
 
 exports.findById = (feeId) => Entity.FeesEntity.findById(feeId);
 
@@ -13,6 +14,12 @@ exports.getRoomFeesAndDebts = async (roomObjectId, session) => {
 	if (!roomFees) throw new NotFoundError('Dữ liệu không tồn tại');
 
 	return roomFees;
+};
+
+exports.getFeeUnitIndexByRoomId = async ({ roomId }, session = null) => {
+	const result = await Entity.FeesEntity.find({ room: roomId, unit: FEE_UNIT['INDEX'] }).session(session).lean().exec();
+
+	return result ?? [];
 };
 
 exports.updateFeeIndexValues = async (feeIndexIds, feeIndexValues, session) => {

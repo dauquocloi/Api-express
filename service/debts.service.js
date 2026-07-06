@@ -6,13 +6,13 @@ const { debtStatus } = require('../constants/debts');
 exports.findPendingDebts = (roomId) => Entity.DebtsEntity.find({ room: roomId, status: debtStatus.PENDING });
 
 exports.getDebtsAndReceiptUnpaid = async (roomObjectId, currentMonth, currentYear, session) => {
-	const query = Entity.RoomsEntity.aggregate(pipelines.debts.getDebtsAndReceiptUnpaid(roomObjectId, currentMonth, currentYear));
-	if (session) query.session(session);
-	const [debtsAndReceiptUnpaid] = await query;
-	if (!debtsAndReceiptUnpaid) throw new NotFoundError('Phòng không tồn tại trong hệ thống');
-	if (!debtsAndReceiptUnpaid.receiptDeposit) throw new NotFoundError(`Hóa đơn đặt cọc không tồn tại !`);
+	const [result] = await Entity.RoomsEntity.aggregate(pipelines.debts.getDebtsAndReceiptUnpaid(roomObjectId, currentMonth, currentYear)).session(
+		session,
+	);
+	if (!result) throw new NotFoundError('Phòng không tồn tại trong hệ thống');
+	if (!result.receiptDeposit) throw new NotFoundError(`Hóa đơn đặt cọc không tồn tại !`);
 
-	return debtsAndReceiptUnpaid;
+	return result;
 };
 
 exports.getDebts = async (roomId, session) => {
@@ -33,9 +33,9 @@ exports.closeDebts = async (roomId, session) => {
 	return result;
 };
 
-exports.closeAndSetSourceInfo = async ({ roomId, sourceId, sourceType }, session) => {
+exports.closeAndSetSourceInfo = async ({ contractId, sourceId, sourceType }, session) => {
 	const result = await Entity.DebtsEntity.updateMany(
-		{ room: roomId, status: debtStatus['PENDING'] },
+		{ contract: contractId, status: debtStatus['PENDING'] },
 		{ status: debtStatus['CLOSED'], sourceId, sourceType },
 		{ session },
 	);

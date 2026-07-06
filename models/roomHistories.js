@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const { CUSTOMER_FROM } = require('../constants/customers');
 const { feeUnit } = require('../constants/fees');
+const { CHECKOUT_TYPES } = require('../constants/rooms');
 
 const InteriorsSchema = new Schema({
 	interiorName: {
@@ -47,7 +48,7 @@ const RoomHistoriesEntity = new Schema({
 	room: { type: Schema.Types.ObjectId, ref: 'RoomsEntity' },
 	checkoutDate: { type: Date, default: Date.now },
 	customerFrom: { type: String, enum: Object.values(CUSTOMER_FROM), default: CUSTOMER_FROM['UNKNOWN'] },
-	checkoutType: { type: String, enum: ['depositRefund', 'checkoutEarly'] },
+	checkoutType: { type: String, enum: Object.values(CHECKOUT_TYPES) },
 	checkoutCost: { type: Schema.Types.ObjectId, ref: 'CheckoutCostsEntity', default: null },
 	depositRefund: { type: Schema.Types.ObjectId, ref: 'DepositRefundsEntity', default: null },
 	interiors: [InteriorsSchema],

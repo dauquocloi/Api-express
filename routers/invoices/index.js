@@ -11,6 +11,10 @@ const { RESOURCES, VALIDATE_SOURCE: RESOURCE_VS } = require('../../constants/res
 const { PERMISSIONS } = require('../../constants/permissions');
 const { PAYMENT_METHOD } = require('../../constants/transactions');
 const router = express.Router();
+const permissionByPaymentMethod = {
+	[PAYMENT_METHOD.CASH]: PERMISSIONS['COLLECT_CASH'],
+	[PAYMENT_METHOD.TRANSFER]: PERMISSIONS['PAYMENT_REQUEST'],
+};
 
 //====================//
 router.use(authentication);
@@ -82,14 +86,7 @@ router.post(
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.checkout, ValidateSource.BODY),
-	(req, res, next) => {
-		const permissionByPaymentMethod = {
-			[PAYMENT_METHOD.CASH]: PERMISSIONS['COLLECT_CASH'],
-			[PAYMENT_METHOD.TRANSFER]: PERMISSIONS['PAYMENT_REQUEST'],
-		};
-
-		return checkResourceAccess(RESOURCES['invoices'], permissionByPaymentMethod[req.body.paymentMethod]);
-	},
+	(req, res, next) => checkResourceAccess(RESOURCES['invoices'], permissionByPaymentMethod[req.body.paymentMethod])(req, res, next),
 	checkIdempotency,
 	Invoices.checkout,
 );

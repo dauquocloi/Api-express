@@ -19,14 +19,14 @@ const CheckoutCostsSchema = new Schema(
 		roomId: { type: Schema.Types.ObjectId, ref: 'RoomsEntity' },
 		buildingId: { type: Schema.Types.ObjectId, ref: 'BuildingsEntity' },
 		receiptsUnpaid: { type: [Schema.Types.ObjectId], ref: 'ReceiptsEntity' },
-		invoiceUnpaid: { type: Schema.Types.ObjectId, ref: 'InvoicesEntity' },
+		invoicesUnpaid: { type: [Schema.Types.ObjectId], ref: 'InvoicesEntity' },
+		debts: { type: [Schema.Types.ObjectId], ref: 'DebtsEntity' },
 		creatorId: { type: Schema.Types.ObjectId, ref: 'UsersEntity' },
 		customerName: { type: String, trim: true },
-		debts: { type: [Schema.Types.ObjectId], ref: 'DebtsEntity' },
 		status: { type: String, enum: Object.values(checkoutCostStatus), default: checkoutCostStatus['PENDING'] },
 		fees: [feesSchema],
 		stayDays: { type: Number },
-		checkoutCostReceipt: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity' },
+		checkoutCostReceipt: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity', default: null },
 		feesOther: [
 			{
 				feeContent: { type: String },

@@ -8,7 +8,7 @@ const generateContractQueue = new Queue(GENERATE_CONTRACT_QUEUE, redisDb.opts);
 
 generateContractQueue.process(5, async (job) => {
 	const { data } = job;
-	return handleGenerateContractJob(data.payload);
+	return await handleGenerateContractJob(data);
 });
 
 generateContractQueue.on('completed', (job, result) => {

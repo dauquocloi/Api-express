@@ -134,7 +134,7 @@ ContractsSchema.index(
 	{ room: 1, status: 1 },
 	{
 		unique: true,
-		partialFilterExpression: { status: 'active' },
+		partialFilterExpression: { status: contractStatus['ACTIVE'] },
 	},
 );
 

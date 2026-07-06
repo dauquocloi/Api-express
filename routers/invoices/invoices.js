@@ -50,6 +50,7 @@ exports.collectCashMoney = asyncHandler(async (req, res) => {
 
 exports.checkout = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.body, redisKey: req.redisKey };
+	console.log('log of data from checkout Invoice: ', data);
 	const collectorInfo = { _id: req.user._id, role: req.user.role };
 	await UseCase.checkout(data.invoiceId, data.buildingId, data.date, data.amount, collectorInfo, data.version, data.redisKey, data.paymentMethod);
 	return new SuccessMsgResponse('Success').send(res);

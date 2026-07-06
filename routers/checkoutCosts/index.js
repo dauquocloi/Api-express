@@ -7,7 +7,7 @@ const authorization = require('../../auth/authorization');
 const checkResourceAccess = require('../../auth/checkResourceAccess');
 const { checkIdempotency } = require('../../middleware/idempotency.js');
 const ROLES = require('../../constants/userRoles');
-const { RESOURCES } = require('../../constants/resources.js');
+const { RESOURCES, VALIDATE_SOURCE: RESOURCE_VS } = require('../../constants/resources.js');
 
 const router = express.Router();
 
@@ -53,6 +53,15 @@ router.delete(
 	validator(schema.terminateCheckoutCost, ValidateSource.BODY),
 	checkResourceAccess(RESOURCES['checkoutCosts']),
 	CheckoutCosts.terminateCheckoutCost,
+);
+
+router.post(
+	'/',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	validator(schema.generateCheckoutCost, ValidateSource.BODY),
+	checkResourceAccess(RESOURCES['rooms'], null, RESOURCE_VS.BODY),
+	checkIdempotency,
+	CheckoutCosts.generateCheckoutCost,
 );
 
 module.exports = router;

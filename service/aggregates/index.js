@@ -17,4 +17,5 @@ module.exports = {
 	transactions: require('./transactions'),
 	tasks: require('./tasks'),
 	vehicles: require('./vehicles'),
+	contracts: require('./contracts'),
 };

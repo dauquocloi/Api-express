@@ -17,9 +17,15 @@ const roomStateTransform = {
 	[roomState.ABOUT_CHECKOUT]: 'Sắp trả phòng',
 };
 
+const CHECKOUT_TYPES = {
+	DEPOSIT_REFUND: 'depositRefund',
+	CHECKOUT_EARLY: 'checkoutEarly',
+};
+
 module.exports = {
 	roomState,
 	roomStateTransform,
 	ROOM_LOCK_TTL_MS,
 	LOCK_REASON,
+	CHECKOUT_TYPES,
 };

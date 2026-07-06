@@ -6,6 +6,7 @@ const { roomState: ROOM_STATE } = require('../../constants/rooms');
 const Services = require('../../service');
 const { contractStatus: CONTRACT_STATUS } = require('../../constants/contracts');
 const generateContractCode = require('../../utils/generateContractCode');
+const { generateContractJob } = require('../../jobs/contract/contract.job');
 
 function parseInteriors(row) {
 	const interiorsMap = {};
@@ -429,6 +430,12 @@ const createVehicles = async ({ data, roomMap, contractMap, customerMap, session
 	return Services.vehicles.importVehicles(vehicleData, session);
 };
 
+const addGenerateContractPdfJobs = async (contractIds, buildingId) => {
+	for (const contractId of contractIds) {
+		await generateContractJob({ contractId, buildingId });
+	}
+};
+
 module.exports = {
 	parseInteriors,
 	parseFees,
@@ -442,4 +449,5 @@ module.exports = {
 	createVehicles,
 	createDepositReceipts,
 	createDepositTransactions,
+	addGenerateContractPdfJobs,
 };

@@ -1,3 +1,7 @@
+const mongoose = require('mongoose');
+const { invoiceStatus: INVOICE_STATUS, invoiceType: INVOICE_TYPE } = require('../../../constants/invoices');
+const { contractStatus: CONTRACT_STATUS } = require('../../../constants/contracts');
+
 const getInvoicePaymentStatus = (buildingId, month, year) => {
 	return [
 		{
@@ -114,16 +118,141 @@ const getInvoicePaymentStatus = (buildingId, month, year) => {
 };
 
 const getInvoicesSendingStatus = (buildingId, currentMonth, currentYear) => {
+	// return [
+	// 	{
+	// 		$match: {
+	// 			_id: buildingId,
+	// 		},
+	// 	},
+	// 	{
+	// 		$addFields: {
+	// 			month: currentMonth,
+	// 			year: currentYear,
+	// 		},
+	// 	},
+	// 	{
+	// 		$lookup: {
+	// 			from: 'rooms',
+	// 			localField: '_id',
+	// 			foreignField: 'building',
+	// 			as: 'roomInfo',
+	// 		},
+	// 	},
+	// 	{
+	// 		$unwind: {
+	// 			path: '$roomInfo',
+	// 		},
+	// 	},
+	// 	{
+	// 		$sort: {
+	// 			'roomInfo.roomIndex': 1,
+	// 		},
+	// 	},
+	// 	{
+	// 		$lookup: {
+	// 			from: 'invoices',
+	// 			let: {
+	// 				roomObjectId: '$roomInfo._id',
+	// 				month: currentMonth,
+	// 				year: currentYear,
+	// 			},
+	// 			pipeline: [
+	// 				{
+	// 					$match: {
+	// 						$expr: {
+	// 							$and: [
+	// 								{
+	// 									$eq: ['$room', '$$roomObjectId'],
+	// 								},
+	// 								{
+	// 									$eq: ['$month', '$$month'],
+	// 								},
+	// 								{
+	// 									$eq: ['$year', '$$year'],
+	// 								},
+	// 								{
+	// 									$not: {
+	// 										$in: ['$status', ['cencelled', 'terminated', 'pending']],
+	// 									},
+	// 								},
+	// 							],
+	// 						},
+	// 					},
+	// 				},
+	// 				// {
+	// 				// 	$sort: { createdAt: 1 },
+	// 				// },
+	// 				// {
+	// 				// 	$limit: 1,
+	// 				// },
+	// 			],
+	// 			as: 'invoiceRecent',
+	// 		},
+	// 	},
+	// 	{
+	// 		$addFields: {
+	// 			invoiceStatus: {
+	// 				$cond: {
+	// 					if: { $eq: [{ $size: '$invoiceRecent' }, 0] },
+	// 					then: false,
+	// 					else: {
+	// 						$anyElementTrue: {
+	// 							$map: {
+	// 								input: '$invoiceRecent',
+	// 								as: 'inv',
+	// 								in: {
+	// 									$or: [
+	// 										// 1. Không phải là firstInvoice thì coi như true
+	// 										{ $ne: ['$$inv.invoiceType', 'firstInvoice'] },
+	// 										// 2. Là firstInvoice nhưng cùng tháng hiện tại
+	// 										{ $eq: [{ $month: '$$inv.createdAt' }, { $month: new Date() }] },
+	// 										// 3. Là firstInvoice, khác tháng nhưng ở trên 30 ngày
+	// 										{ $gte: ['$$inv.stayDays', 30] },
+	// 									],
+	// 								},
+	// 							},
+	// 						},
+	// 					},
+	// 				},
+	// 			},
+	// 		},
+	// 	},
+	// 	{
+	// 		$addFields: {
+	// 			invoiceId: {
+	// 				$cond: [
+	// 					{
+	// 						$eq: ['$invoiceStatus', true],
+	// 					},
+	// 					// Nếu status là true
+	// 					{
+	// 						$first: '$invoiceRecent._id',
+	// 					},
+	// 					// Lấy ID của phần tử đầu tiên trong mảng
+	// 					null, // Nếu status là false
+	// 				],
+	// 			},
+	// 		},
+	// 	},
+	// 	{
+	// 		$group: {
+	// 			_id: '$_id',
+	// 			listInvoiceInfo: {
+	// 				$push: {
+	// 					roomId: '$roomInfo._id',
+	// 					roomIndex: '$roomInfo.roomIndex',
+	// 					invoiceStatus: '$invoiceStatus',
+	// 					roomState: '$roomInfo.roomState',
+	// 					invoiceId: '$invoiceId',
+	// 				},
+	// 			},
+	// 		},
+	// 	},
+	// ];
 	return [
 		{
 			$match: {
-				_id: buildingId,
-			},
-		},
-		{
-			$addFields: {
-				month: currentMonth,
-				year: currentYear,
+				_id: new mongoose.Types.ObjectId(buildingId),
 			},
 		},
 		{
@@ -131,117 +260,139 @@ const getInvoicesSendingStatus = (buildingId, currentMonth, currentYear) => {
 				from: 'rooms',
 				localField: '_id',
 				foreignField: 'building',
-				as: 'roomInfo',
-			},
-		},
-		{
-			$unwind: {
-				path: '$roomInfo',
-			},
-		},
-		{
-			$sort: {
-				'roomInfo.roomIndex': 1,
-			},
-		},
-		{
-			$lookup: {
-				from: 'invoices',
-				let: {
-					roomObjectId: '$roomInfo._id',
-					month: currentMonth,
-					year: currentYear,
-				},
 				pipeline: [
 					{
-						$match: {
-							$expr: {
-								$and: [
-									{
-										$eq: ['$room', '$$roomObjectId'],
-									},
-									{
-										$eq: ['$month', '$$month'],
-									},
-									{
-										$eq: ['$year', '$$year'],
-									},
-									{
-										$not: {
-											$in: ['$status', ['cencelled', 'terminated', 'pending']],
+						$sort: {
+							roomIndex: 1,
+						},
+					},
+					{
+						$lookup: {
+							from: 'contracts',
+							localField: '_id',
+							foreignField: 'room',
+							pipeline: [
+								{
+									$match: {
+										$expr: {
+											$and: [
+												{
+													$in: ['$status', [CONTRACT_STATUS['ACTIVE']]],
+												},
+											],
 										},
 									},
-								],
+								},
+							],
+							as: 'contract',
+						},
+					},
+					{
+						$set: {
+							contract: {
+								$arrayElemAt: ['$contract', 0],
 							},
 						},
 					},
-					// {
-					// 	$sort: { createdAt: 1 },
-					// },
-					// {
-					// 	$limit: 1,
-					// },
-				],
-				as: 'invoiceRecent',
-			},
-		},
-		{
-			$addFields: {
-				invoiceStatus: {
-					$cond: {
-						if: { $eq: [{ $size: '$invoiceRecent' }, 0] },
-						then: false,
-						else: {
-							$anyElementTrue: {
-								$map: {
-									input: '$invoiceRecent',
-									as: 'inv',
-									in: {
-										$or: [
-											// 1. Không phải là firstInvoice thì coi như true
-											{ $ne: ['$$inv.invoiceType', 'firstInvoice'] },
-											// 2. Là firstInvoice nhưng cùng tháng hiện tại
-											{ $eq: [{ $month: '$$inv.createdAt' }, { $month: new Date() }] },
-											// 3. Là firstInvoice, khác tháng nhưng ở trên 30 ngày
-											{ $gte: ['$$inv.stayDays', 30] },
-										],
+					{
+						$lookup: {
+							from: 'invoices',
+							localField: 'contract._id',
+							foreignField: 'contract',
+							pipeline: [
+								{
+									$match: {
+										$expr: {
+											$and: [
+												{
+													$in: ['$status', [INVOICE_STATUS['UNPAID'], INVOICE_STATUS['PARTIAL'], INVOICE_STATUS['PAID']]],
+												},
+												{
+													$eq: ['$month', currentMonth],
+												},
+												{
+													$eq: ['$year', currentYear],
+												},
+											],
+										},
+									},
+								},
+								{
+									$sort: {
+										createdAt: -1,
+									},
+								},
+							],
+							as: 'invoices',
+						},
+					},
+					{
+						$addFields: {
+							invoiceStatus: {
+								$cond: {
+									if: {
+										$eq: [{ $size: '$invoices' }, 0],
+									},
+									then: false,
+									else: {
+										$anyElementTrue: {
+											$map: {
+												input: '$invoices',
+												as: 'inv',
+												in: {
+													$or: [
+														// 1. Không phải là firstInvoice thì coi như true
+														{
+															$ne: ['$$inv.invoiceType', INVOICE_TYPE['FIRST_INVOICE']],
+														},
+														// 2. Là firstInvoice nhưng cùng tháng hiện tại
+														{
+															$eq: [
+																{
+																	$month: '$$inv.createdAt',
+																},
+																{
+																	$month: new Date(),
+																},
+															],
+														},
+														// 3. Là firstInvoice, khác tháng nhưng ở trên 30 ngày
+														{
+															$gte: ['$$inv.stayDays', 30],
+														},
+													],
+												},
+											},
+										},
 									},
 								},
 							},
 						},
 					},
-				},
-			},
-		},
-		{
-			$addFields: {
-				invoiceId: {
-					$cond: [
-						{
-							$eq: ['$invoiceStatus', true],
+					{
+						$project: {
+							_id: 0,
+							roomId: '$_id',
+							roomIndex: 1,
+							invoiceStatus: 1,
+							invoiceId: {
+								$ifNull: [
+									{
+										$arrayElemAt: ['$invoices._id', 0],
+									},
+									null,
+								],
+							},
 						},
-						// Nếu status là true
-						{
-							$first: '$invoiceRecent._id',
-						},
-						// Lấy ID của phần tử đầu tiên trong mảng
-						null, // Nếu status là false
-					],
-				},
-			},
-		},
-		{
-			$group: {
-				_id: '$_id',
-				listInvoiceInfo: {
-					$push: {
-						roomId: '$roomInfo._id',
-						roomIndex: '$roomInfo.roomIndex',
-						invoiceStatus: '$invoiceStatus',
-						roomState: '$roomInfo.roomState',
-						invoiceId: '$invoiceId',
 					},
-				},
+				],
+				as: 'listInvoiceInfo',
+			},
+		},
+		{
+			$project: {
+				_id: 1,
+				listInvoiceInfo: 1,
 			},
 		},
 	];
@@ -624,16 +775,11 @@ const getCashCollectorInfo = (invoiceObjectId) => {
 			},
 		},
 		{
-			$addFields:
-				/**
-				 * newField: The new field name.
-				 * expression: The new field expression.
-				 */
-				{
-					building: {
-						$first: '$building',
-					},
+			$addFields: {
+				building: {
+					$first: '$building',
 				},
+			},
 		},
 		{
 			$lookup: {

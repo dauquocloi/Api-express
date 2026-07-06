@@ -13,4 +13,11 @@ const unitPriority = {
 	other: 5,
 };
 
-module.exports = { feeUnit, unitPriority };
+const FEE_UNIT_TYPE = {
+	index: '/Số',
+	person: '/Người',
+	vehicle: '/Xe',
+	room: '/Phòng',
+};
+
+module.exports = { feeUnit, unitPriority, FEE_UNIT_TYPE };

@@ -2,12 +2,16 @@ const mongoose = require('mongoose');
 const moment = require('moment');
 const Services = require('../../service');
 const { generateContract } = require('../../utils/generateContract');
+const { FEE_UNIT_TYPE } = require('../../constants/fees');
 
 const handleGenerateContractJob = async (payload) => {
 	try {
-		const { contractSignDate, contractEndDate, contractTerm, depositAmount, rent, feesData, interiors, buildingId, contractId } = payload;
+		const { buildingId, contractId } = payload;
+		const contract = await Services.contracts.findById(contractId).populate({ path: 'room', select: 'interior' }).lean().exec();
 
-		console.log('log of generateContractData: ', payload);
+		if (!contract) throw new Error('Hợp đồng không tồn tại !');
+
+		const { contractSignDate, contractEndDate, contractTerm, depositAmount, rent, fees, room } = contract;
 
 		// Validate ObjectId
 		if (!mongoose.isValidObjectId(buildingId)) throw new Error('Invalid buildingId');
@@ -26,20 +30,13 @@ const handleGenerateContractJob = async (payload) => {
 			YEAR: moment(date).utcOffset('+07:00').format('YYYY'),
 		});
 
-		const FEE_UNIT_TYPE = {
-			index: '/Số',
-			person: '/Người',
-			vehicle: '/Xe',
-			room: '/Phòng',
-		};
-
-		const feesContractData = feesData.map((fee) => ({
+		const feesContractData = fees.map((fee) => ({
 			NAME: fee.feeName,
 			AMOUNT: String(fee.feeAmount ?? ''),
 			TYPE: FEE_UNIT_TYPE[fee.unit] || '',
 		}));
 
-		const interiorContractData = interiors.map((item) => ({
+		const interiorContractData = room.interior.map((item) => ({
 			NAME: item.interiorName,
 			QUANT: String(item.quantity ?? ''),
 		}));
@@ -48,8 +45,8 @@ const handleGenerateContractJob = async (payload) => {
 			CREATED_DATE: formatDate(new Date()),
 			PARTY_A: {
 				FULLNAME: customerInfo.fullName,
-				DOB: moment(customerInfo.dob).format('DD/MM/YYYY'),
-				ADDRESS: customerInfo.address,
+				DOB: moment(customerInfo.birthdate).format('DD/MM/YYYY'),
+				ADDRESS: customerInfo.permanentAddress,
 				CCCD: customerInfo.cccd,
 				CCCD_DATE: moment(customerInfo.cccdIssueDate).format('DD/MM/YYYY'),
 				CCCD_AT: customerInfo.cccdIssueAt,

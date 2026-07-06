@@ -80,4 +80,12 @@ router.patch(
 	Contracts.contractExtention,
 );
 
+router.get(
+	'/:contractId/debts-receipts-unpaid',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	validator(schema.id, ValidateSource.PARAM),
+	checkResourceAccess(RESOURCES['contracts']),
+	Contracts.getDebtsAndReceiptsUnpaid,
+);
+
 module.exports = router;

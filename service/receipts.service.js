@@ -1,4 +1,4 @@
-const { InternalError, NotFoundError, ConflictError } = require('../AppError');
+const { InternalError, NotFoundError, ConflictError, BadRequestError } = require('../AppError');
 const Entity = require('../models');
 const generatePaymentContent = require('../utils/generatePaymentContent');
 const { calculateReceiptStatusAfterModified } = require('./receipts.helper');
@@ -362,5 +362,15 @@ exports.removeDetuctedInfo = async (receiptId, session) => {
 		{ session },
 	);
 	if (result.matchedCount === 0) throw new NotFoundError('Hóa đơn không tồn tại !');
+	return result;
+};
+
+exports.closeReceiptDeposit = async ({ receiptId }, session = null) => {
+	const result = await Entity.ReceiptsEntity.updateOne(
+		{ _id: receiptId, receiptType: receiptTypes.DEPOSIT },
+		{ $set: { locked: true, isActive: false } },
+		{ session },
+	);
+	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');
 	return result;
 };

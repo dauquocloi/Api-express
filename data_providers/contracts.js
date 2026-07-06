@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Entity = require('../models');
 const listFeeInitial = require('../utils/getListFeeInital');
 const { NotFoundError, BadRequestError, InternalError, ConflictError } = require('../AppError');
-const { GeneratePdfContractJob } = require('../jobs/Contracts');
+const { generateContractJob } = require('../jobs/contract/contract.job');
 const Services = require('../service');
 const { calculateTotalFeeAmount } = require('../utils/calculateFeeTotal');
 const { generateInvoiceFeesFromReq } = require('../service/invoices.helper');
@@ -235,6 +235,8 @@ exports.generateContract = async (contractDraftId, userId, redisKey) => {
 				await depositReceipt.save({ session });
 			}
 
+			await Services.invoices.setContractId({ invoiceId: contractDraft.firstInvoiceId, contractId: contractCreated._id }, session);
+
 			let vehiclesWithoutOwner = [];
 			let customersData = contractDraft.customers?.map((cus, index) => {
 				if (cus.vehicleLicensePlate && cus.vehicleLicensePlate?.trim() !== '') {
@@ -302,7 +304,7 @@ exports.generateContract = async (contractDraftId, userId, redisKey) => {
 				interiors: contractDraft.interiors ?? [],
 			};
 
-			await new GeneratePdfContractJob().enqueue(result);
+			await generateContractJob({ contractId: contractCreated._id, buildingId: currentRoom.building });
 			return result;
 		});
 
@@ -500,4 +502,8 @@ exports.getContractPdfUrlByCustomerPhone = async (phoneNumber) => {
 		roomIndex: currentCustomer.room.roomIndex,
 		buildingAddress: currentCustomer.room.building.buildingAddress,
 	};
+};
+
+exports.getDebtsAndReceiptsUnpaid = async (contractId) => {
+	return await Services.contracts.getDebtsAndReceiptsUnpaid(contractId);
 };

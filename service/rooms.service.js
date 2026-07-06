@@ -139,7 +139,7 @@ const unLockedRoom = async (roomId, session) => {
 
 const assertRoomWritable = async ({ roomId, userId, session = null }) => {
 	const now = new Date();
-	const room = await Entity.RoomsEntity.findById(roomId).select('writeLock').session(session).lean().exec();
+	const room = await Entity.RoomsEntity.findById(roomId).session(session).lean().exec();
 
 	if (!room || !room._id) throw new NotFoundError('Phòng không tồn tại');
 

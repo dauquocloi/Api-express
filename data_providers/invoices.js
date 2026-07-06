@@ -13,7 +13,7 @@ const { calculateTotalFeeAmount, calculateInvoiceUnpaidAmount } = require('../ut
 const { generateInvoiceFees } = require('../service/invoices.helper');
 const { getInvoiceStatus } = require('../service/invoices.helper');
 const { feeUnit } = require('../constants/fees');
-const { invoiceStatus } = require('../constants/invoices');
+const { invoiceStatus, invoiceType } = require('../constants/invoices');
 const { client: redis } = require('../config').redisDb;
 const { NotiManagerCollectCashInvoiceJob } = require('../jobs/Notifications');
 const { znsNewInvoiceNotiJob } = require('../jobs/ZNS/zns.job');
@@ -66,7 +66,7 @@ exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, use
 	try {
 		session = await mongoose.startSession();
 		await session.withTransaction(async () => {
-			const currentInvoice = await Services.invoices.getInvoiceInfo(invoiceId, session);
+			const currentInvoice = await Services.invoices.findById(invoiceId).session(session).lean().exec();
 			if (!currentInvoice) throw new NotFoundError('Hóa đơn không tồn tại');
 			if (currentInvoice.locked === true) throw new BadRequestError('Hóa đơn đã đóng');
 			if (version !== currentInvoice.version) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
@@ -74,7 +74,9 @@ exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, use
 			await Services.rooms.assertRoomWritable({ roomId: currentInvoice.room, userId, session });
 
 			const formatFees = generateInvoiceFees(currentInvoice.fee, 0, stayDays, feeIndexValues, false, 'modify');
+			console.log('log of formatFees from modifyInvoice: ', formatFees);
 			const totalRoomfees = calculateTotalFeeAmount(formatFees);
+
 			const totalDebts = currentInvoice.debts?.reduce((sum, debt) => sum + debt.amount, 0) ?? 0;
 
 			const newTotalInvoice = totalRoomfees + totalDebts;
@@ -91,22 +93,21 @@ exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, use
 				},
 				session,
 			);
-			console.log('log of modifiedInvoice: ', modifedInvoice);
 
-			const roomFees = await Entity.FeesEntity.find({ room: currentInvoice.room, unit: feeUnit['INDEX'] }).session(session);
+			const roomFeesUnitIndex = await Services.fees.getFeeUnitIndexByRoomId({ roomId: currentInvoice.room }, session);
 
-			if (roomFees.length === 0) return;
+			if (roomFeesUnitIndex.length === 0) return;
 
 			const newFeeMap = new Map(formatFees.map((f) => [f.feeKey, f]));
 			console.log('log of newFeeMap: ', newFeeMap);
-			console.log('log of roomFees: ', roomFees);
+			console.log('log of roomFeesUnitIndex: ', roomFeesUnitIndex);
 
-			for (const fee of roomFees) {
+			for (const fee of roomFeesUnitIndex) {
 				const newFee = newFeeMap.get(fee.feeKey);
 				if (!newFee) continue;
 
 				if (newFee.lastIndex !== fee.lastIndex) {
-					await Services.fees.modifyFeeUnitIndex(fee._id, newFee.lastIndex, newFee.amount, fee.version, session);
+					await Services.fees.modifyFeeUnitIndex(fee._id, newFee.lastIndex, fee.amount, fee.version, session);
 				}
 			}
 
@@ -155,6 +156,7 @@ exports.deleteInvoice = async (invoiceId, userId, invoiceVersion) => {
 		await session.withTransaction(async () => {
 			const invoice = await Services.invoices.findById(invoiceObjectId).session(session).lean().exec();
 			if (!invoice) throw new NotFoundError('Hóa đơn không tồn tại');
+			if (invoice.invoiceType === invoiceType['FIRST_INVOICE']) throw new BadRequestError('Không thể xóa hóa đơn tháng đầu tiên !');
 
 			await Services.rooms.assertRoomWritable({ roomId: invoice.room, userId, session });
 
@@ -441,7 +443,7 @@ exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, cre
 				.populate('contract')
 				.lean()
 				.exec();
-			if (!roomContractOwner || !roomContractOwner?.contract) throw new NotFoundError(`Phòng không tồn tại chủ hợp đồng !`);
+			if (!roomContractOwner || !roomContractOwner.contract) throw new NotFoundError(`Phòng không tồn tại chủ hợp đồng !`);
 
 			const roomFees = await Services.fees.getRoomFeesAndDebts(roomObjectId, session);
 			console.log('log of roomFees: ', roomFees);

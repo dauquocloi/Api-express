@@ -58,6 +58,7 @@ const generateDebtFromReceipts = (receipts, currentMonth, currentYear) => {
 				period: { month: currentMonth, year: currentYear },
 				status: debtStatus.PENDING,
 				room: receipt.room,
+				contract: receipt.contract,
 			});
 		}
 	}
@@ -81,6 +82,7 @@ const generateDebtFromInvoices = (invoices, currentMonth, currentYear) => {
 				period: { month: currentMonth, year: currentYear },
 				status: debtStatus.PENDING,
 				room: invoice.room,
+				contract: invoice.contract,
 			});
 		}
 

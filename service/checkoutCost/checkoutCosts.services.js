@@ -2,6 +2,7 @@ const Entity = require('../../models');
 const Pipelines = require('../aggregates');
 const { NotFoundError, InternalError, ConflictError } = require('../../AppError');
 const { checkoutCostStatus } = require('../../constants/checkoutCosts');
+
 const generateCheckoutCost = async (
 	{
 		roomId,
@@ -9,7 +10,9 @@ const generateCheckoutCost = async (
 		buildingId,
 		creatorId,
 		customerName,
-		debtsAndReceiptUnpaid,
+		debts,
+		receiptsUnpaid,
+		invoicesUnpaid,
 		roomFees,
 		currentPeriod,
 		checkoutCostReceipt,
@@ -24,9 +27,9 @@ const generateCheckoutCost = async (
 		contractId: contractId,
 		buildingId: buildingId,
 		creatorId: creatorId,
-		receiptsUnpaid: debtsAndReceiptUnpaid.receiptsUnpaid,
-		invoiceUnpaid: debtsAndReceiptUnpaid.invoiceUnpaid,
-		debts: debtsAndReceiptUnpaid.debts,
+		receiptsUnpaid: receiptsUnpaid,
+		invoicesUnpaid: invoicesUnpaid,
+		debts: debts,
 		fees: roomFees,
 		feesOther: feesOther,
 		month: currentPeriod.currentMonth,

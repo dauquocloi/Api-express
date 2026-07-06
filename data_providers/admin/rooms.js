@@ -15,6 +15,7 @@ const {
 	createVehicles,
 	createDepositReceipts,
 	createDepositTransactions,
+	addGenerateContractPdfJobs,
 } = require('./utils');
 const Services = require('../../service');
 const { BadRequestError } = require('../../AppError');
@@ -220,9 +221,10 @@ const { feeUnit } = require('../../constants/fees');
 
 exports.importRooms = async (data) => {
 	let session;
+	let contractIds = [];
 	try {
 		session = await mongoose.startSession();
-		return await session.withTransaction(async () => {
+		await session.withTransaction(async () => {
 			const building = await Services.buildings.findById(data.buildingId).session(session).lean().exec();
 			if (!building) throw new BadRequestError('Building not found');
 
@@ -239,6 +241,7 @@ exports.importRooms = async (data) => {
 			const createdFees = await createFees({ data: jsonData, roomMap, ownerId: data.ownerId, session });
 
 			const { contracts, contractMap } = await createContracts({ data: jsonData, roomMap, depositReceiptMap, session });
+			contractIds = contracts.map((c) => c._id);
 
 			const { customerData, createdCustomers, customerMap } = await createCustomers({ data: jsonData, roomMap, contractMap, session });
 
@@ -255,9 +258,11 @@ exports.importRooms = async (data) => {
 				customerMap,
 				session,
 			});
-
-			return 'success';
 		});
+
+		await addGenerateContractPdfJobs(contractIds, data.buildingId);
+
+		return 'Success'
 	} finally {
 		if (session) {
 			session.endSession();

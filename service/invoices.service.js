@@ -20,9 +20,9 @@ exports.findById = (invoiceId) => {
 	return Entity.InvoicesEntity.findById(invoiceId);
 };
 
-exports.closeAndSetDetucedInvoice = async (invoiceId, detuctedType, detuctedId, session) => {
-	const result = await Entity.InvoicesEntity.findOneAndUpdate(
-		{ _id: invoiceId },
+exports.closeAndSetDetucedInvoice = async ({ invoiceIds, detuctedType, detuctedId }, session = null) => {
+	const result = await Entity.InvoicesEntity.updateMany(
+		{ _id: { $in: invoiceIds } },
 		{
 			$set: {
 				locked: true,
@@ -38,7 +38,7 @@ exports.closeAndSetDetucedInvoice = async (invoiceId, detuctedType, detuctedId, 
 		},
 		{ session },
 	);
-	if (result.matchedCount === 0) throw new AppError(errorCodes.notExist, 'Không tìm thấy bản ghi!', 404);
+	if (result.matchedCount === 0) throw new NotFoundError('Không tìm thấy bản ghi!');
 
 	return result;
 };
@@ -62,10 +62,12 @@ exports.createInvoice = async (
 		creater,
 		initialStatus = invoiceStatus['UNPAID'],
 		invoiceType = TYPES['RENTAL'],
+		contract,
 	},
 
 	session,
 ) => {
+	if (invoiceType !== TYPES['FIRST_INVOICE'] && !contract) throw new InternalError('Contract is required for this invoice type');
 	const paymentContent = await generatePaymentContent(process.env.PAYMENT_CONTENT_LENGTH);
 	const invoiceCode = await generatePaymentContent(process.env.INVOICE_CODE_LENGTH);
 
@@ -90,6 +92,7 @@ exports.createInvoice = async (
 				creater: creater,
 				locked: false,
 				invoiceType,
+				contract: contract,
 			},
 		],
 		{ session },
@@ -211,4 +214,10 @@ exports.removeDetuctedInfo = async (invoiceId, session) => {
 exports.getCashCollectorInfo = async (invoiceObjectId) => {
 	const [cashCollectorInfo] = await Entity.InvoicesEntity.aggregate(Pipelines.invoices.getCashCollectorInfo(invoiceObjectId));
 	return cashCollectorInfo;
+};
+
+exports.setContractId = async ({ invoiceId, contractId }, session) => {
+	const result = await Entity.InvoicesEntity.updateOne({ _id: invoiceId }, { $set: { contract: contractId }, $inc: { version: 1 } }, { session });
+	if (result.matchedCount === 0) throw new NotFoundError('Hóa đơn không tồn tại !');
+	return result;
 };
