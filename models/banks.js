@@ -25,6 +25,7 @@ const BanksSchema = new Schema({
 	bin: {
 		type: String,
 		trim: true,
+		unique: true,
 	},
 	logoPath: {
 		type: String,

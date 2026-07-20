@@ -48,3 +48,20 @@ exports.getBuildingsByUserId = asyncHandler(async (req, res) => {
 	const result = await UseCase.buildings.getBuildingsByUserId(req.query.userId);
 	return new SuccessResponse('Success', result).send(res);
 });
+
+exports.importBank = asyncHandler(async (req, res) => {
+	const data = req.body;
+	console.log('log of importBank', data);
+	const result = await UseCase.banks.importBank({
+		brandName: data.brandName,
+		fullName: data.fullName,
+		shortName: data.shortName,
+		code: data.code,
+		bin: data.bin,
+		logoPath: data.logoPath,
+		iconPath: data.iconPath,
+		active: data.active,
+	});
+	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
+	return new SuccessResponse('Success', result).send(res);
+});

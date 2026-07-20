@@ -17,16 +17,17 @@ const BankAccountsSchema = new Schema(
 		],
 		status: { type: String, enum: ['active', 'inactive'], default: 'active' },
 		user: { type: Schema.Types.ObjectId, ref: 'UsersEntity', required: true },
-		company: { type: Schema.Types.ObjectId },
+		// company: { type: Schema.Types.ObjectId },
 		accountNumber: { type: String, required: true, trim: true, unique: true },
 		accountName: { type: String, required: true },
 		accumulated: { type: Number },
-		label: { type: String },
+		label: { type: String }, // Tên gợi nhớ
 		bankApiConnected: { type: Boolean, default: false },
 		lastTransaction: { type: Date },
 		version: { type: Number, default: 1 },
 	},
 	{
+		versionKey: false,
 		timestamps: true,
 	},
 );

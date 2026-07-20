@@ -36,32 +36,40 @@ exports.getListReceiptPaymentStatus = async (buildingId, month, year) => {
 	return { period: { month, year }, listReceiptPaymentStatus: receipt?.receipts ?? [] };
 };
 
-exports.createDepositReceipt = async (roomId, buildingId, receipAmount, payerName, redisKey, userId) => {
-	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+exports.createDepositReceipt = async (roomId, buildingId, receipAmount, payerName, userId, roomVersion) => {
+	try {
+		let session = await mongoose.startSession();
+		return await session.withTransaction(async () => {
+			const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+			await Services.bankAccounts.checkExistBankAccount({ buildingId: buildingObjectId }, session);
 
-	const currentPeriod = await getCurrentPeriod(buildingObjectId);
-	const roomInfo = await Services.rooms.findById(roomId).lean().exec();
-	if (!roomInfo) {
-		throw new NotFoundError(`Phòng với id: ${roomId} không tồn tại !`);
+			const currentPeriod = await getCurrentPeriod(buildingObjectId);
+			const roomInfo = await Services.rooms.findById(roomId).session(session).lean().exec();
+			if (!roomInfo) throw new NotFoundError(`Phòng không tồn tại !`);
+			if (roomInfo.version !== roomVersion) throw new ConflictError('Dữ liệu phòng đã bị thay đổi !');
+
+			const newReceipt = {
+				roomObjectId: roomId,
+				receiptAmount: receipAmount,
+				payer: payerName,
+				currentPeriod,
+
+				receiptContent: `Tiền cọc phòng ${roomInfo.roomIndex}`,
+				receiptType: receiptTypes['DEPOSIT'],
+				initialStatus: receiptStatus['PENDING'],
+				creater: userId,
+			};
+			const depositReceiptCreated = await Services.receipts.createReceipt(newReceipt, null);
+
+			const result = { _id: depositReceiptCreated._id, status: depositReceiptCreated.status };
+
+			await Services.rooms.bumpRoomVersion(roomId, roomVersion, session);
+
+			return result;
+		});
+	} finally {
+		if (session) session.endSession();
 	}
-
-	const newReceipt = {
-		roomObjectId: roomId,
-		receiptAmount: receipAmount,
-		payer: payerName,
-		currentPeriod,
-
-		receiptContent: `Tiền cọc phòng ${roomInfo.roomIndex}`,
-		receiptType: receiptTypes['DEPOSIT'],
-		initialStatus: receiptStatus['PENDING'],
-		creater: userId,
-	};
-	const depositReceiptCreated = await Services.receipts.createReceipt(newReceipt, null);
-
-	const result = { _id: depositReceiptCreated._id, status: depositReceiptCreated.status };
-	await redis.set(redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
-
-	return result;
 };
 
 exports.createReceipt = async (roomId, receiptAmount, receiptContent, date, userId, redisKey) => {
@@ -74,10 +82,9 @@ exports.createReceipt = async (roomId, receiptAmount, receiptContent, date, user
 			const currentRoom = await Services.rooms.findById(roomObjectId).session(session).lean().exec();
 			if (!currentRoom) throw new NotFoundError('Phòng không tồn tại !');
 
-			const paymentInfo = await Services.bankAccounts.findByBuildingId(currentRoom.building).session(session).lean().exec();
-			if (!paymentInfo) throw new BadRequestError('Tòa nhà chưa có thông tin thanh toán !');
-
+			await Services.bankAccounts.checkExistBankAccount({ buildingId: data.buildingId }, session);
 			await Services.rooms.assertRoomWritable({ roomId, userId, session: null });
+
 			const currentPeriod = await getCurrentPeriod(currentRoom.building);
 			const contractOwner = await Services.customers
 				.findIsContractOwnerByRoomId(roomObjectId)
@@ -520,6 +527,9 @@ exports.createDebtsReceipt = async (data, redisKey, userId) => {
 
 		session = await mongoose.startSession();
 		session.startTransaction();
+
+		await Services.bankAccounts.checkExistBankAccount({ buildingId: data.buildingId }, session);
+		await Services.rooms.assertRoomWritable({ roomId: data.roomId, userId, session });
 
 		const contract = await Services.contracts.findByRoomId(roomObjectId).session(session).lean().exec();
 		if (!contract) throw new NotFoundError('Phòng không tồn tại hợp đồng');

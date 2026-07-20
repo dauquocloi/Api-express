@@ -33,8 +33,16 @@ module.exports = {
 		birthdate: Joi.date().required(),
 		gender: Joi.string().required(),
 		isContractOwner: Joi.boolean().optional(),
+		version: Joi.number().required(),
 	}),
 	setCustomerStatus: Joi.object().keys({
 		status: Joi.number().valid(0, 1, 2).required(),
+		version: Joi.number().required(),
+	}),
+	deleteCustomer: Joi.object().keys({
+		version: Joi.number().required(),
+	}),
+	setContractOwner: Joi.object().keys({
+		version: Joi.number().required(),
 	}),
 };

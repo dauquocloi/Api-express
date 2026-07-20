@@ -504,6 +504,18 @@ exports.getContractPdfUrlByCustomerPhone = async (phoneNumber) => {
 	};
 };
 
-exports.getDebtsAndReceiptsUnpaid = async (contractId) => {
-	return await Services.contracts.getDebtsAndReceiptsUnpaid(contractId);
+exports.getDebtsAndReceiptsUnpaid = async (contractId, userId) => {
+	let session;
+	try {
+		session = await mongoose.startSession();
+		return await session.withTransaction(async () => {
+			const currentContract = await Services.contracts.findById(contractId).session(session).lean().exec();
+			if (!currentContract) throw new NotFoundError('Hợp đồng không tồn tại');
+			await Services.rooms.assertRoomWritable({ roomId: currentContract.room, userId, session });
+			await Services.rooms.setWriteLockedRoom(currentContract.room, session, null, userId);
+			return await Services.contracts.getDebtsAndReceiptsUnpaid(contractId, session);
+		});
+	} finally {
+		if (session) session.endSession();
+	}
 };

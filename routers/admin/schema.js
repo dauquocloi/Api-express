@@ -80,4 +80,15 @@ module.exports = {
 		.messages({
 			'any.required': 'Vui lòng tải lên file Excel',
 		}),
+
+	importBank: Joi.object().keys({
+		brandName: Joi.string().required(),
+		fullName: Joi.string().required(),
+		shortName: Joi.string().required(),
+		code: Joi.string().required(),
+		bin: Joi.string().optional(),
+		logoPath: Joi.string().optional(),
+		iconPath: Joi.string().optional(),
+		active: Joi.string().required(),
+	}),
 };

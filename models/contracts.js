@@ -85,13 +85,11 @@ const ContractsSchema = new Schema(
 		user: { type: Schema.Types.ObjectId, ref: 'UsersEntity' }, //owner A
 		customer: { type: Schema.Types.ObjectId, ref: 'CustomersEntity' }, // owner B
 		fees: [FeeSchema],
+
 		rent: { type: Number, required: true },
 		depositAmount: { type: Number },
 		contractSignDate: { type: Date, required: true },
 		contractEndDate: { type: Date, required: true },
-		expectedMoveOutDate: { type: Date },
-		isEarlyTermination: { type: Boolean, default: false },
-		additionalTerms: { type: String }, // Điều khoản bổ sung (nếu có)
 		status: {
 			type: String,
 			enum: Object.values(contractStatus),
@@ -99,11 +97,15 @@ const ContractsSchema = new Schema(
 			required: true,
 		},
 		contractTerm: { type: String, required: true },
-		note: { type: String, default: '' },
-		contractPdfUrl: { type: String, default: '' },
-		contractPdfFile: { type: ContractsPdfFileSchema },
 		contractCode: { type: String, required: true, unique: true },
 		isCustomerConfirmed: { type: Boolean, default: false },
+		contractPdfUrl: { type: String, default: '' },
+		contractPdfFile: { type: ContractsPdfFileSchema },
+
+		expectedMoveOutDate: { type: Date },
+		isEarlyTermination: { type: Boolean, default: false },
+		additionalTerms: { type: String }, // Điều khoản bổ sung (nếu có)
+		note: { type: String, default: '' },
 
 		//for contract extension
 		versions: [
@@ -113,9 +115,9 @@ const ContractsSchema = new Schema(
 				depositAmount: Number,
 				contractSignDate: Date,
 				contractEndDate: Date,
-				contractPdfUrl: String,
+				contractPdfUrl: { type: String, default: '' },
 				contractPdfFile: ContractsPdfFileSchema,
-				customerConfirmed: Boolean,
+				customerConfirmed: { type: Boolean, default: false },
 				status: {
 					type: String,
 					enum: Object.values(contractStatus),
@@ -123,6 +125,9 @@ const ContractsSchema = new Schema(
 					required: true,
 				},
 				createdAt: Date,
+				updatedAt: Date,
+				contractTerm: String,
+				contractCode: { type: String, required: true },
 			},
 		],
 		version: { type: Number, default: 1 },

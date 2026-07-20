@@ -3,7 +3,6 @@ const Services = require('../service');
 const { NotFoundError, ConflictError, BadRequestError } = require('../AppError');
 const { formatDebts } = require('../service/debts.helper');
 const { generateInvoiceFees } = require('../service/invoices.helper');
-const { calculateTotalFeeAmount, calculateTotalFeesOther } = require('../utils/calculateFeeTotal');
 const { feeUnit } = require('../constants/fees');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
 const { receiptStatus, receiptTypes } = require('../constants/receipt');

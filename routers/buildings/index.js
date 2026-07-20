@@ -134,4 +134,12 @@ router.get(
 	Buildings.getBuildingContractPdfUrl,
 );
 
+router.get(
+	'/:buildingId/bank-account',
+	authorization(ROLES['OWNER']),
+	validator(schema.id, ValidateSource.PARAM),
+	checkResourceAccess(RESOURCES['buildings']),
+	Buildings.getBankAccount,
+);
+
 module.exports = router;

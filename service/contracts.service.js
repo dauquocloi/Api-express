@@ -74,7 +74,7 @@ exports.generateContract = async (
 				contractSignDate: contractSignDate,
 				contractEndDate: contractEndDate,
 				contractTerm: contractTerm,
-				status: 'active',
+				status: contractStatus['ACTIVE'],
 				room: roomId,
 				contractCode: contractCode,
 				depositReceiptId: depositReceiptId,

@@ -73,7 +73,7 @@ exports.contractExtention = asyncHandler(async (req, res) => {
 
 exports.getDebtsAndReceiptsUnpaid = asyncHandler(async (req, res) => {
 	console.log('log of data from getDebtsAndReceiptsUnpaid: ', req.params);
-	const result = await UseCase.getDebtsAndReceiptsUnpaid(req.params.contractId);
+	const result = await UseCase.getDebtsAndReceiptsUnpaid(req.params.contractId, req.user._id);
 	return new SuccessResponse('Success', result).send(res);
 });
 

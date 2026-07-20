@@ -43,6 +43,13 @@ router.post('/import-first-statistic', Admins.importFirstStatistic);
 
 router.get('/banks', Admins.getAllBanks);
 
+router.post(
+	'/banks',
+	validator(schema.importBank, ValidateSource.BODY),
+	// checkIdempotency,
+	Admins.importBank,
+);
+
 router.get('/users/info', validator(schema.getUserDetail, ValidateSource.QUERY), Users.getUserDetail);
 
 router.patch(

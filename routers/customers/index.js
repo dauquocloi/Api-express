@@ -34,7 +34,7 @@ router.post(
 	'/',
 	authorization(ROLES['MANAGER'], ROLES['OWNER']),
 	validator(schema.createCustomer, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['buildings'], null, RESOURCE_VS['BODY']),
+	checkResourceAccess(RESOURCES['rooms'], null, RESOURCE_VS['BODY']),
 	checkIdempotency,
 	Customers.addCustomer,
 );
@@ -63,6 +63,7 @@ router.patch(
 	'/:customerId/contract-owner',
 	authorization(ROLES['MANAGER'], ROLES['OWNER']),
 	validator(schema.id, ValidateSource.PARAM),
+	validator(schema.setContractOwner, ValidateSource.BODY),
 	checkResourceAccess(RESOURCES['customers']),
 	checkIdempotency,
 	Customers.changeContractOwner,
@@ -72,6 +73,7 @@ router.delete(
 	'/:customerId',
 	authorization(ROLES['MANAGER'], ROLES['OWNER']),
 	validator(schema.id, ValidateSource.PARAM),
+	validator(schema.deleteCustomer, ValidateSource.BODY),
 	checkResourceAccess(RESOURCES['customers']),
 	Customers.deleteCustomer,
 );

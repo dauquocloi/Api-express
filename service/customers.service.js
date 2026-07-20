@@ -26,7 +26,11 @@ exports.getAllCustomers = async (buildingObjectId, status) => {
 };
 
 exports.expiredCustomers = async ({ roomId, contractId }, session) => {
-	const result = await Entity.CustomersEntity.updateMany({ room: roomId, contract: contractId }, { $set: { status: 0 } }, { session });
+	const result = await Entity.CustomersEntity.updateMany(
+		{ room: roomId, contract: contractId },
+		{ $set: { status: 0 }, $inc: { version: 1 } },
+		{ session },
+	);
 	if (result.matchedCount === 0) throw new NotFoundError('Không tìm thấy bản ghi');
 	return result;
 };

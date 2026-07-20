@@ -6,7 +6,6 @@ const UseCase = require('../../data_providers/customers');
 exports.getAllCustomers = asyncHandler(async (req, res) => {
 	let data = req.query;
 	console.log('log of data from getAllCustomers: ', data);
-	// await delay(5000, true);
 	const result = await UseCase.getAllCustomers(data.buildingId, data.status);
 	return new SuccessResponse('Success', result).send(res);
 });
@@ -40,15 +39,17 @@ exports.getListSelectingCustomer = asyncHandler(async (req, res) => {
 });
 
 exports.changeContractOwner = asyncHandler(async (req, res) => {
-	console.log('log of data from changeContractOwner: ', req.params);
-	const result = await UseCase.changeContractOwner(req.params.customerId, req.redisKey);
+	const data = { ...req.params, ...req.body };
+	console.log('log of data from changeContractOwner: ', data);
+	const result = await UseCase.changeContractOwner(data.customerId, data.version, req.redisKey);
 	console.log('log of result from changeContractOwner: ', result);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
 exports.deleteCustomer = asyncHandler(async (req, res) => {
-	console.log('log of data from deleteCustomer: ', req.params);
-	await UseCase.deleteCustomer(req.params.customerId, req.user._id);
+	const data = { ...req.params, ...req.body };
+	console.log('log of data from deleteCustomer: ', data);
+	await UseCase.deleteCustomer(data.customerId, data.version, req.user._id);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

@@ -23,6 +23,7 @@ module.exports = {
 		amount: Joi.number().required(),
 		payer: Joi.string().required(),
 		date: Joi.date().optional(),
+		roomVersion: Joi.number().integer().min(1).required(),
 	}),
 	modifyReceipt: Joi.object().keys({
 		amount: Joi.number().required(),

@@ -302,3 +302,21 @@ exports.getBuildingContractPdfUrl = async (buildingId) => {
 	if (!result || !result.url) return { contractTermFileUrl: '' };
 	return { contractTermFileUrl: result.url };
 };
+
+exports.getBankAccount = async (buildingId) => {
+	const building = await Services.buildings.findById(buildingId).lean().exec();
+	if (!building) throw new NotFoundError('Tòa nhà không tồn tại');
+	const result = await Services.bankAccounts.findByBuildingId(buildingId).populate('bank').lean().exec();
+	if (!result) return null;
+	return {
+		_id: result._id,
+		paymentConfirmationMode: building.paymentConfirmationMode,
+		buildingId: buildingId,
+		bank: result.bank,
+		accountNumber: result.accountNumber,
+		accountName: result.accountName,
+		bankApiConnected: result.bankApiConnected,
+		createdAt: result.createdAt,
+		updatedAt: result.updatedAt,
+	};
+};

@@ -1,24 +1,22 @@
 const mongoose = require('mongoose');
 const Entity = require('../models');
-const { NotFoundError, BadRequestError } = require('../AppError');
+const { NotFoundError, BadRequestError, ConflictError } = require('../AppError');
 const Services = require('../service');
 const { client: redis } = require('../config').redisDb;
 const { generateCT01Html, htmlToPdf } = require('../utils/html2pdf');
 const dayjs = require('dayjs');
 
-exports.editCustomer = async (data, redisKey) => {
+exports.editCustomer = async (data) => {
 	let customerId = new mongoose.Types.ObjectId(`${data.customerId}`);
 
 	const customerInfo = await Entity.CustomersEntity.findById(customerId);
-	if (!customerInfo) {
-		throw new NotFoundError('Khách hàng không tồn tại');
-	}
+	if (!customerInfo) throw new NotFoundError('Khách hàng không tồn tại');
+	if (data.version !== customerInfo.version) throw new ConflictError('Thông tin khách hàng đã bị cập nhật bởi người dùng khác !');
 
 	Object.assign(customerInfo, data); // Gán dữ liệu mới vào document
-
+	customerInfo.version += 1; // Tăng version lên 1
 	const updatedCustomer = await customerInfo.save();
 
-	await redis.set(redisKey, `SUCCESS:${updatedCustomer}`, 'EX', process.env.REDIS_EXP_SEC);
 	return updatedCustomer;
 };
 
@@ -59,12 +57,14 @@ exports.addCustomer = async (data, redisKey, userId) => {
 	return result;
 };
 
-exports.setCustomerStatus = async (customerId, status, redisKey) => {
+exports.setCustomerStatus = async (customerId, status, redisKey, version) => {
 	try {
-		const currentCustomer = await Services.customers.findById(customerId).lean().exec();
+		const currentCustomer = await Services.customers.findById(customerId);
 		if (!currentCustomer) throw new NotFoundError('Khách hàng không tồn tại !');
+		if (currentCustomer.version !== version) throw new ConflictError('Thông tin khách hàng đã bị cập nhật bởi người dùng khác !');
 
 		currentCustomer.status = status;
+		currentCustomer.version += 1;
 		await currentCustomer.save();
 
 		await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
@@ -90,7 +90,7 @@ exports.getAllCustomers = async (buildingId, status) => {
 	return customers;
 };
 
-exports.changeContractOwner = async (customerId, redisKey) => {
+exports.changeContractOwner = async (customerId, version, redisKey) => {
 	let session;
 	try {
 		session = await mongoose.startSession();
@@ -98,6 +98,7 @@ exports.changeContractOwner = async (customerId, redisKey) => {
 			const currentCustomer = await Services.customers.findById(customerId).session(session).lean().exec();
 			console.log('log of currentCustomer: ', currentCustomer);
 			if (!currentCustomer) throw new NotFoundError('Khách hàng không tồn tại !');
+			if (currentCustomer.version !== version) throw new ConflictError('Thông tin khách hàng đã bị cập nhật bởi người dùng khác !');
 			if (currentCustomer.isContractOwner) return;
 
 			await Services.customers.resetContractOwner(currentCustomer.contract, session);
@@ -117,11 +118,12 @@ exports.changeContractOwner = async (customerId, redisKey) => {
 	}
 };
 
-exports.deleteCustomer = async (customerId, userId) => {
+exports.deleteCustomer = async (customerId, version, userId) => {
 	const currentCustomer = await Services.customers.findById(customerId);
 	if (!currentCustomer) throw new NotFoundError('Dữ liệu không tồn tại');
 	if (currentCustomer.status === 0) throw new BadRequestError('Không thể xóa thông tin khách đã dọn đi !');
 	if (currentCustomer.isContractOwner) throw new BadRequestError('Không thể xóa chủ hộ');
+	if (currentCustomer.version !== version) throw new ConflictError('Thông tin khách hàng đã bị cập nhật bởi người dùng khác !');
 
 	await Services.rooms.assertRoomWritable({ roomId: currentCustomer.room, userId });
 

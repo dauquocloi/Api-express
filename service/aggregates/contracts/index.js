@@ -90,13 +90,6 @@ exports.getDebtsAndReceiptsUnpaid = (contractId) => {
 				foreignField: 'room',
 				pipeline: [
 					{
-						$match: {
-							unit: {
-								$eq: 'index',
-							},
-						},
-					},
-					{
 						$project: {
 							_id: 1,
 							feeName: 1,
@@ -105,6 +98,7 @@ exports.getDebtsAndReceiptsUnpaid = (contractId) => {
 							feeKey: 1,
 							room: 1,
 							feeAmount: 1,
+							iconPath: 1,
 						},
 					},
 				],

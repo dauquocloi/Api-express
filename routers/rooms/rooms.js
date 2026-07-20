@@ -51,7 +51,7 @@ exports.generateDepositReceiptAndFirstInvoice = asyncHandler(async (req, res) =>
 exports.modifyRent = asyncHandler(async (req, res) => {
 	const data = { ...req.body, ...req.params };
 	console.log('log of data from modifyRent: ', data);
-	await UseCase.modifyRent(data.roomId, data.newRent);
+	await UseCase.modifyRent(data.roomId, data.newRent, req.user._id);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

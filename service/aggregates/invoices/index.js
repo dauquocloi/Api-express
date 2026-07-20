@@ -374,6 +374,7 @@ const getInvoicesSendingStatus = (buildingId, currentMonth, currentYear) => {
 							_id: 0,
 							roomId: '$_id',
 							roomIndex: 1,
+							roomState: 1,
 							invoiceStatus: 1,
 							invoiceId: {
 								$ifNull: [

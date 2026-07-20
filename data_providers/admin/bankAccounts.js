@@ -15,6 +15,12 @@ exports.importBankAccount = async (userId, bankAccount, bankName, bankId, buildi
 	const buildingBankAccount = await Services.bankAccounts.findByBuildingId(buildingId).lean().exec();
 	if (buildingBankAccount) throw new BadRequestError('Tòa nhà đã có tài khoản ngân hàng !');
 
-	const bankAccountCreated = await Services.bankAccounts.importBankAccount(bankAccount.trim(), bankName.trim(), bankId, userId);
+	const bankAccountCreated = await Services.bankAccounts.importBankAccount({
+		accountNumber: bankAccount.trim(),
+		accountName: bankName.trim(),
+		bankId: bankId,
+		ownerId: userId,
+		buildingId: buildingId,
+	});
 	return bankAccountCreated;
 };

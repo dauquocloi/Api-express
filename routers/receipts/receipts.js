@@ -23,7 +23,8 @@ exports.createReceipt = asyncHandler(async (req, res) => {
 exports.createDepositReceipt = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.body };
 	console.log('log of createDepositReceipt req.body: ', data);
-	const result = await UseCase.createDepositReceipt(data.roomId, data.buildingId, data.amount, data.payer, req.redisKey, req.user._id);
+	const result = await UseCase.createDepositReceipt(data.roomId, data.buildingId, data.amount, data.payer, req.user._id, data.roomVersion);
+	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 	return new SuccessResponse('Success', result).send(res);
 });
 

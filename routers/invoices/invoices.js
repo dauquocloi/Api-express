@@ -4,8 +4,6 @@ const { generateQrCode } = require('../../utils/generateQrCode');
 const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
 const { NotFoundError } = require('../../AppError');
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 exports.getInvoicesPaymentStatus = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.query };
 	console.log('log of data from getInvoicesPaymentStatus: ', data);

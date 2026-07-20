@@ -5,4 +5,10 @@ const CUSTOMER_FROM = {
 	UNKNOWN: 'không xác định',
 };
 
+const CUSTOMER_STATUS = {
+	ACTIVE: 1,
+	TERMINATED: 0,
+	SUSPENDED: 2,
+};
+
 module.exports = { CUSTOMER_FROM };

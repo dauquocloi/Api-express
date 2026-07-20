@@ -70,10 +70,13 @@ const CustomersSchema = new Schema(
 			accountOwnerName: { type: String },
 		},
 		contract: { type: Schema.Types.ObjectId, ref: 'ContractsEntity' },
+		version: {
+			type: Number,
+			default: 0,
+		},
 	},
 	{
 		collation: { locale: 'vi' },
-		autoIndex: true, //just for dev
 		timestamps: true,
 	},
 );

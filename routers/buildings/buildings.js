@@ -114,3 +114,10 @@ exports.getBuildingContractPdfUrl = asyncHandler(async (req, res) => {
 	const result = await UseCase.getBuildingContractPdfUrl(data.buildingId);
 	return new SuccessResponse('Success', result).send(res);
 });
+
+exports.getBankAccount = asyncHandler(async (req, res) => {
+	const data = req.params;
+	console.log('log of getBankAccount', data);
+	const result = await UseCase.getBankAccount(data.buildingId);
+	return new SuccessResponse('Success', result).send(res);
+});

@@ -68,6 +68,7 @@ const getAllCustomers = (buildingId, status) => {
 									else: '$$REMOVE',
 								},
 							},
+							version: 1,
 						},
 					},
 				],

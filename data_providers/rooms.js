@@ -13,6 +13,7 @@ const { feeUnit } = require('../constants/fees');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
 const { sourceType } = require('../constants/debts');
 const getFileUrl = require('../utils/getFileUrl');
+const deepMutate = require('../utils/deepMutate');
 const { client: redis } = require('../config').redisDb;
 
 exports.getRoom = async (roomId) => {
@@ -54,90 +55,85 @@ exports.removeInterior = async (interiorId) => {
 };
 
 //NOT USED
-exports.generateDepositReceiptAndFirstInvoice = async (roomId, buildingId, createrId, depositAmount, payer, stayDays, feeIndexValues) => {
-	let session;
-	try {
-		const roomObjectId = new mongoose.Types.ObjectId(roomId);
-		const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
-		const createrObjectId = new mongoose.Types.ObjectId(createrId);
+// exports.generateDepositReceiptAndFirstInvoice = async (roomId, buildingId, createrId, depositAmount, payer, stayDays, feeIndexValues) => {
+// 	let session;
+// 	try {
+// 		const roomObjectId = new mongoose.Types.ObjectId(roomId);
+// 		const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+// 		const createrObjectId = new mongoose.Types.ObjectId(createrId);
 
+// 		session = await mongoose.startSession();
+// 		session.startTransaction();
+// 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
+// 		const roomInfo = await Entity.RoomsEntity.findOne({ _id: roomObjectId }).session(session);
+// 		if (!roomInfo) {
+// 			throw new NotFoundError(`Phòng với id: ${roomId} không tồn tại !`);
+// 		}
+
+// 		// Phòng đang trống ko thể lấy fees được ! => phải lấy từ contract Draft
+// 		const roomFees = await Services.fees.getRoomFeesAndDebts(roomObjectId, session);
+// 		const formatRoomFees = generateInvoiceFees(roomFees.feeInfo, roomFees._id.rent, stayDays, feeIndexValues, true);
+// 		const totalFirstInvoiceAmount = calculateTotalFeeAmount(formatRoomFees);
+
+// 		const generateInvoice = await Services.invoices.createInvoice(
+// 			{
+// 				roomId: roomObjectId,
+// 				listFees: formatRoomFees,
+// 				totalInvoiceAmount: totalFirstInvoiceAmount,
+// 				stayDays: stayDays,
+// 				debtInfo: null,
+// 				currentPeriod: currentPeriod,
+// 				payerName: payer,
+// 				creater: createrObjectId,
+// 			},
+// 			session,
+// 		);
+
+// 		const createDepositReceipt = await Services.receipts.createReceipt(
+// 			{
+// 				roomObjectId: roomObjectId,
+// 				receiptAmount: depositAmount,
+// 				payer: payer,
+// 				currentPeriod: currentPeriod,
+// 				receiptContent: roomInfo.roomIndex,
+// 				receiptType: receiptTypes['DEPOSIT'],
+// 				initialStatus: receiptStatus['PENDING'],
+// 				creater: createrObjectId,
+// 			},
+// 			session,
+// 		);
+
+// 		await session.commitTransaction();
+
+// 		return {
+// 			invoiceId: generateInvoice?._id,
+// 			receiptId: createDepositReceipt?._id,
+// 		};
+// 	} catch (error) {
+// 		if (session) await session.abortTransaction();
+// 		throw error;
+// 	} finally {
+// 		if (session) session.endSession();
+// 	}
+// };
+
+exports.modifyRent = async (roomId, rentModify, userId) => {
+	let session;
+
+	try {
 		session = await mongoose.startSession();
 		session.startTransaction();
-		const currentPeriod = await getCurrentPeriod(buildingObjectId);
-		const roomInfo = await Entity.RoomsEntity.findOne({ _id: roomObjectId }).session(session);
-		if (!roomInfo) {
-			throw new NotFoundError(`Phòng với id: ${roomId} không tồn tại !`);
-		}
 
-		// Phòng đang trống ko thể lấy fees được ! => phải lấy từ contract Draft
-		const roomFees = await Services.fees.getRoomFeesAndDebts(roomObjectId, session);
-		const formatRoomFees = generateInvoiceFees(roomFees.feeInfo, roomFees._id.rent, stayDays, feeIndexValues, true);
-		const totalFirstInvoiceAmount = calculateTotalFeeAmount(formatRoomFees);
+		await Services.rooms.assertRoomWritable({ roomId, userId, session });
 
-		const generateInvoice = await Services.invoices.createInvoice(
-			{
-				roomId: roomObjectId,
-				listFees: formatRoomFees,
-				totalInvoiceAmount: totalFirstInvoiceAmount,
-				stayDays: stayDays,
-				debtInfo: null,
-				currentPeriod: currentPeriod,
-				payerName: payer,
-				creater: createrObjectId,
-			},
-			session,
-		);
-
-		const createDepositReceipt = await Services.receipts.createReceipt(
-			{
-				roomObjectId: roomObjectId,
-				receiptAmount: depositAmount,
-				payer: payer,
-				currentPeriod: currentPeriod,
-				receiptContent: roomInfo.roomIndex,
-				receiptType: receiptTypes['DEPOSIT'],
-				initialStatus: receiptStatus['PENDING'],
-				creater: createrObjectId,
-			},
-			session,
-		);
-
-		await session.commitTransaction();
-
-		return {
-			invoiceId: generateInvoice?._id,
-			receiptId: createDepositReceipt?._id,
-		};
-	} catch (error) {
-		if (session) await session.abortTransaction();
-		throw error;
-	} finally {
-		if (session) session.endSession();
-	}
-};
-
-exports.modifyRent = async (roomId, rentModify) => {
-	let session;
-
-	try {
-		session = await mongoose.startSession();
-		session.startTransaction();
-
-		const room = await Entity.RoomsEntity.findOne({ _id: roomId }).session(session);
+		const room = await Services.rooms.findById(roomId).session(session).lean().exec();
 		if (!room) throw new NotFoundError('Phòng không tồn tại');
 
-		const contract = await Entity.ContractsEntity.findOneAndUpdate(
-			{ room: roomId, status: 'active' },
-			{ $set: { rent: rentModify } },
-			{ new: true, session },
-		);
+		await Services.rooms.updateRoomRental({ roomId, newRent: rentModify }, session);
 		// Nếu phòng đang có hợp đồng thì sửa tt hợp đồng.
 		// cần làm thêm tính năng thông báo tới khách hàng về việc thay đổi giá thuê phòng.
 
-		room.roomPrice = rentModify;
-		await room.save({ session });
-
-		return { contractId: contract._id, rent: contract.rent };
+		return 'Success';
 	} catch (error) {
 		if (session) await session.abortTransaction();
 		throw error;
@@ -330,6 +326,7 @@ exports.getRoomHistories = async (roomId) => {
 exports.getRoomHistoryDetail = async (roomHistoryId) => {
 	const roomHistoryObjectId = new mongoose.Types.ObjectId(roomHistoryId);
 	const result = await Services.rooms.getRoomHistoryDetail(roomHistoryObjectId);
+	await deepMutate(result, (key, value, parent) => key === 'contractPdfUrl', getFileUrl);
 	return result;
 };
 

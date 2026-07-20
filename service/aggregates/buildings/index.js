@@ -2,6 +2,7 @@ const { vehicleStatus } = require('../../../constants/vehicle');
 const { debtStatus } = require('../../../constants/debts');
 const { invoiceStatus } = require('../../../constants/invoices');
 const { receiptStatus } = require('../../../constants/receipt');
+const { contractStatus } = require('../../../constants/contracts');
 const mongoose = require('mongoose');
 
 const getAllBuildingsByManagementId = (userId) => {
@@ -711,7 +712,7 @@ const getExcelData = (buildingObjectId, month, year) => {
 							pipeline: [
 								{
 									$match: {
-										status: 'active',
+										status: contractStatuses['ACTIVE'],
 									},
 								},
 								{

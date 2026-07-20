@@ -108,7 +108,7 @@ const setWriteLockedRoom = async (roomId, session, lockReason, lockOwner) => {
 		{ session },
 	);
 	if (lockResult.n === 0) {
-		throw new ConflictError('Phòng đang được xử lý công nợ, vui lòng thử lại sau');
+		throw new ConflictError('Phòng hiện đang được cập nhật, vui lòng thử lại sau !');
 	}
 
 	return {
@@ -290,6 +290,12 @@ const writeNote = async (roomId, note, session) => {
 	return 'success';
 };
 
+const updateRoomRental = async ({ roomId, newRent }, session) => {
+	const result = await Entity.RoomsEntity.updateOne({ _id: roomId }, { $set: { rent: newRent }, $inc: { version: 1 } }, { session });
+	if (result.matchedCount === 0) throw new NotFoundError('Phòng không tồn tại !');
+	return 'success';
+};
+
 module.exports = {
 	getAllRooms,
 	getRoom,
@@ -314,4 +320,5 @@ module.exports = {
 	lockAllRoomsForSettlement,
 	importRoomImages,
 	writeNote,
+	updateRoomRental,
 };
