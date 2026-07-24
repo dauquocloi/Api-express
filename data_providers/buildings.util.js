@@ -186,7 +186,7 @@ const generateRowExcelData = (data) => {
 			room: room.roomIndex,
 			depositAmount: room.roomState === roomState['UN_HIRED'] ? 0 : room.contract.depositReceipt.amount,
 			depositPaidAmount: room.roomState === roomState['UN_HIRED'] ? 0 : room.contract.depositReceipt.paidAmount,
-			rent: room.roomState === roomState['UN_HIRED'] ? room.roomPrice : room.contract.rent,
+			rent: room.roomState === roomState['UN_HIRED'] ? room.roomPrice : room.contract?.versions?.[0]?.rent,
 			roomState: roomStateTransform[room.roomState],
 			numberOfTenants: room.roomState === roomState['UN_HIRED'] ? 0 : room.contract.customerQuantity || 1,
 			numberOfVehicles: room.roomState === roomState['UN_HIRED'] ? 0 : room.contract.vehicleQuantity || 0,
@@ -206,7 +206,7 @@ const generateRowExcelData = (data) => {
 			}
 		});
 
-		// 👉 tổng thu (nếu cần)
+		//  tổng thu (nếu cần)
 		const totalInvoice = (room.invoices ?? []).reduce((sum, i) => sum + (i.total ?? 0), 0);
 		const totalReceipt = (room.receipts ?? []).reduce((sum, r) => sum + (r.amount ?? 0), 0);
 
@@ -217,7 +217,7 @@ const generateRowExcelData = (data) => {
 };
 
 const styleExcel = (worksheet, schema) => {
-	// 👉 column style
+	//  column style
 	schema.forEach((col) => {
 		const column = worksheet.getColumn(col.key);
 
@@ -232,7 +232,7 @@ const styleExcel = (worksheet, schema) => {
 		};
 	});
 
-	// 👉 header style
+	//  header style
 	const headerRow = worksheet.getRow(1);
 
 	headerRow.height = 35;
@@ -257,7 +257,7 @@ const styleExcel = (worksheet, schema) => {
 		};
 	});
 
-	// 👉 border + giữ alignment
+	// border + giữ alignment
 	worksheet.eachRow((row, rowNumber) => {
 		row.eachCell((cell) => {
 			// border
@@ -268,7 +268,7 @@ const styleExcel = (worksheet, schema) => {
 				right: { style: 'thin' },
 			};
 
-			// 👉 merge thay vì overwrite
+			//  merge thay vì overwrite
 			cell.alignment = {
 				...cell.alignment,
 				vertical: 'middle',

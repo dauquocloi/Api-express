@@ -8,11 +8,11 @@ const generateContractQueue = new Queue('generateContract', process.env.REDIS_UR
 
 // ---- Listeners ----
 generateContractQueue.on('completed', (job, result) => {
-	console.log(`✅ generateContractQueue Job ${job.id} completed:`, result);
+	console.log(` generateContractQueue Job ${job.id} completed:`, result);
 });
 
 generateContractQueue.on('failed', (job, err) => {
-	console.error(`❌ generateContractQueue Job ${job.id} failed:`, err.message);
+	console.error(` generateContractQueue Job ${job.id} failed:`, err.message);
 
 	Sentry.captureException(err, {
 		level: 'error',

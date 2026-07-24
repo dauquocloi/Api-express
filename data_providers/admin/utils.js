@@ -333,6 +333,20 @@ const createContracts = async ({ data, roomMap, depositReceiptMap, session }) =>
 			note: room.contractNote?.trim() ?? '',
 			status: CONTRACT_STATUS['ACTIVE'],
 			contractCode: await generateContractCode(process.env.CONTRACT_CODE_LENGTH),
+			versions: [
+				{
+					rent: Number(room.rent),
+					contractSignDate: new Date(room.signDate),
+					contractEndDate: new Date(room.endDate),
+					contractTerm: room.contractTerm.trim(),
+					status: CONTRACT_STATUS['ACTIVE'],
+					contractCode: await generateContractCode(process.env.CONTRACT_CODE_LENGTH),
+					createdAt: new Date(),
+					updatedAt: new Date(),
+					contractPdfUrl: '',
+					contractPdfFile: '',
+				},
+			],
 		});
 	}
 

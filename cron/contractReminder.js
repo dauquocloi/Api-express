@@ -35,10 +35,10 @@ const { notiContractNearExpiredJob } = require('../jobs/notification/notificatio
 
 Connect('Qltro-test')
 	.then(() => {
-		console.log('✅ MongoDB connected');
+		console.log(' MongoDB connected');
 	})
 	.catch((err) => {
-		console.error('❌ MongoDB connection failed:', err);
+		console.error(' MongoDB connection failed:', err);
 	});
 
 const checkContracts = async () => {
@@ -57,7 +57,7 @@ const checkContracts = async () => {
 				buildingId: contract.room.building,
 				roomIndex: contract.room.roomIndex,
 				roomId: contract.room._id.toString(),
-				contractEndDate: contract.contractEndDate,
+				contractEndDate: contract.versions[0].contractEndDate,
 			});
 		}
 		console.log('Finish checking.');

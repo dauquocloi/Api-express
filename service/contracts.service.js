@@ -4,6 +4,8 @@ const withSignedUrls = require('../utils/withSignedUrls');
 const generateContractCode = require('../utils/generateContractCode');
 const { contractStatus } = require('../constants/contracts');
 const Pipelines = require('./aggregates');
+const getFileUrl = require('../utils/getFileUrl');
+const deepMutate = require('../utils/deepMutate');
 
 exports.findById = (contractId) => {
 	return Entity.ContractsEntity.findById(contractId);
@@ -13,19 +15,33 @@ exports.findByRoomId = (roomId) => {
 	return Entity.ContractsEntity.findOne({ room: roomId, status: contractStatus['ACTIVE'] });
 };
 
-exports.findByContractCode = (contractCode) => Entity.ContractsEntity.findOne({ contractCode: contractCode });
+exports.findByContractCode = (contractCode) => Entity.ContractsEntity.findOne({ 'versions.contractCode': contractCode });
 
-exports.findContractNearExpi = (targetDate) => {
-	return Entity.ContractsEntity.find({
-		contractEndDate: {
-			$gte: targetDate,
-			// $lt: dayjs(targetDate).add(1, 'day').toDate(),
+exports.findContractNearExpi = (targetDate) =>
+	Entity.ContractsEntity.find(
+		{
+			versions: {
+				$elemMatch: {
+					contractEndDate: {
+						$gte: targetDate,
+					},
+					status: contractStatus.ACTIVE,
+				},
+			},
 		},
-		status: contractStatus['ACTIVE'],
-	});
-};
+		{
+			versions: {
+				$elemMatch: {
+					contractEndDate: {
+						$gte: targetDate,
+					},
+					status: contractStatus.ACTIVE,
+				},
+			},
+		},
+	);
 
-exports.findByCustomerId = (customerId) => Entity.ContractsEntity.find({ customer: customerId });
+exports.findByCustomerId = (customerId) => Entity.ContractsEntity.findOne({ customer: customerId });
 
 exports.importCustomerRef = async (contractId, customerId, session) => {
 	const result = await Entity.ContractsEntity.updateOne({ _id: contractId }, { $set: { customer: customerId } }, { session: session });
@@ -34,19 +50,21 @@ exports.importCustomerRef = async (contractId, customerId, session) => {
 };
 
 exports.getContractPdfUrl = async (contractCode) => {
-	const currentContract = await Entity.ContractsEntity.findOne({ contractCode: contractCode });
-	if (!currentContract) throw new NotFoundError('Hợp đồng không tồn tại');
-	const contractPdfUrl = await withSignedUrls(currentContract, 'contractPdfUrl');
+	const currentContract = await Entity.ContractsEntity.findOne(
+		{ 'versions.contractCode': contractCode },
+		{
+			versions: {
+				$elemMatch: { contractCode },
+			},
+		},
+	);
 
-	return contractPdfUrl.contractPdfUrl;
-};
+	if (!currentContract) throw new NotFoundError('Không tìm thấy dữ liệu !');
+	if (!currentContract.versions?.[0]?.contractPdfUrl) return null;
 
-exports.getContractById = async (contractId, session) => {
-	const query = Entity.ContractsEntity.findById(contractId);
-	if (session) query.session(session);
-	const contractInfo = await query;
-	if (!contractInfo) throw new NotFoundError('Hợp đồng không tồn tại');
-	return contractInfo;
+	const contractPdfUrl = await getFileUrl(currentContract.versions[0].contractPdfUrl);
+
+	return contractPdfUrl;
 };
 
 exports.generateContract = async (
@@ -82,7 +100,7 @@ exports.generateContract = async (
 				depositAmount: depositAmount,
 				versions: [
 					{
-						version: 1,
+						version: 0,
 						rent: rent,
 						depositAmount: depositAmount,
 						contractSingDate: contractSignDate,
@@ -90,6 +108,7 @@ exports.generateContract = async (
 						contractPdfUrl: null,
 						contractPdfFile: null,
 						createdAt: new Date(),
+						updatedAt: new Date(),
 						customerConfirmed: false,
 						status: contractStatus['PENDING'],
 					},
@@ -152,7 +171,17 @@ exports.getContractDraftById = async (contractDraftId, session) => {
 };
 
 exports.expiredContract = async (contractId, session) => {
-	const result = await Entity.ContractsEntity.updateOne({ _id: contractId }, { $set: { status: contractStatus['EXPIRED'] } }, { session });
+	const result = await Entity.ContractsEntity.updateOne(
+		{ _id: contractId, 'versions.status': contractStatus['ACTIVE'] },
+		{
+			$set: {
+				'versions.$.status': contractStatus['EXPIRED'],
+				'versions.$.updatedAt': new Date(),
+			},
+			$inc: { version: 1 },
+		},
+		{ session },
+	);
 	if (result.matchedCount === 0) throw new NotFoundError('Hợp đồng không tồn tại');
 	return result;
 };
@@ -203,9 +232,14 @@ exports.contractExtention = async ({ contractId, newContractEndDate, newRent, ve
 		{
 			_id: contractId,
 			version: version,
+			'versions.status': contractStatus['ACTIVE'],
 		},
 		{
-			$set: { contractEndDate: newContractEndDate, rent: newRent },
+			$set: {
+				'versions.$.contractEndDate': newContractEndDate,
+				'versions.$.rent': newRent,
+				'versions.$.updatedAt': new Date(),
+			},
 			$inc: { version: 1 },
 		},
 		{ session },
@@ -214,10 +248,18 @@ exports.contractExtention = async ({ contractId, newContractEndDate, newRent, ve
 	return true;
 };
 
-exports.clientConfirmContract = async (contractId) => {
+// Nên truyền version của versions làm tham số !
+exports.clientConfirmContract = async (contractId, session) => {
 	const result = await Entity.ContractsEntity.updateOne(
 		{ _id: contractId, 'versions.customerConfirmed': false },
-		{ $set: { 'versions.$.customerConfirmed': true, 'versions.$.status': contractStatus['ACTIVE'] } },
+		{
+			$set: {
+				'versions.$.customerConfirmed': true,
+				'versions.$.status': contractStatus['ACTIVE'],
+			},
+			$inc: { version: 1 },
+		},
+		{ session },
 	);
 	if (result.matchedCount === 0) throw new NotFoundError('Hợp đồng không tồn tại');
 	return true;
@@ -227,4 +269,14 @@ exports.getDebtsAndReceiptsUnpaid = async (contractId, session) => {
 	const [result] = await Entity.ContractsEntity.aggregate(Pipelines.contracts.getDebtsAndReceiptsUnpaid(contractId)).session(session);
 	if (!result) throw new NotFoundError('Hợp đồng không tồn tại');
 	return result;
+};
+
+exports.setContractOwner = async ({ currentCustomerId, customerId }, session = null) => {
+	const result = await Entity.ContractsEntity.updateOne(
+		{ customer: currentCustomerId },
+		{ $set: { customer: customerId }, $inc: { version: 1 } },
+		{ session },
+	);
+	if (result.matchedCount === 0) throw new NotFoundError('Hợp đồng không tồn tại');
+	return true;
 };

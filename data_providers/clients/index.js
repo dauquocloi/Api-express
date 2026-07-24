@@ -30,23 +30,25 @@ exports.getInvoiceInfoByInvoiceCode = async (billCode) => {
 exports.getContractInfo = async (contractCode) => {
 	const normalizeContractCode = contractCode.trim();
 	const contract = await Services.contracts.findByContractCode(normalizeContractCode).lean().exec();
-	if (!contract) throw new NotFoundError('Không tìm thấy hợp đồng');
+	if (!contract) throw new NotFoundError('Hợp đồng không tồn tại !');
 
 	const customer = await Services.customers.findOwnerByContractId(contract._id).populate({ path: 'room', populate: 'building' }).lean().exec();
 	if (!customer) throw new NotFoundError('Không tìm thấy khách hàng');
 
-	const contractUrl = await getFieldUrl(contract.contractPdfUrl);
+	const lastestContractVersion = contract.versions.find((v) => v.contractCode === normalizeContractCode);
+
+	const contractUrl = await getFieldUrl(lastestContractVersion.contractPdfUrl);
 	const contractInfo = {
 		contractPdfUrl: contractUrl,
 		_id: contract._id,
-		status: contract.status,
-		isCustomerConfirmed: contract.isCustomerConfirmed,
-		contractTerm: contract.contractTerm,
-		contractSignDate: contract.contractSignDate,
-		contractEndDate: contract.contractEndDate,
-		rent: contract.rent,
-		depositAmount: contract.depositAmount,
-		contractCode: contract.contractCode,
+		status: lastestContractVersion.status,
+		isCustomerConfirmed: lastestContractVersion.isCustomerConfirmed,
+		contractTerm: lastestContractVersion.contractTerm,
+		contractSignDate: lastestContractVersion.contractSignDate,
+		contractEndDate: lastestContractVersion.contractEndDate,
+		rent: lastestContractVersion.rent,
+		depositAmount: lastestContractVersion.depositAmount,
+		contractCode: lastestContractVersion.contractCode,
 	};
 	return {
 		fullName: customer.fullName,

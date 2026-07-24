@@ -11,10 +11,10 @@ const randomFileName = require('../utils/randomFileName');
 
 Connect('Qltro-test')
 	.then(() => {
-		console.log('✅ Đã kết nối MongoDB Atlas');
+		console.log(' Đã kết nối MongoDB Atlas');
 	})
 	.catch((err) => {
-		console.error('❌ Kết nối MongoDB thất bại:', err);
+		console.error(' Kết nối MongoDB thất bại:', err);
 	});
 
 // Worker notification
@@ -113,7 +113,7 @@ notificationQueue.process(async (job) => {
 		const result = await sendNotification(type, { ...createNoti, expoPushTokens });
 		return result;
 	} catch (error) {
-		console.error('❌ Worker error:', error.message);
+		console.error(' Worker error:', error.message);
 		throw error;
 	}
 });
@@ -206,7 +206,7 @@ generateContractQueue.process(async (job) => {
 		//ZNS to customer by phone here
 		return updateContract;
 	} catch (error) {
-		console.error('❌ Worker error:', error);
+		console.error(' Worker error:', error);
 		throw error; // Bull will mark the job as failed
 	}
 });
@@ -243,7 +243,7 @@ modifyContractQueue.process(async (job) => {
 		await session.commitTransaction();
 		return contract;
 	} catch (error) {
-		console.error('❌ Worker error during DB update:', error);
+		console.error(' Worker error during DB update:', error);
 		throw error;
 	}
 });

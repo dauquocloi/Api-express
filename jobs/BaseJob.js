@@ -56,7 +56,7 @@ class BaseJob {
 
 			return job;
 		} catch (error) {
-			console.error(`[❌ Enqueue Error] ${this.queueName}`, error);
+			console.error(`[ Enqueue Error] ${this.queueName}`, error);
 			throw error;
 		}
 	}
@@ -74,7 +74,7 @@ class BaseJob {
 				await this.onSuccess(job, result);
 				return result;
 			} catch (error) {
-				console.error(`[❌ Job Failed] ${this.queueName} #${job.id}`, error);
+				console.error(`[ Job Failed] ${this.queueName} #${job.id}`, error);
 				await this.onFailed(job, error);
 				throw error;
 			}
@@ -86,7 +86,7 @@ class BaseJob {
 	 */
 	setupListeners() {
 		this.queue.on('completed', (job, result) => {
-			console.log(`[✅ Completed] ${this.queueName} #${job.id}`);
+			console.log(`[ Completed] ${this.queueName} #${job.id}`);
 			this.onCompleted(job, result);
 		});
 

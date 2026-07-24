@@ -1,5 +1,4 @@
 const { AppError, InvalidInputError, NotFoundError, BadRequestError, NoDataError, ConflictError } = require('../AppError');
-const { errorCodes } = require('../constants/errorCodes');
 const Entity = require('../models');
 const mongoose = require('mongoose');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
@@ -134,6 +133,7 @@ exports.confirmDepositRefund = async (depositRefundId, spenderId, redisKey) => {
 	}
 };
 
+// should be refactored
 exports.generateDepositRefund = async ({ contractId, roomVersion, feeIndexValues, feesOther, userId, redisKey }) => {
 	let session;
 	let result;
@@ -147,17 +147,16 @@ exports.generateDepositRefund = async ({ contractId, roomVersion, feeIndexValues
 			const currentContractInfo = await Services.contracts
 				.findById(contractId)
 				.session(session)
-				.populate('room depositReceiptId')
+				.populate('room depositReceiptId customer')
 				.lean()
 				.exec();
 			if (!currentContractInfo) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ');
-			const { room: currentRoom, depositReceiptId: depositReceipt } = currentContractInfo;
+			const { room: currentRoom, depositReceiptId: depositReceipt, customer, versions } = currentContractInfo;
+			const lastestContractVersion = versions.reduce((max, v) => (v.version > max.version ? v : max));
 
 			if (currentRoom.version !== roomVersion) throw new ConflictError(`Dữ liệu của phòng đã bị thay đổi !`);
 
 			const currentPeriod = await getCurrentPeriod(currentRoom.building);
-			const contractOwnerInfo = await Services.customers.getContractOwner(currentRoom._id, session);
-			if (!contractOwnerInfo) throw new NotFoundError('Phòng không tồn tại chủ hợp đồng');
 
 			let debts = await Entity.DebtsEntity.find({ room: currentRoom._id, status: debtStatus['PENDING'] }, { _id: 1, content: 1, amount: 1 })
 				.session(session)
@@ -248,7 +247,7 @@ exports.generateDepositRefund = async ({ contractId, roomVersion, feeIndexValues
 				currentRoom.building,
 				contractId,
 				depositReceipt._id,
-				contractOwnerInfo._id,
+				customer._id,
 				debts,
 				receiptsUnpaid,
 				currentPeriod,
@@ -326,7 +325,7 @@ exports.generateDepositRefund = async ({ contractId, roomVersion, feeIndexValues
 					depositRefundId: createdDepositRefund._id,
 					interiors: currentRoom.interior,
 					fees: roomFees,
-					rent: contractOwnerInfo.contract.rent,
+					rent: lastestContractVersion.rent,
 				},
 				session,
 			);

@@ -38,7 +38,7 @@ exports.modifyTask = (data, cb, next) => {
 				);
 			}
 
-			console.log('✅ Job added to notification queue');
+			console.log(' Job added to notification queue');
 
 			cb(null, 'modified');
 		},

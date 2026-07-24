@@ -108,28 +108,31 @@ const ContractsSchema = new Schema(
 		note: { type: String, default: '' },
 
 		//for contract extension
-		versions: [
-			{
-				version: Number,
-				rent: Number,
-				depositAmount: Number,
-				contractSignDate: Date,
-				contractEndDate: Date,
-				contractPdfUrl: { type: String, default: '' },
-				contractPdfFile: ContractsPdfFileSchema,
-				customerConfirmed: { type: Boolean, default: false },
-				status: {
-					type: String,
-					enum: Object.values(contractStatus),
-					default: contractStatus['PENDING'],
-					required: true,
+		versions: {
+			type: [
+				{
+					version: { type: Number, default: 0 }, // start 0
+					rent: { type: Number, required: true },
+					depositAmount: Number,
+					contractSignDate: Date,
+					contractEndDate: Date,
+					contractPdfUrl: { type: String, default: '' },
+					contractPdfFile: ContractsPdfFileSchema,
+					customerConfirmed: { type: Boolean, default: false },
+					status: {
+						type: String,
+						enum: Object.values(contractStatus),
+						default: contractStatus['PENDING'],
+						required: true,
+					},
+					createdAt: { type: Date, default: new Date() },
+					updatedAt: { type: Date, default: new Date() },
+					contractTerm: String,
+					contractCode: { type: String, required: true },
 				},
-				createdAt: Date,
-				updatedAt: Date,
-				contractTerm: String,
-				contractCode: { type: String, required: true },
-			},
-		],
+			],
+			required: true,
+		},
 		version: { type: Number, default: 1 },
 	},
 	{ timestamps: true, versionKey: false },

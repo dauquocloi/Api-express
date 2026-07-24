@@ -1,18 +1,13 @@
 const { NotFoundError } = require('../AppError');
-const { depositRefundStatus } = require('../constants/deposits');
+const { depositRefundStatus } = require('../constants');
 const Entity = require('../models');
+const Pipelines = require('./aggregates');
 
-const findById = (depositRefundId) => {
-	return Entity.DepositRefundsEntity.findById(depositRefundId);
-};
+const findById = (depositRefundId) => Entity.DepositRefundsEntity.findById(depositRefundId);
 
-const findByInvoiceUnpaidId = (invoiceUnpaidId) => {
-	return Entity.DepositRefundsEntity.findOne({ invoiceUnpaid: invoiceUnpaidId });
-};
+const findByInvoiceUnpaidId = (invoiceUnpaidId) => Entity.DepositRefundsEntity.findOne({ invoiceUnpaid: invoiceUnpaidId });
 
-const findByReceiptsUnpaid = (receiptId) => {
-	return Entity.DepositRefundsEntity.findOne({ receiptsUnapid: receiptId });
-};
+const findByReceiptsUnpaid = (receiptId) => Entity.DepositRefundsEntity.findOne({ receiptsUnapid: receiptId });
 
 const createDepositRefund = async (
 	roomId,
@@ -79,6 +74,16 @@ const updateDepositRefundStatusByReceiptId = async (receiptId, status, session) 
 		{ new: true, session },
 	);
 	if (result.matchedCount === 0) throw new NotFoundError('Dữ liệu phiếu cọc không tồn tại!');
+	return result;
+};
+
+const getDepositRefunds = async (buildingId, mode, session) => {
+	let result = [];
+	if (mode === depositRefundStatus['PENDING']) {
+		result = await Entity.DepositRefundsEntity.aggregate(Pipelines.depositRefunds.getDepositRefunds(buildingId, mode), { session });
+	} else {
+		result = await Entity.DepositRefundsEntity.aggregate(Pipelines.depositRefunds.getDepositRefundsModeRefundedPipeline(buildingId), { session });
+	}
 	return result;
 };
 

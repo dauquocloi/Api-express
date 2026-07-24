@@ -18,7 +18,7 @@ const getAllRooms = async (buildingId) => {
 const getRoom = async (roomId) => {
 	const [roomInfo] = await Entity.RoomsEntity.aggregate(Pipelines.rooms.getRoomByIdPipeline(roomId));
 	if (!roomInfo) throw new NotFoundError('Phòng không tồn tại');
-	else return roomInfo;
+	return roomInfo;
 };
 
 const addInterior = async (roomId, interior) => {

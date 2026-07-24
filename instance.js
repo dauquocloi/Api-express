@@ -14,27 +14,27 @@ function initializeInstances(_io) {
 	transactionManager = new TransactionManager(io);
 	isInitialized = true;
 
-	console.log('✅ Instances initialized');
+	console.log(' Instances initialized');
 	return { io, transactionManager };
 }
 
 function getInstances() {
 	if (!isInitialized) {
-		throw new Error('❌ Instances not initialized. Call initializeInstances() in server.js first!');
+		throw new Error(' Instances not initialized. Call initializeInstances() in server.js first!');
 	}
 	return { io, transactionManager };
 }
 
 function getTransactionManager() {
 	if (!transactionManager) {
-		throw new Error('❌ transactionManager not initialized');
+		throw new Error(' transactionManager not initialized');
 	}
 	return transactionManager;
 }
 
 function getIO() {
 	if (!io) {
-		throw new Error('❌ io not initialized');
+		throw new Error(' io not initialized');
 	}
 	return io;
 }

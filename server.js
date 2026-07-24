@@ -28,7 +28,7 @@ const io = new Server(server, {
 });
 
 const { transactionManager } = initializeInstances(io);
-console.log('✅ TransactionManager initialized');
+console.log(' TransactionManager initialized');
 
 // ========== EXPRESS MIDDLEWARE ==========
 app.use(cookieParser());
@@ -38,7 +38,7 @@ app.use(express.urlencoded({ limit: '500mb', extended: true }));
 
 // ========== SOCKET EVENTS ==========
 io.on('connection', (socket) => {
-	console.log(`✅ Client connected: ${socket.id}`);
+	console.log(` Client connected: ${socket.id}`);
 
 	// Subscribe transaction
 	socket.on('receipt:subscribe', (data) => {
@@ -73,17 +73,17 @@ io.on('connection', (socket) => {
 	});
 
 	socket.on('disconnect', () => {
-		console.log(`❌ Disconnected: ${socket.id}`);
+		console.log(` Disconnected: ${socket.id}`);
 	});
 });
 
 // ========== DATABASE CONNECTION ==========
 Connect('Qltro-test')
 	.then(() => {
-		console.log('✅ MongoDB connected');
+		console.log(' MongoDB connected');
 	})
 	.catch((err) => {
-		console.error('❌ MongoDB connection failed:', err);
+		console.error(' MongoDB connection failed:', err);
 	});
 
 // ========== ROUTES ==========

@@ -345,9 +345,19 @@ const getCheckoutCostDetailPipeline = (checkoutCostId) => {
 					{
 						$project: {
 							_id: 1,
-							contractCode: 1,
-							contractSignDate: 1,
-							contractEndDate: 1,
+							versions: {
+								$slice: [
+									{
+										$sortArray: {
+											input: '$versions',
+											sortBy: {
+												version: -1,
+											},
+										},
+									},
+									1,
+								],
+							},
 						},
 					},
 				],

@@ -12,11 +12,11 @@ generateContractQueue.process(5, async (job) => {
 });
 
 generateContractQueue.on('completed', (job, result) => {
-	console.log(`✅ Job completed: ${job.id}, Result:`, result);
+	console.log(` Job completed: ${job.id}, Result:`, result);
 });
 
 generateContractQueue.on('failed', (job, error) => {
-	console.error(`❌ Job failed: ${job.id}, Error:`, error);
+	console.error(` Job failed: ${job.id}, Error:`, error);
 
 	Sentry.captureException(error, {
 		level: 'error',

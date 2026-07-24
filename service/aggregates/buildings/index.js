@@ -655,7 +655,7 @@ const getExcelData = (buildingObjectId, month, year) => {
 	return [
 		{
 			$match: {
-				_id: buildingObjectId,
+				_id: new mongoose.Types.ObjectId(buildingObjectId),
 			},
 		},
 		{
@@ -783,16 +783,29 @@ const getExcelData = (buildingObjectId, month, year) => {
 											$arrayElemAt: ['$depositReceipt', 0],
 										},
 										customers: 1,
-										contractSignDate: 1,
-										contractEndDate: 1,
 										status: 1,
 										contractTerm: 1,
 										note: 1,
-										rent: 1,
-										depositAmount: 1,
 										vehicles: 1,
-										customerQuantity: { $size: '$customers' },
-										vehicleQuantity: { $size: '$vehicles' },
+										customerQuantity: {
+											$size: '$customers',
+										},
+										vehicleQuantity: {
+											$size: '$vehicles',
+										},
+										versions: {
+											$slice: [
+												{
+													$sortArray: {
+														input: '$versions',
+														sortBy: {
+															version: -1,
+														},
+													},
+												},
+												1,
+											],
+										},
 									},
 								},
 							],

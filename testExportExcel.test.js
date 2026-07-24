@@ -39,7 +39,7 @@ async function exportInvoices(invoices) {
 	// 💾 Save file
 	await workbook.xlsx.writeFile('invoices.xlsx');
 
-	console.log('✅ File Excel đã được tạo!');
+	console.log(' File Excel đã được tạo!');
 }
 
 // 👉 Test thử

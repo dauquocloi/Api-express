@@ -12,17 +12,17 @@ lockInvoiceQueue.process(3, async (job) => {
 		const { data } = job;
 		return await handleLockInvoiceJob(data);
 	} catch (error) {
-		console.error(`[❌ Failed] ${LOCK_INVOICE} #${job.id}`, error);
+		console.error(`[ Failed] ${LOCK_INVOICE} #${job.id}`, error);
 		throw error;
 	}
 });
 
 lockInvoiceQueue.on('completed', (job, result) => {
-	console.log(`✅ Job completed: ${job.id}, Result:`, result);
+	console.log(` Job completed: ${job.id}, Result:`, result);
 });
 
 lockInvoiceQueue.on('failed', (job, error) => {
-	console.error(`❌ Job failed: ${job.id}, Error:`, error);
+	console.error(` Job failed: ${job.id}, Error:`, error);
 
 	Sentry.captureException(error, {
 		level: 'error',

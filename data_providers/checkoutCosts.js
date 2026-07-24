@@ -212,9 +212,13 @@ exports.modifyCheckoutCost = async (checkoutCostId, version, feeIndexValues, sta
 			let currentFeeIndexIds = fees.map((f) => (f.unit === feeUnit['INDEX'] ? f._id.toString() : null)).filter(Boolean);
 			if (currentFeeIndexIds.length > 0) validateFeeIndexMatch(currentFeeIndexIds, feeIndexValues);
 
+			const lastestContractVersion = contract.versions?.length
+				? contract.versions.reduce((max, v) => (v.version > max.version ? v : max))
+				: null;
+
 			let formatRoomFees;
 			if (!invoicesUnpaid || invoicesUnpaid.length === 0) {
-				formatRoomFees = generateInvoiceFees(fees, contract?.rent, stayDays, feeIndexValues, true, 'modify');
+				formatRoomFees = generateInvoiceFees(fees, lastestContractVersion?.rent, stayDays, feeIndexValues, true, 'modify');
 			} else {
 				formatRoomFees = generateInvoiceFees(fees, 0, 0, feeIndexValues, false, 'modify');
 			}

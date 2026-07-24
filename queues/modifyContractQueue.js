@@ -8,11 +8,11 @@ const modifyContractQueue = new Queue('modifyContractQueue', process.env.REDIS_U
 
 // ---- Listeners ----
 modifyContractQueue.on('completed', (job, result) => {
-	console.log(`✅ modifyContractQueue Job ${job.id} completed:`, result);
+	console.log(` modifyContractQueue Job ${job.id} completed:`, result);
 });
 
 modifyContractQueue.on('failed', (job, err) => {
-	console.error(`❌ modifyContractQueue Job ${job.id} failed:`, err.message);
+	console.error(` modifyContractQueue Job ${job.id} failed:`, err.message);
 
 	Sentry.captureException(err, {
 		level: 'error',

@@ -8,7 +8,7 @@ const { randomUUID } = require('crypto');
 // not used
 async function convertDocxToPdf(docxBuffer) {
 	if (!docxBuffer || docxBuffer.length === 0) {
-		throw new Error('❌ Buffer đầu vào không được rỗng.');
+		throw new Error(' Buffer đầu vào không được rỗng.');
 	}
 
 	let tempDir = null;

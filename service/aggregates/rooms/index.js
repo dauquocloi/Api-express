@@ -175,7 +175,15 @@ const getRoomByIdPipeline = (roomId) => {
 						$project: {
 							_id: 1,
 							version: 1,
-							versions: 1,
+							versions: {
+								$filter: {
+									input: '$versions',
+									as: 'version',
+									cond: {
+										$eq: ['$status', 'active'],
+									},
+								},
+							},
 							customers: 1,
 							expectedMoveOutDate: 1,
 							isEarlyTermination: 1,
@@ -377,24 +385,6 @@ const getRoomByIdPipeline = (roomId) => {
 				isRefundDeposit: 1,
 				note: 1,
 				contractInfo: 1,
-				// contractInfo: {
-				// 	_id: '$contractInfo._id',
-				// 	rent: '$contractInfo.rent',
-				// 	contractSignDate: '$contractInfo.contractSignDate',
-				// 	contractEndDate: '$contractInfo.contractEndDate',
-				// 	expectedMoveOutDate: '$contractInfo.expectedMoveOutDate',
-				// 	isEarlyTermination: '$contractInfo.isEarlyTermination',
-				// 	contractTerm: '$contractInfo.contractTerm',
-				// 	contractCode: '$contractInfo.contractCode',
-				// 	status: '$contractInfo.status',
-				// 	contractPdfUrl: '$contractInfo.contractPdfUrl',
-				// 	depositId: '$contractInfo.depositId',
-				// 	depositReceiptInfo: {
-				// 		$first: '$depositReceipt',
-				// 	},
-				// },
-				// customerInfo: 1,
-				// vehicleInfo: 1,
 				depositInfo: {
 					$ifNull: [{ $first: '$deposit' }, null],
 				},
@@ -430,6 +420,33 @@ const getRoomHistoriesByRoomId = (roomObjectId) => {
 			},
 		},
 		{
+			$lookup: {
+				from: 'contracts',
+				localField: 'contract.contractId',
+				foreignField: '_id',
+				pipeline: [
+					{
+						$set: {
+							versions: {
+								$slice: [
+									{
+										$sortArray: {
+											input: '$versions',
+											sortBy: {
+												version: -1,
+											},
+										},
+									},
+									1,
+								],
+							},
+						},
+					},
+				],
+				as: 'contract',
+			},
+		},
+		{
 			$addFields: {
 				depositRefund: {
 					$ifNull: [
@@ -447,10 +464,140 @@ const getRoomHistoriesByRoomId = (roomObjectId) => {
 						null,
 					],
 				},
+				contract: {
+					$ifNull: [
+						{
+							$first: '$contract',
+						},
+						null,
+					],
+				},
 			},
 		},
 	];
 };
+
+// const getRoomHistoryDetail = (roomHistoryObjectId) => {
+// 	return [
+// 		{
+// 			$match: {
+// 				_id: new mongoose.Types.ObjectId(roomHistoryObjectId),
+// 			},
+// 		},
+// 		{
+// 			$lookup: {
+// 				from: 'contracts',
+// 				localField: 'contract.contractId',
+// 				foreignField: '_id',
+// 				pipeline: [
+// 					{
+// 						$project: {
+// 							_id: 1,
+// 							contractPdfUrl: 1,
+// 							note: 1,
+// 						},
+// 					},
+// 				],
+// 				as: 'contractInfo',
+// 			},
+// 		},
+// 		{
+// 			$unwind: {
+// 				path: '$contractInfo',
+// 			},
+// 		},
+// 		{
+// 			$lookup: {
+// 				from: 'invoices',
+// 				let: {
+// 					contractId: '$contract.contractId',
+// 				},
+// 				pipeline: [
+// 					{
+// 						$match: {
+// 							$expr: {
+// 								$and: [
+// 									{
+// 										$eq: ['$contract', '$$contractId'],
+// 									},
+// 									{
+// 										$not: {
+// 											$in: ['$status', [invoiceStatus['TERMINATED'], invoiceStatus['PENDING']]],
+// 										},
+// 									},
+// 								],
+// 							},
+// 						},
+// 					},
+// 					{
+// 						$sort: {
+// 							month: 1,
+// 							year: 1,
+// 						},
+// 					},
+// 					{
+// 						$project: {
+// 							_id: 1,
+// 							invoiceContent: 1,
+// 							total: 1,
+// 							paidAmount: 1,
+// 							status: 1,
+// 							month: 1,
+// 							year: 1,
+// 							createdAt: 1,
+// 						},
+// 					},
+// 				],
+// 				as: 'invoices',
+// 			},
+// 		},
+// 		{
+// 			$lookup: {
+// 				from: 'receipts',
+// 				localField: 'contract.contractId',
+// 				foreignField: 'contract',
+// 				pipeline: [
+// 					{
+// 						$match: {
+// 							$expr: {
+// 								$not: {
+// 									$in: ['$status', [receiptStatus['TERMINATED'], receiptStatus['PENDING']]],
+// 								},
+// 							},
+// 						},
+// 					},
+// 					{
+// 						$sort: {
+// 							month: 1,
+// 							year: 1,
+// 						},
+// 					},
+// 					{
+// 						$project: {
+// 							_id: 1,
+// 							receiptContent: 1,
+// 							amount: 1,
+// 							paidAmount: 1,
+// 							status: 1,
+// 							createdAt: 1,
+// 							month: 1,
+// 							year: 1,
+// 						},
+// 					},
+// 				],
+// 				as: 'receipts',
+// 			},
+// 		},
+// 		{
+// 			$lookup: {
+// 				from: 'customers',
+// 				localField: 'contract.contractId',
+// 				foreignField: 'contract',
+// 				as: 'customers',
+// 			},
+// 		},
+// 	];
+// };
 
 const getRoomHistoryDetail = (roomHistoryObjectId) => {
 	return [
@@ -466,10 +613,93 @@ const getRoomHistoryDetail = (roomHistoryObjectId) => {
 				foreignField: '_id',
 				pipeline: [
 					{
-						$project: {
-							_id: 1,
-							contractPdfUrl: 1,
-							note: 1,
+						$lookup: {
+							from: 'invoices',
+							let: {
+								contractId: '_id',
+							},
+							pipeline: [
+								{
+									$match: {
+										$expr: {
+											$and: [
+												{
+													$eq: ['$contract', '$$contractId'],
+												},
+												{
+													$not: {
+														$in: ['$status', [invoiceStatus['TERMINATED'], invoiceStatus['PENDING']]],
+													},
+												},
+											],
+										},
+									},
+								},
+								{
+									$sort: {
+										month: 1,
+										year: 1,
+									},
+								},
+								{
+									$project: {
+										_id: 1,
+										invoiceContent: 1,
+										total: 1,
+										paidAmount: 1,
+										status: 1,
+										month: 1,
+										year: 1,
+										createdAt: 1,
+									},
+								},
+							],
+							as: 'invoices',
+						},
+					},
+					{
+						$lookup: {
+							from: 'receipts',
+							localField: '_id',
+							foreignField: 'contract',
+							pipeline: [
+								{
+									$match: {
+										$expr: {
+											$not: {
+												$in: ['$status', [receiptStatus['TERMINATED'], receiptStatus['PENDING']]],
+											},
+										},
+									},
+								},
+								{
+									$sort: {
+										month: 1,
+										year: 1,
+									},
+								},
+								{
+									$project: {
+										_id: 1,
+										receiptContent: 1,
+										amount: 1,
+										paidAmount: 1,
+										status: 1,
+										createdAt: 1,
+										month: 1,
+										year: 1,
+									},
+								},
+							],
+							as: 'receipts',
+						},
+					},
+					{
+						$lookup: {
+							from: 'customers',
+							localField: '_id',
+							foreignField: 'contract',
+							as: 'customers',
 						},
 					},
 				],
@@ -477,98 +707,10 @@ const getRoomHistoryDetail = (roomHistoryObjectId) => {
 			},
 		},
 		{
-			$unwind: {
-				path: '$contractInfo',
-			},
-		},
-		{
-			$lookup: {
-				from: 'invoices',
-				let: {
-					contractId: '$contract.contractId',
+			$set: {
+				contractInfo: {
+					$ifNull: [{ $first: '$contractInfo' }, null],
 				},
-				pipeline: [
-					{
-						$match: {
-							$expr: {
-								$and: [
-									{
-										$eq: ['$contract', '$$contractId'],
-									},
-									{
-										$not: {
-											$in: ['$status', [invoiceStatus['TERMINATED'], invoiceStatus['PENDING']]],
-										},
-									},
-								],
-							},
-						},
-					},
-					{
-						$sort: {
-							month: 1,
-							year: 1,
-						},
-					},
-					{
-						$project: {
-							_id: 1,
-							invoiceContent: 1,
-							total: 1,
-							paidAmount: 1,
-							status: 1,
-							month: 1,
-							year: 1,
-							createdAt: 1,
-						},
-					},
-				],
-				as: 'invoices',
-			},
-		},
-		{
-			$lookup: {
-				from: 'receipts',
-				localField: 'contract.contractId',
-				foreignField: 'contract',
-				pipeline: [
-					{
-						$match: {
-							$expr: {
-								$not: {
-									$in: ['$status', [receiptStatus['TERMINATED'], receiptStatus['PENDING']]],
-								},
-							},
-						},
-					},
-					{
-						$sort: {
-							month: 1,
-							year: 1,
-						},
-					},
-					{
-						$project: {
-							_id: 1,
-							receiptContent: 1,
-							amount: 1,
-							paidAmount: 1,
-							status: 1,
-							createdAt: 1,
-							month: 1,
-							year: 1,
-						},
-					},
-				],
-				as: 'receipts',
-			},
-		},
-		{
-			$lookup: {
-				from: 'customers',
-				localField: 'contract.contractId',
-				foreignField: 'contract',
-				as: 'customers',
 			},
 		},
 	];

@@ -44,7 +44,7 @@ exports.collectCashMoney = (data, cb, next) => {
 						removeOnFail: false,
 					},
 				);
-				console.log('✅ Job added to notification queue');
+				console.log(' Job added to notification queue');
 			}
 
 			cb(null, result);

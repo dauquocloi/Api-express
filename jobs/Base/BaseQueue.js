@@ -27,7 +27,7 @@ class BaseQueue {
 
 			return job;
 		} catch (error) {
-			console.error(`[❌ Job Enqueued Failed] ${this.queueName} #${job.id}`, error);
+			console.error(`[ Job Enqueued Failed] ${this.queueName} #${job.id}`, error);
 			throw error;
 		}
 	}

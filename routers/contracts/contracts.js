@@ -1,6 +1,7 @@
 const UseCase = require('../../data_providers/contracts');
 const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
+const { client: redis } = require('../../config').redisDb;
 
 exports.prepareGenerateContract = asyncHandler(async (req, res) => {
 	let data = req.body;
@@ -38,7 +39,8 @@ exports.getContractPdfSignedUrl = asyncHandler(async (req, res) => {
 exports.setExpectedMoveOutDate = asyncHandler(async (req, res) => {
 	let data = { ...req.body, ...req.params };
 	console.log('log of data from setExpectedMoveOutDate: ', data);
-	await UseCase.setExpectedMoveOutDate(data.contractId, data.expectedMoveOutDate);
+	const result = await UseCase.setExpectedMoveOutDate(data.contractId, data.expectedMoveOutDate, req.user._id);
+	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 	return SuccessMsgResponse('Success').send(res);
 });
 

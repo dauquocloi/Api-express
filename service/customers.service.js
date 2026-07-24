@@ -7,12 +7,7 @@ exports.findById = (customerId) => Entity.CustomersEntity.findById(customerId);
 
 exports.findOwnerByContractId = (contractId) => Entity.CustomersEntity.findOne({ contract: contractId, isContractOwner: true });
 
-exports.getContractOwner = async (roomId, session) => {
-	const query = Entity.CustomersEntity.findOne({ room: roomId, isContractOwner: true, status: { $in: [1, 2] } });
-	if (session) query.session(session);
-	const result = await query.lean().exec();
-	return result;
-};
+exports.getContractOwner = (roomId) => Entity.CustomersEntity.findOne({ room: roomId, isContractOwner: true, status: { $in: [1, 2] } });
 
 exports.findIsContractOwnerByRoomId = (roomId) => {
 	return Entity.CustomersEntity.findOne({ room: roomId, status: { $in: [1, 2] }, isContractOwner: true });

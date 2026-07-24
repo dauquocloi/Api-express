@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const { contractStatus, CUSTOMER_STATUS, vehicleStatus, invoiceStatus, receiptStatus, receiptTypes } = require('../../../constants');
+
 // const getStatisticsPipeline = (buildingId, month, year) => {
 // 	const prevMonth = month === 1 ? 12 : Number(month) - 1;
 // 	const prevYear = month === 1 ? Number(year) - 1 : Number(year);
@@ -570,7 +572,7 @@ const getStatisticsPipelineModify = (buildingObjectId, month, year) => {
 					{
 						$match: {
 							$expr: {
-								$eq: ['$status', 'active'],
+								$eq: ['$status', contractStatus['ACTIVE']],
 							},
 						},
 					},
@@ -589,7 +591,7 @@ const getStatisticsPipelineModify = (buildingObjectId, month, year) => {
 					{
 						$match: {
 							$expr: {
-								$ne: ['$status', 0],
+								$ne: ['$status', CUSTOMER_STATUS['TERMINATED']],
 							},
 						},
 					},
@@ -608,7 +610,7 @@ const getStatisticsPipelineModify = (buildingObjectId, month, year) => {
 					{
 						$match: {
 							$expr: {
-								$ne: ['$status', 'terminated'],
+								$ne: ['$status', vehicleStatus['TERMINATED']],
 							},
 						},
 					},
@@ -632,7 +634,7 @@ const getStatisticsPipelineModify = (buildingObjectId, month, year) => {
 									{ $eq: ['$month', month] },
 									{
 										$not: {
-											$in: ['$status', ['terminated', 'pending']],
+											$in: ['$status', [invoiceStatus['TERMINATED'], invoiceStatus['PENDING']]],
 										},
 									},
 								],
@@ -659,7 +661,7 @@ const getStatisticsPipelineModify = (buildingObjectId, month, year) => {
 							$expr: {
 								$cond: [
 									{
-										$eq: ['$receiptType', 'deposit'],
+										$eq: ['$receiptType', receiptTypes['DEPOSIT']],
 									},
 									//then
 									{
@@ -685,7 +687,7 @@ const getStatisticsPipelineModify = (buildingObjectId, month, year) => {
 												$eq: ['$year', '$$year'],
 											},
 											{
-												$in: ['$status', ['paid', 'partial', 'unpaid']],
+												$in: ['$status', [receiptStatus['PAID'], receiptStatus['PARTIAL'], receiptStatus['UNPAID']]],
 											},
 										],
 									},

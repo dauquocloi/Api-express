@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { invoiceStatus, receiptStatus, contractStatus, receiptTypes, debtStatus } = require('../../../constants');
 
 exports.getDebtsAndReceiptsUnpaid = (contractId) => {
 	return [
@@ -24,7 +25,7 @@ exports.getDebtsAndReceiptsUnpaid = (contractId) => {
 					{
 						$match: {
 							$expr: {
-								$eq: ['$status', 'pending'],
+								$eq: ['$status', debtStatus['PENDING']],
 							},
 						},
 					},
@@ -46,7 +47,7 @@ exports.getDebtsAndReceiptsUnpaid = (contractId) => {
 										$eq: ['$locked', false],
 									},
 									{
-										$in: ['$status', ['partial', 'unpaid']],
+										$in: ['$status', [invoiceStatus['PARTIAL'], invoiceStatus['UNPAID']]],
 									},
 								],
 							},
@@ -67,13 +68,13 @@ exports.getDebtsAndReceiptsUnpaid = (contractId) => {
 							$expr: {
 								$and: [
 									{
-										$in: ['status', ['unpaid', 'partial']],
+										$in: ['status', [receiptStatus['UNPAID'], receiptStatus['PARTIAL']]],
 									},
 									{
 										$eq: ['locked', false],
 									},
 									{
-										$in: ['$receiptType', ['incidental', 'debts']],
+										$in: ['$receiptType', [receiptTypes['INCIDENTAL'], receiptTypes['DEBTS']]],
 									},
 								],
 							},
@@ -124,6 +125,23 @@ exports.getDebtsAndReceiptsUnpaid = (contractId) => {
 			},
 		},
 		{
+			$set: {
+				latestVersion: {
+					$ifNull: [
+						{
+							$first: {
+								$sortArray: {
+									input: '$versions',
+									sortBy: { version: -1 },
+								},
+							},
+						},
+						null,
+					],
+				},
+			},
+		},
+		{
 			$project: {
 				_id: 1,
 				fees: 1,
@@ -141,10 +159,10 @@ exports.getDebtsAndReceiptsUnpaid = (contractId) => {
 				invoicesUnpaid: 1,
 				receiptsUnpaid: 1,
 				contract: {
-					rent: '$rent',
-					contractCode: '$contractCode',
-					contractSignDate: '$contractSignDate',
-					contractEndDate: '$contractEndDate',
+					rent: '$latestVersion.rent',
+					contractCode: '$latestVersion.contractCode',
+					contractSignDate: '$latestVersion.contractSignDate',
+					contractEndDate: '$latestVersion.contractEndDate',
 				},
 				debts: 1,
 			},

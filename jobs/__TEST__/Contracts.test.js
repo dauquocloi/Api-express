@@ -49,7 +49,7 @@ describe('GeneratePdfContractJob', () => {
 		// Sử dụng expect.any(Object) vì contractId truyền vào hàm đã bị biến đổi thành ObjectId
 		expect(Services.customers.findOwnerByContractId).toHaveBeenCalledWith(expect.anything());
 		expect(result).toEqual({ success: true });
-		console.log('✅ Case thành công đã Pass!');
+		console.log(' Case thành công đã Pass!');
 	});
 
 	it('nên báo lỗi nếu không tìm thấy khách hàng', async () => {
@@ -67,6 +67,6 @@ describe('GeneratePdfContractJob', () => {
 			}),
 		).rejects.toThrow('Lỗi không tìm thấy khách hàng !');
 
-		console.log('✅ Case lỗi khách hàng đã Pass!');
+		console.log(' Case lỗi khách hàng đã Pass!');
 	});
 });

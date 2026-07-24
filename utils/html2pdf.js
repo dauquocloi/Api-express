@@ -104,7 +104,7 @@ function generateCT01Html(htmlPath, data) {
 			// Xóa thẻ <link> cũ và thêm <style> inline
 			htmlContent = htmlContent.replace(/<link[^>]*rel=["']stylesheet["'][^>]*>/gi, `<style>${cssContent}</style>`);
 
-			console.log('✅ CSS đã được inline');
+			console.log(' CSS đã được inline');
 		} else {
 			console.warn('⚠️ Không tìm thấy file CSS:', cssPath);
 		}
@@ -137,11 +137,11 @@ async function htmlToPdf(htmlContent) {
 
 		console.log(Buffer.isBuffer(pdfBuffer));
 
-		console.log(`✅ PDF generated in ${Date.now() - startTime}ms`);
+		console.log(` PDF generated in ${Date.now() - startTime}ms`);
 
 		return pdfBuffer;
 	} catch (error) {
-		console.error('❌ Lỗi:', error);
+		console.error(' Lỗi:', error);
 		throw error;
 	} finally {
 		if (page) releasePage(page);

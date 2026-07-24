@@ -283,16 +283,11 @@ const getAllRevenues = (buildingId, month, year) => {
 			},
 		},
 		{
-			$project:
-				/**
-				 * specifications: The fields to
-				 *   include or exclude.
-				 */
-				{
-					_id: 1,
-					revenues: 1,
-					otherRevenues: 1,
-				},
+			$project: {
+				_id: 1,
+				revenues: 1,
+				otherRevenues: 1,
+			},
 		},
 	];
 };

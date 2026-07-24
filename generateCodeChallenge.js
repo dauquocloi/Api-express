@@ -36,5 +36,5 @@ function generateCodeChallenge(codeVerifier) {
 const codeVerifier = generateCodeVerifier();
 const codeChallenge = generateCodeChallenge(codeVerifier);
 
-console.log('✅ Code Verifier:', codeVerifier);
-console.log('✅ Code Challenge:', codeChallenge);
+console.log(' Code Verifier:', codeVerifier);
+console.log(' Code Challenge:', codeChallenge);

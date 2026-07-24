@@ -72,7 +72,7 @@ const handleGenerateContractJob = async (payload) => {
 		//ZNS to customer by phone here
 		return updateContract;
 	} catch (error) {
-		console.error('❌ Worker error:', error);
+		console.error(' Worker error:', error);
 		throw error; // Bull will mark the job as failed
 	}
 };

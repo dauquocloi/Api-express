@@ -88,7 +88,7 @@ describe('deleteInvoice - Hành động xóa hóa đơn với Transaction', () =
 
 	// ==================== HAPPY CASE ====================
 
-	describe('✅ Success Cases', () => {
+	describe(' Success Cases', () => {
 		it('Nên xóa hóa đơn UNPAID với fee INDEX và debts thành công', async () => {
 			// Setup mocks
 			const mockQueryChain = {
@@ -232,7 +232,7 @@ describe('deleteInvoice - Hành động xóa hóa đơn với Transaction', () =
 
 	// ==================== ERROR CASES ====================
 
-	describe('❌ Error Cases - Transaction Rollback', () => {
+	describe(' Error Cases - Transaction Rollback', () => {
 		it('Nên throw NotFoundError nếu hóa đơn không tồn tại', async () => {
 			const mockQueryChain = {
 				session: jest.fn().mockReturnThis(),

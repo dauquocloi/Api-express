@@ -103,6 +103,7 @@ exports.changeContractOwner = async (customerId, version, redisKey) => {
 
 			await Services.customers.resetContractOwner(currentCustomer.contract, session);
 			await Services.customers.setIsContractOwner(customerId, session);
+			await Services.contracts.setContractOwner({ currentCustomerId: currentCustomer._id, customerId }, session);
 
 			return 'Success';
 		});

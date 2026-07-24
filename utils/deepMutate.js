@@ -11,7 +11,9 @@ async function deepMutate(data, predicate, transformer) {
 	await Promise.all(
 		Object.entries(data).map(async ([key, value]) => {
 			if (predicate(key, value, data)) {
-				data[key] = await transformer(value);
+				if (value !== null && value !== undefined && value !== '') {
+					data[key] = await transformer(value);
+				}
 				return;
 			}
 

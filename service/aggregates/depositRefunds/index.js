@@ -1,9 +1,11 @@
+const mongoose = require('mongoose');
+const { depositRefundStatus } = require('../../../constants');
 const getDepositRefundsModePendingPipeline = (buildingId) => {
 	return [
 		{
 			$match: {
-				building: buildingId,
-				status: 'pending',
+				building: new mongoose.Types.ObjectId(buildingId),
+				status: depositRefundStatus['PENDING'],
 			},
 		},
 		{
@@ -50,8 +52,8 @@ const getDepositRefundsModeRefundedPipeline = (buildingId) => {
 	return [
 		{
 			$match: {
-				building: buildingId,
-				status: 'paid',
+				building: new mongoose.Types.ObjectId(buildingId),
+				status: depositRefundStatus['PAID'],
 			},
 		},
 		{
@@ -99,7 +101,7 @@ const getDepositRefundDetailPipeline = (depositRefundId) => {
 	return [
 		{
 			$match: {
-				_id: depositRefundId,
+				_id: new mongoose.Types.ObjectId(depositRefundId),
 			},
 		},
 		{
@@ -143,11 +145,28 @@ const getDepositRefundDetailPipeline = (depositRefundId) => {
 				foreignField: '_id',
 				pipeline: [
 					{
+						$set: {
+							latestVersion: {
+								$ifNull: [
+									{
+										$first: {
+											$sortArray: {
+												input: '$versions',
+												sortBy: { version: -1 },
+											},
+										},
+									},
+									null,
+								],
+							},
+						},
+					},
+					{
 						$project: {
 							_id: 1,
-							contractSignDate: 1,
-							contractEndDate: 1,
-							contractCode: 1,
+							contractCode: '$latestVersion.contractCode',
+							contractSignDate: '$latestVersion.contractSignDate',
+							contractEndDate: '$latestVersion.contractEndDate',
 						},
 					},
 				],

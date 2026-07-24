@@ -91,7 +91,7 @@ describe('weebhookPayment', () => {
 
 	// ==================== INVOICE HAPPY CASES ====================
 
-	describe('✅ Invoice Payment Success Cases', () => {
+	describe(' Invoice Payment Success Cases', () => {
 		it('should process invoice payment successfully and broadcast status', async () => {
 			const mockBankAccount = {
 				_id: new mongoose.Types.ObjectId(),
@@ -209,7 +209,7 @@ describe('weebhookPayment', () => {
 
 	// ==================== INVOICE ERROR CASES ====================
 
-	describe('❌ Invoice Error Cases', () => {
+	describe(' Invoice Error Cases', () => {
 		it('should return early if transaction already processed (idempotency)', async () => {
 			Services.transactions.checkExistedTransaction.mockResolvedValue({ _id: 'existing-transaction' });
 
@@ -305,7 +305,7 @@ describe('weebhookPayment', () => {
 
 	// ==================== RECEIPT HAPPY CASES ====================
 
-	describe('✅ Receipt Payment Success Cases', () => {
+	describe(' Receipt Payment Success Cases', () => {
 		it('should process receipt payment (CHECKOUT type) successfully', async () => {
 			const mockBankAccount = {
 				_id: new mongoose.Types.ObjectId(),
@@ -407,7 +407,7 @@ describe('weebhookPayment', () => {
 
 	// ==================== RECEIPT ERROR CASES ====================
 
-	describe('❌ Receipt Error Cases', () => {
+	describe(' Receipt Error Cases', () => {
 		it('should throw BadRequestError if receipt already paid', async () => {
 			const mockBankAccount = {
 				_id: new mongoose.Types.ObjectId(),
@@ -472,7 +472,7 @@ describe('weebhookPayment', () => {
 
 	// ==================== UNDETECTED TRANSACTION ====================
 
-	describe('✅ Undetected Transaction', () => {
+	describe(' Undetected Transaction', () => {
 		it('should create undetected transaction when invoice/receipt not found', async () => {
 			const mockBankAccount = {
 				_id: new mongoose.Types.ObjectId(),

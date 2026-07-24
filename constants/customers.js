@@ -11,4 +11,4 @@ const CUSTOMER_STATUS = {
 	SUSPENDED: 2,
 };
 
-module.exports = { CUSTOMER_FROM };
+module.exports = { CUSTOMER_FROM, CUSTOMER_STATUS };

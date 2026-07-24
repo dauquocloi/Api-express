@@ -13,7 +13,6 @@ const formatInitialFees = require('../utils/formatInitialFees');
 const { invoiceStatus, invoiceType } = require('../constants/invoices');
 const getFieldUrl = require('../utils/getFileUrl');
 const { client: redis } = require('../config').redisDb;
-const withSignedUrls = require('../utils/withSignedUrls');
 
 exports.prepareGenerateContract = async (
 	roomId,
@@ -323,7 +322,7 @@ exports.getContractPdfSignedUrl = async (contractCode) => {
 	return contractPdfUrf;
 };
 
-exports.setExpectedMoveOutDate = async (contractId, expectedMoveOutDate) => {
+exports.setExpectedMoveOutDate = async (contractId, expectedMoveOutDate, userId) => {
 	let session;
 	try {
 		session = await mongoose.startSession();
@@ -331,7 +330,10 @@ exports.setExpectedMoveOutDate = async (contractId, expectedMoveOutDate) => {
 
 		const contractObjectId = new mongoose.Types.ObjectId(contractId);
 
-		const currentContract = await Services.contracts.getContractById(contractObjectId, session);
+		const currentContract = await Services.contracts.findById(contractObjectId).session(session);
+		if (!currentContract) throw new NotFoundError('Hợp đồng không tồn tại !');
+
+		await Services.rooms.assertRoomWritable({ roomId: currentContract.room, userId, session });
 
 		const normalize = (d) => new Date(new Date(d).setHours(0, 0, 0, 0));
 
@@ -346,9 +348,15 @@ exports.setExpectedMoveOutDate = async (contractId, expectedMoveOutDate) => {
 		currentContract.expectedMoveOutDate = expectedMoveOutDate;
 		currentContract.isEarlyTermination = isEarlyTermination;
 
-		await Entity.RoomsEntity.findOneAndUpdate({ _id: currentContract.room }, { $set: { roomState: 2 } }, { session });
+		await Services.rooms.updateRoomState({ roomId: currentContract.room, roomState: 2 }, session);
 		await currentContract.save({ session });
 		await session.commitTransaction();
+
+		return {
+			_id: currentContract._id,
+			isEarlyTermination,
+			expectedMoveOutDate: currentContract.expectedMoveOutDate,
+		};
 	} catch (error) {
 		if (session) await session.abortTransaction();
 		throw error;
@@ -474,13 +482,14 @@ exports.getContractPdfUrlByCustomerPhone = async (phoneNumber) => {
 	if (!currentCustomer) throw new NotFoundError('Số điện thoại không khớp với bất kỳ khách nào trong hệ thống.');
 	if (!currentCustomer.isContractOwner) throw new BadRequestError('Số điện thoại không phải của chủ hợp đồng. Vui lòng nhập số điện chủ hợp đồng.');
 
-	const currentContracts = await Services.contracts.findByCustomerId(currentCustomer._id).lean().exec();
-	if (!Array.isArray(currentContracts) || currentContracts.length === 0) throw new NotFoundError('Không tìm thấy hợp đồng');
+	const currentContract = await Services.contracts.findByCustomerId(currentCustomer._id).lean().exec();
+	if (!currentContract) throw new NotFoundError('Không tìm thấy hợp đồng');
+	const { versions } = currentContract;
 
 	let contracts = [];
-	for (const contract of currentContracts) {
-		if (!contract.contractPdfUrl) throw new NotFoundError('Hợp đồng không tồn tại');
-		const contractPdfUrl = await getFieldUrl(contract.contractPdfUrl);
+	for (const contract of versions) {
+		let contractPdfUrl = null;
+		if (!!contract.contractPdfUrl) contractPdfUrl = await getFieldUrl(contract.contractPdfUrl);
 		contracts.push({
 			contractPdfUrl,
 			_id: contract._id,

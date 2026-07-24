@@ -99,7 +99,7 @@ describe('checkout - Receipt Payment', () => {
 
 	// ==================== HAPPY CASES - CASH ====================
 
-	describe('✅ Cash Payment Success Cases', () => {
+	describe(' Cash Payment Success Cases', () => {
 		it('should process cash payment successfully', async () => {
 			const mockTransaction = {
 				_id: new mongoose.Types.ObjectId(),
@@ -188,7 +188,7 @@ describe('checkout - Receipt Payment', () => {
 
 	// ==================== HAPPY CASES - TRANSFER ====================
 
-	describe('✅ Transfer Payment Success Cases', () => {
+	describe(' Transfer Payment Success Cases', () => {
 		it('should process transfer payment successfully', async () => {
 			const mockTransaction = {
 				_id: new mongoose.Types.ObjectId(),
@@ -219,7 +219,7 @@ describe('checkout - Receipt Payment', () => {
 
 	// ==================== DEDUCTED INFO - DEPOSIT REFUND ====================
 
-	describe('✅ Deducted Info: Deposit Refund', () => {
+	describe(' Deducted Info: Deposit Refund', () => {
 		it('should update depositRefund when receipt is paid via depositRefund deduction', async () => {
 			const mockTransaction = {
 				_id: new mongoose.Types.ObjectId(),
@@ -305,7 +305,7 @@ describe('checkout - Receipt Payment', () => {
 
 	// ==================== DEDUCTED INFO - CHECKOUT COST ====================
 
-	describe('✅ Deducted Info: Checkout Cost', () => {
+	describe(' Deducted Info: Checkout Cost', () => {
 		it('should update checkoutCost when receipt is paid via terminateContractEarly deduction', async () => {
 			const mockTransaction = {
 				_id: new mongoose.Types.ObjectId(),
@@ -396,7 +396,7 @@ describe('checkout - Receipt Payment', () => {
 
 	// ==================== ERROR CASES ====================
 
-	describe('❌ Error Cases', () => {
+	describe(' Error Cases', () => {
 		it('should throw ConflictError if version mismatch', async () => {
 			const mismatchReceipt = {
 				...mockReceipt,

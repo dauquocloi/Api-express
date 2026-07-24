@@ -13,7 +13,7 @@ var client = new Redis(REDIS_CONFIG);
 var subscriber = new Redis(REDIS_CONFIG);
 
 client.on('connect', () => {
-	console.log('✅ Redis connected');
+	console.log(' Redis connected');
 });
 
 client.on('ready', () => {
@@ -21,7 +21,7 @@ client.on('ready', () => {
 });
 
 client.on('error', (err) => {
-	console.error('❌ Redis error:', err);
+	console.error(' Redis error:', err);
 });
 
 client.on('reconnecting', () => {

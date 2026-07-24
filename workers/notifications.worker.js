@@ -30,17 +30,17 @@ notiTaskCompletedQueue.process(3, async (job) => {
 		const { data } = job;
 		return await handleNotiTaskCompletedJob(data);
 	} catch (error) {
-		console.error(`[❌ Failed] ${NOTI_TASK_COMPLETED} #${job.id}`, error);
+		console.error(`[ Failed] ${NOTI_TASK_COMPLETED} #${job.id}`, error);
 		throw error;
 	}
 });
 
 notiTaskCompletedQueue.on('completed', (job, result) => {
-	console.log(`✅ Job completed: ${job.id}, Result:`, result);
+	console.log(` Job completed: ${job.id}, Result:`, result);
 });
 
 notiTaskCompletedQueue.on('failed', (job, error) => {
-	console.error(`❌ Job failed: ${job.id}, Error:`, error);
+	console.error(` Job failed: ${job.id}, Error:`, error);
 
 	Sentry.captureException(error, {
 		level: 'error',
@@ -68,17 +68,17 @@ notiManagerCollectCashInvoiceQueue.process(3, async (job) => {
 		const { data } = job;
 		return await handleNotiManagerCollectCashInvoice(data);
 	} catch (error) {
-		console.error(`[❌ Failed] ${NOTI_MANAGER_COLLECT_CASH_INVOICE} #${job.id}`, error);
+		console.error(`[ Failed] ${NOTI_MANAGER_COLLECT_CASH_INVOICE} #${job.id}`, error);
 		throw error;
 	}
 });
 
 notiManagerCollectCashInvoiceQueue.on('completed', (job, result) => {
-	console.log(`✅ Job completed: ${job.id}, Result:`, result);
+	console.log(` Job completed: ${job.id}, Result:`, result);
 });
 
 notiManagerCollectCashInvoiceQueue.on('failed', (job, error) => {
-	console.error(`❌ Job failed: ${job.id}, Error:`, error);
+	console.error(` Job failed: ${job.id}, Error:`, error);
 
 	Sentry.captureException(error, {
 		level: 'error',
@@ -106,17 +106,17 @@ notiManagerCollectCashReceiptQueue.process(3, async (job) => {
 		const { data } = job;
 		return await handleNotiManagerCollectCashReceipt(data);
 	} catch (error) {
-		console.error(`[❌ Failed] ${NOTI_MANAGER_COLLECT_CASH_RECEIPT} #${job.id}`, error);
+		console.error(`[ Failed] ${NOTI_MANAGER_COLLECT_CASH_RECEIPT} #${job.id}`, error);
 		throw error;
 	}
 });
 
 notiManagerCollectCashReceiptQueue.on('completed', (job, result) => {
-	console.log(`✅ Job completed: ${job.id}, Result:`, result);
+	console.log(` Job completed: ${job.id}, Result:`, result);
 });
 
 notiManagerCollectCashReceiptQueue.on('failed', (job, error) => {
-	console.error(`❌ Job failed: ${job.id}, Error:`, error);
+	console.error(` Job failed: ${job.id}, Error:`, error);
 
 	Sentry.captureException(error, {
 		level: 'error',
@@ -144,17 +144,17 @@ notiPaymentQueue.process(3, async (job) => {
 		const { data } = job;
 		return await handleNotiPayment(data);
 	} catch (error) {
-		console.error(`[❌ Failed] ${NOTI_PAYMENT} #${job.id}`, error);
+		console.error(`[ Failed] ${NOTI_PAYMENT} #${job.id}`, error);
 		throw error;
 	}
 });
 
 notiPaymentQueue.on('completed', (job, result) => {
-	console.log(`✅ Job completed: ${job.id}, Result:`, result);
+	console.log(` Job completed: ${job.id}, Result:`, result);
 });
 
 notiPaymentQueue.on('failed', (job, error) => {
-	console.error(`❌ Job failed: ${job.id}, Error:`, error);
+	console.error(` Job failed: ${job.id}, Error:`, error);
 
 	Sentry.captureException(error, {
 		level: 'error',
@@ -182,17 +182,17 @@ notiContractNearExpiredQueue.process(3, async (job) => {
 		const { data } = job;
 		return await handleNotiContractNearExpired(data);
 	} catch (error) {
-		console.error(`[❌ Failed] ${NOTI_CONTRACT_NEAR_EXPIRATION} #${job.id}`, error);
+		console.error(`[ Failed] ${NOTI_CONTRACT_NEAR_EXPIRATION} #${job.id}`, error);
 		throw error;
 	}
 });
 
 notiContractNearExpiredQueue.on('completed', (job, result) => {
-	console.log(`✅ Job completed: ${job.id}, Result:`, result);
+	console.log(` Job completed: ${job.id}, Result:`, result);
 });
 
 notiContractNearExpiredQueue.on('failed', (job, error) => {
-	console.error(`❌ Job failed: ${job.id}, Error:`, error);
+	console.error(` Job failed: ${job.id}, Error:`, error);
 
 	Sentry.captureException(error, {
 		level: 'error',
@@ -220,17 +220,17 @@ notiTransactionDeclinedQueue.process(3, async (job) => {
 		const { data } = job;
 		return await handleNotiTransactionDeclined(data);
 	} catch (error) {
-		console.error(`[❌ Failed] ${NOTI_TRANSACTION_DECLINED} #${job.id}`, error);
+		console.error(`[ Failed] ${NOTI_TRANSACTION_DECLINED} #${job.id}`, error);
 		throw error;
 	}
 });
 
 notiTransactionDeclinedQueue.on('completed', (job, result) => {
-	console.log(`✅ Job completed: ${job.id}, Result:`, result);
+	console.log(` Job completed: ${job.id}, Result:`, result);
 });
 
 notiTransactionDeclinedQueue.on('failed', (job, error) => {
-	console.error(`❌ Job failed: ${job.id}, Error:`, error);
+	console.error(` Job failed: ${job.id}, Error:`, error);
 
 	Sentry.captureException(error, {
 		level: 'error',
@@ -258,17 +258,17 @@ notiRoomDepositedQueue.process(3, async (job) => {
 		const { data } = job;
 		return await handleNotiRoomDeposited(data);
 	} catch (error) {
-		console.error(`[❌ Failed] ${NOTI_ROOM_DEPOSITED} #${job.id}`, error);
+		console.error(`[ Failed] ${NOTI_ROOM_DEPOSITED} #${job.id}`, error);
 		throw error;
 	}
 });
 
 notiRoomDepositedQueue.on('completed', (job, result) => {
-	console.log(`✅ Job completed: ${job.id}, Result:`, result);
+	console.log(` Job completed: ${job.id}, Result:`, result);
 });
 
 notiRoomDepositedQueue.on('failed', (job, error) => {
-	console.error(`❌ Job failed: ${job.id}, Error:`, error);
+	console.error(` Job failed: ${job.id}, Error:`, error);
 
 	Sentry.captureException(error, {
 		level: 'error',
@@ -296,17 +296,17 @@ notiDepositTerminatedQueue.process(3, async (job) => {
 		const { data } = job;
 		return await handleNotiDepositTerminated(data);
 	} catch (error) {
-		console.error(`[❌ Failed] ${NOTI_DEPOSIT_TERMINATED} #${job.id}`, error);
+		console.error(`[ Failed] ${NOTI_DEPOSIT_TERMINATED} #${job.id}`, error);
 		throw error;
 	}
 });
 
 notiDepositTerminatedQueue.on('completed', (job, result) => {
-	console.log(`✅ Job completed: ${job.id}, Result:`, result);
+	console.log(` Job completed: ${job.id}, Result:`, result);
 });
 
 notiDepositTerminatedQueue.on('failed', (job, error) => {
-	console.error(`❌ Job failed: ${job.id}, Error:`, error);
+	console.error(` Job failed: ${job.id}, Error:`, error);
 
 	Sentry.captureException(error, {
 		level: 'error',
