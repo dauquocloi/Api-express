@@ -10,19 +10,21 @@ const findByInvoiceUnpaidId = (invoiceUnpaidId) => Entity.DepositRefundsEntity.f
 const findByReceiptsUnpaid = (receiptId) => Entity.DepositRefundsEntity.findOne({ receiptsUnapid: receiptId });
 
 const createDepositRefund = async (
-	roomId,
-	fees,
-	feesOther,
-	depositRefundAmount,
-	invoiceUnpaid,
-	buildingId,
-	contractId,
-	depositReceiptId,
-	contractOwnerId,
-	debtIds,
-	receiptIds,
-	currentPeriod,
-	creatorId,
+	{
+		roomId,
+		fees,
+		feesOther,
+		depositRefundAmount,
+		invoiceUnpaid,
+		buildingId,
+		contractId,
+		depositReceiptId,
+		contractOwnerId,
+		debtIds,
+		receiptIds,
+		currentPeriod,
+		creatorId,
+	},
 	session,
 ) => {
 	const [newDepositRefund] = await Entity.DepositRefundsEntity.create(
@@ -95,4 +97,5 @@ module.exports = {
 	updateDepositRefundStatusByReceiptId,
 	findByInvoiceUnpaidId,
 	findByReceiptsUnpaid,
+	getDepositRefunds,
 };

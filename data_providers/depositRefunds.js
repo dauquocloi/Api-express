@@ -15,24 +15,27 @@ const { invoiceStatus } = require('../constants/invoices');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
 const { feeUnit } = require('../constants/fees');
 const { debtStatus } = require('../constants/debts');
+const { formatDebts } = require('../service/debts.helper');
 
 exports.getDepositRefunds = async (buildingId, mode) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 	let checkBuilding = await Entity.BuildingsEntity.exists({ _id: buildingObjectId });
 	if (!checkBuilding) throw new InvalidInputError('Dữ liệu đầu vào không hợp lệ');
 
-	let depositRefundData = [];
-	if (mode === 'pending') {
-		depositRefundData = await Entity.DepositRefundsEntity.aggregate(
-			Pipelines.depositRefunds.getDepositRefundsModePendingPipeline(buildingObjectId),
-		);
-	} else {
-		depositRefundData = await Entity.DepositRefundsEntity.aggregate(
-			Pipelines.depositRefunds.getDepositRefundsModeRefundedPipeline(buildingObjectId),
-		);
-	}
+	// let depositRefundData = [];
+	// if (mode === 'pending') {
+	// 	depositRefundData = await Entity.DepositRefundsEntity.aggregate(
+	// 		Pipelines.depositRefunds.getDepositRefundsModePendingPipeline(buildingObjectId),
+	// 	);
+	// } else {
+	// 	depositRefundData = await Entity.DepositRefundsEntity.aggregate(
+	// 		Pipelines.depositRefunds.getDepositRefundsModeRefundedPipeline(buildingObjectId),
+	// 	);
+	// }
 
-	return depositRefundData;
+	const result = await Services.depositRefunds.getDepositRefunds(buildingObjectId, mode);
+
+	return result;
 };
 
 exports.getDepositRefundDetail = async (depositRefundId) => {
@@ -216,18 +219,6 @@ exports.generateDepositRefund = async ({ contractId, roomVersion, feeIndexValues
 			}
 			const totalFeesOther = calculateTotalFeesOther(feesOther);
 
-			console.log(
-				'log of totalDebts: ',
-				totalDebts,
-				'log of totalReceiptsUnpaid: ',
-				totalReceiptsUnpaid,
-				'log of totalInvoiceUnpaid: ',
-				totalInvoiceUnpaid,
-				'log of totalFeesOther: ',
-				totalFeesOther,
-				'log of feeIndexTotalAmount: ',
-				feeIndexTotalAmount,
-			);
 			const depositRefundAmount = calculateDepositRefundAmount(
 				depositReceipt.paidAmount,
 				totalDebts,
@@ -345,6 +336,89 @@ exports.generateDepositRefund = async ({ contractId, roomVersion, feeIndexValues
 	}
 };
 
+exports.generateDepositRefund2 = async ({ contractId, roomVersion, feeIndexValues, feesOther, userId }) => {
+	let session;
+	try {
+		session = await mongoose.startSession();
+		return await session.withTransaction(async () => {
+			const debtsReceiptsUnpaid = await Services.contracts.getDebtsAndReceiptsUnpaid(contractId, session);
+			const { invoicesUnpaid, receiptsUnpaid, debts, contract, depositReceipt, fees, room } = debtsReceiptsUnpaid;
+			const currentPeriod = await getCurrentPeriod(room.building);
+
+			const totalDebts = formatDebts(debts).amount;
+			const totalReceiptsUnpaid = calculateTotalReceipts(receiptsUnpaid);
+			const totalInvoiceUnpaid = invoicesUnpaid?.length
+				? calculateInvoiceUnpaidAmount(invoicesUnpaid[0].amount, invoicesUnpaid[0].paidAmount)
+				: 0;
+			const totalFeesOther = calculateTotalFeesOther(feesOther);
+
+			const roomFeeIndex = fees.filter((f) => f.unit === feeUnit['INDEX']);
+
+			let feeIndexTotalAmount = 0;
+			const formatRoomFeeIndex = generateInvoiceFees(roomFeeIndex, 0, 0, feeIndexValues, false);
+			if (roomFeeIndex.length > 0) {
+				const roomFeeIndexIds = roomFees.map((f) => f._id.toString());
+				validateFeeIndexMatch(roomFeeIndexIds, feeIndexValues);
+
+				feeIndexTotalAmount = calculateTotalFeeAmount(formatRoomFeeIndex);
+
+				await Services.fees.updateFeeIndexValues(roomFeeIndexIds, feeIndexValues, session);
+			}
+
+			const depositRefundAmount = calculateDepositRefundAmount(
+				depositReceipt.paidAmount,
+				totalDebts,
+				totalReceiptsUnpaid,
+				totalInvoiceUnpaid,
+				totalFeesOther,
+				feeIndexTotalAmount,
+			);
+
+			const createdDepositRefund = await Services.depositRefunds.createDepositRefund(
+				room._id,
+				formatRoomFeeIndex,
+				feesOther,
+				depositRefundAmount,
+				invoicesUnpaid?.length ? invoicesUnpaid[0]._id : null,
+				room.building,
+				contractId,
+				depositReceipt._id,
+				customer._id,
+				debts,
+				receiptsUnpaid,
+				currentPeriod,
+				userId,
+				session,
+			);
+
+			const debtIds = debts.map((d) => d._id.toString());
+			const receiptIds = receiptsUnpaid.map((r) => r._id.toString());
+			const createdDepositRefund = await Services.depositRefunds.createDepositRefund(
+				{
+					roomId: room._id,
+					fees: formatRoomFeeIndex,
+					feesOther,
+					depositRefundAmount,
+					invoiceUnpaid: invoicesUnpaid?.length ? invoicesUnpaid[0]._id : null,
+					buildingId: room.building,
+					contractId,
+					depositReceiptId: depositReceipt._id,
+					contractOwnerId: customer._id,
+					debtIds,
+					receiptIds,
+					currentPeriod,
+					creatorId: userId,
+				},
+
+				session,
+			);
+		});
+	} finally {
+		if (session) session.endSession();
+	}
+};
+
+// un tested
 exports.removeDebtsFromDepositRefund = async (depositRefundId) => {
 	let session;
 	try {

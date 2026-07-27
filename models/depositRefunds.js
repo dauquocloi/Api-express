@@ -16,7 +16,6 @@ const DepositRefundsSchema = new Schema(
 		room: { type: Schema.Types.ObjectId, ref: 'RoomsEntity' },
 		building: { type: Schema.Types.ObjectId, ref: 'BuildingsEntity' },
 		contract: { type: Schema.Types.ObjectId, ref: 'ContractsEntity' },
-		// isRefundedDeposit: { type: Boolean, default: false },
 		status: { type: String, enum: Object.values(depositRefundStatus), default: depositRefundStatus['PENDING'] },
 		feesIndex: [feesIndexSchema],
 		feesOther: [
