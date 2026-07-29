@@ -1,7 +1,6 @@
 var mongoose = require('mongoose');
 const { feeUnit } = require('../constants/fees');
 const { contractStatus } = require('../constants/contracts');
-// const { any } = require('underscore');
 const Schema = mongoose.Schema;
 
 const FeeSchema = new Schema({

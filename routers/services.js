@@ -1,7 +1,6 @@
 // const UseCase = require('../cores/services');
 // const bcrypt = require('bcrypt');
 // const jwt = require('jsonwebtoken');
-// const { result } = require('underscore');
 
 // const JWT_SECRET = '82371923sdasdads[]sdsadasd';
 

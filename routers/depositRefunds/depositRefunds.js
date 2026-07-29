@@ -1,6 +1,7 @@
 let UseCase = require('../../data_providers/depositRefunds');
 const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
+const { client: redis } = require('../../config').redisDb;
 
 exports.getDepositRefunds = asyncHandler(async (req, res) => {
 	const data = req.query;
@@ -8,22 +9,6 @@ exports.getDepositRefunds = asyncHandler(async (req, res) => {
 	const result = await UseCase.getDepositRefunds(data.buildingId, data.mode);
 	return new SuccessResponse('Success', result).send(res);
 });
-
-// exports.getAllDepositRefunds = (req, res, nexy) => {
-// 	let data = { ...req.params, ...req.query };
-// 	console.log('log of data from getAllDepositRefunds: ', data);
-
-// 	UseCase.getAllDepositRefunds(data, (err, result) => {
-// 		if (!err) {
-// 			return res.status(200).send({
-// 				errorCode: 0,
-// 				data: result,
-// 				message: 'success',
-// 				errors: [],
-// 			});
-// 		}
-// 	});
-// };
 
 exports.getDepositRefundDetail = asyncHandler(async (req, res) => {
 	const data = req.params;
@@ -35,14 +20,14 @@ exports.getDepositRefundDetail = asyncHandler(async (req, res) => {
 exports.generateDepositRefund = asyncHandler(async (req, res) => {
 	const data = { ...req.body, ...req.params };
 	console.log('log of data from generateDepositRefund: ', data);
-	const result = await UseCase.generateDepositRefund({
+	const result = await UseCase.generateDepositRefund2({
 		contractId: data.contractId,
 		roomVersion: data.roomVersion,
 		feeIndexValues: data.feeIndexValues,
 		feesOther: data.feesOther,
 		userId: req.user._id,
-		redisKey: req.redisKey,
 	});
+	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 	return new SuccessResponse('Success', result).send(res);
 });
 

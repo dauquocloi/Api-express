@@ -1,7 +1,6 @@
 const UseCase = require('../cores/messages');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { result } = require('underscore');
 
 exports.getAllMessagesByUserId = (req, res) => {
 	var data = req.body;

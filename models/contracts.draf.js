@@ -1,5 +1,4 @@
 var mongoose = require('mongoose');
-// const { any } = require('underscore');
 const Schema = mongoose.Schema;
 const listFeeInitial = require('../utils/getListFeeInital');
 

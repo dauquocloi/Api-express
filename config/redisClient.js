@@ -1,5 +1,6 @@
 // FILE: src/config/redisClient.js
 const Redis = require('ioredis');
+console.log('🚀', process.env.REDIS_HOST);
 
 var REDIS_CONFIG = {
 	host: process.env.REDIS_HOST,

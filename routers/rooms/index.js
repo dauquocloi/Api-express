@@ -70,24 +70,15 @@ router.patch(
 	Rooms.modifyRent,
 );
 
-router.post(
-	'/:roomId/checkout-costs',
-	authorization(ROLES['OWNER'], ROLES['MANAGER']),
-	validator(schema.id, ValidateSource.PARAM),
-	validator(schema.generateCheckoutCost, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['rooms']),
-	checkIdempotency,
-	Rooms.generateCheckoutCost,
-);
-
-router.get(
-	'/:roomId/debts-receipts-unpaid',
-	authorization(ROLES['OWNER'], ROLES['MANAGER']),
-	validator(schema.id, ValidateSource.PARAM),
-	// validator(schema.getDebtsAndReceiptUnpaid, ValidateSource.QUERY),
-	checkResourceAccess(RESOURCES['rooms']),
-	Rooms.getDebtsAndReceiptUnpaid,
-);
+// router.post(
+// 	'/:roomId/checkout-costs',
+// 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+// 	validator(schema.id, ValidateSource.PARAM),
+// 	validator(schema.generateCheckoutCost, ValidateSource.BODY),
+// 	checkResourceAccess(RESOURCES['rooms']),
+// 	checkIdempotency,
+// 	Rooms.generateCheckoutCost,
+// );
 
 router.delete(
 	'/:roomId/debts',

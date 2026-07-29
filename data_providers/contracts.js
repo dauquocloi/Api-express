@@ -7,12 +7,10 @@ const Services = require('../service');
 const { calculateTotalFeeAmount } = require('../utils/calculateFeeTotal');
 const { generateInvoiceFeesFromReq } = require('../service/invoices.helper');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
-const { receiptTypes, receiptStatus } = require('../constants/receipt');
-const { feeUnit } = require('../constants/fees');
 const formatInitialFees = require('../utils/formatInitialFees');
-const { invoiceStatus, invoiceType } = require('../constants/invoices');
 const getFieldUrl = require('../utils/getFileUrl');
 const { client: redis } = require('../config').redisDb;
+const { roomState, invoiceStatus, invoiceType, feeUnit, receiptTypes, receiptStatus } = require('../constants');
 
 exports.prepareGenerateContract = async (
 	roomId,
@@ -448,8 +446,10 @@ exports.contractExtention = async (contractId, extensionDate, newRent, newDeposi
 	try {
 		session = await mongoose.startSession();
 		await session.withTransaction(async () => {
-			const currentContract = await Services.contracts.findById(contractId).session(session).lean().exec();
-			if (!currentContract) throw new NotFoundError('Hợp đồng không tìm thấy');
+			const currentContract = await Services.contracts.findById(contractId).populate('room').session(session).lean().exec();
+			if (!currentContract) throw new NotFoundError('Hợp đồng không tồn tại');
+			if (currentContract.room.roomState === roomState['UN_HIRED']) throw new BadRequestError('Trạng thái phòng không hợp lệ');
+
 			const { contractEndDate, _id } = currentContract;
 			if (new Date(extensionDate).getTime() < new Date(contractEndDate).getTime()) {
 				throw new BadRequestError('Ngày kết thúc không được bé hơn ngày hiện tại');

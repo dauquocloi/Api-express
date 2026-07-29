@@ -175,6 +175,7 @@ exports.expiredContract = async (contractId, session) => {
 		{ _id: contractId, 'versions.status': contractStatus['ACTIVE'] },
 		{
 			$set: {
+				status: contractStatus['EXPIRED'],
 				'versions.$.status': contractStatus['EXPIRED'],
 				'versions.$.updatedAt': new Date(),
 			},

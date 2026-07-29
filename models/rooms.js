@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Entity = require('./index');
 const Schema = mongoose.Schema;
 const getFileUrl = require('../utils/getFileUrl');
+const { roomState } = require('../constants');
 // Create a Mongoose Schema
 
 const InteriorsSchema = new Schema({
@@ -34,6 +35,7 @@ const RoomsSchema = new Schema({
 		type: Number,
 		default: 0,
 		required: true,
+		enum: Object.values(roomState),
 		// 0 - trống
 		// 1 - đang ở
 		// 2 - sắp trả phòng

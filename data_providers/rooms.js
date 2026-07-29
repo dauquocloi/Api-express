@@ -142,159 +142,149 @@ exports.modifyRent = async (roomId, rentModify, userId) => {
 	}
 };
 
-exports.generateCheckoutCost = async (roomId, buildingId, creatorId, feeIndexValues, feesOther, stayDays, roomVersion) => {
-	let session;
-	let newCheckoutCost;
-	try {
-		session = await mongoose.startSession();
-		await session.withTransaction(async () => {
-			const roomObjectId = new mongoose.Types.ObjectId(roomId);
-			const currentRoom = await Services.rooms.assertRoomWritable({ roomId, userId: creatorId, session });
+// exports.generateCheckoutCost = async (roomId, buildingId, creatorId, feeIndexValues, feesOther, stayDays, roomVersion) => {
+// 	let session;
+// 	let newCheckoutCost;
+// 	try {
+// 		session = await mongoose.startSession();
+// 		await session.withTransaction(async () => {
+// 			const roomObjectId = new mongoose.Types.ObjectId(roomId);
+// 			const currentRoom = await Services.rooms.assertRoomWritable({ roomId, userId: creatorId, session });
 
-			const currentPeriod = await getCurrentPeriod(buildingId);
-			const contractOwner = await Services.customers
-				.findIsContractOwnerByRoomId(roomObjectId)
-				.session(session)
-				.populate('contract')
-				.lean()
-				.exec();
-			if (!contractOwner) throw new NotFoundError(`Phòng không tồn tại chủ hợp đồng !`);
-			if (!contractOwner.contract._id) throw new NotFoundError('Phòng không tồn tại hợp động !');
+// 			const currentPeriod = await getCurrentPeriod(buildingId);
+// 			const contractOwner = await Services.customers
+// 				.findIsContractOwnerByRoomId(roomObjectId)
+// 				.session(session)
+// 				.populate('contract')
+// 				.lean()
+// 				.exec();
+// 			if (!contractOwner) throw new NotFoundError(`Phòng không tồn tại chủ hợp đồng !`);
+// 			if (!contractOwner.contract._id) throw new NotFoundError('Phòng không tồn tại hợp động !');
 
-			const debtsAndReceiptUnpaid = await Services.debts.getDebtsAndReceiptUnpaid(
-				roomObjectId,
-				currentPeriod.currentMonth,
-				currentPeriod.currentYear,
-				session,
-			);
-			const { fees, receiptDeposit } = debtsAndReceiptUnpaid;
+// 			const debtsAndReceiptUnpaid = await Services.debts.getDebtsAndReceiptUnpaid(
+// 				roomObjectId,
+// 				currentPeriod.currentMonth,
+// 				currentPeriod.currentYear,
+// 				session,
+// 			);
+// 			const { fees, receiptDeposit } = debtsAndReceiptUnpaid;
 
-			const roomFeeIndex = fees.filter((f) => f.unit === feeUnit['INDEX']);
-			const roomFeeIndexIds = roomFeeIndex.map((fee) => fee._id.toString()) || [];
+// 			const roomFeeIndex = fees.filter((f) => f.unit === feeUnit['INDEX']);
+// 			const roomFeeIndexIds = roomFeeIndex.map((fee) => fee._id.toString()) || [];
 
-			if (roomFeeIndexIds.length > 0) validateFeeIndexMatch(roomFeeIndexIds, feeIndexValues);
+// 			if (roomFeeIndexIds.length > 0) validateFeeIndexMatch(roomFeeIndexIds, feeIndexValues);
 
-			let formatRoomFees;
-			if (debtsAndReceiptUnpaid.invoiceUnpaid !== null) {
-				formatRoomFees = generateInvoiceFees(roomFeeIndex, 0, stayDays, feeIndexValues, false);
-			} else {
-				formatRoomFees = generateInvoiceFees(fees, contractOwner.contract.rent, stayDays, feeIndexValues, true);
-			}
+// 			let formatRoomFees;
+// 			if (debtsAndReceiptUnpaid.invoiceUnpaid !== null) {
+// 				formatRoomFees = generateInvoiceFees(roomFeeIndex, 0, stayDays, feeIndexValues, false);
+// 			} else {
+// 				formatRoomFees = generateInvoiceFees(fees, contractOwner.contract.rent, stayDays, feeIndexValues, true);
+// 			}
 
-			console.log('log of formatRoomFees: ', formatRoomFees);
-			const totalCost = calculateTotalCheckoutCostAmount(
-				formatRoomFees,
-				debtsAndReceiptUnpaid.debts,
-				debtsAndReceiptUnpaid.receiptsUnpaid,
-				debtsAndReceiptUnpaid.invoiceUnpaid,
-				feesOther,
-			);
-			console.log('log of totalCost: ', totalCost);
+// 			console.log('log of formatRoomFees: ', formatRoomFees);
+// 			const totalCost = calculateTotalCheckoutCostAmount(
+// 				formatRoomFees,
+// 				debtsAndReceiptUnpaid.debts,
+// 				debtsAndReceiptUnpaid.receiptsUnpaid,
+// 				debtsAndReceiptUnpaid.invoiceUnpaid,
+// 				feesOther,
+// 			);
+// 			console.log('log of totalCost: ', totalCost);
 
-			let checkoutCostReceipt;
-			if (totalCost > 0) {
-				checkoutCostReceipt = await Services.receipts.createReceipt(
-					{
-						roomObjectId: roomObjectId,
-						receiptAmount: totalCost,
-						payer: contractOwner.fullName,
-						currentPeriod: currentPeriod,
-						receiptContent: 'Chi phí trả phòng',
+// 			let checkoutCostReceipt;
+// 			if (totalCost > 0) {
+// 				checkoutCostReceipt = await Services.receipts.createReceipt(
+// 					{
+// 						roomObjectId: roomObjectId,
+// 						receiptAmount: totalCost,
+// 						payer: contractOwner.fullName,
+// 						currentPeriod: currentPeriod,
+// 						receiptContent: 'Chi phí trả phòng',
 
-						receiptType: receiptTypes['CHECKOUT'],
-						initialStatus: receiptStatus['UNPAID'],
-						contract: contractOwner.contract._id,
-					},
+// 						receiptType: receiptTypes['CHECKOUT'],
+// 						initialStatus: receiptStatus['UNPAID'],
+// 						contract: contractOwner.contract._id,
+// 					},
 
-					session,
-				);
-			} else {
-				checkoutCostReceipt = null;
-			}
+// 					session,
+// 				);
+// 			} else {
+// 				checkoutCostReceipt = null;
+// 			}
 
-			await Services.receipts.closeReceiptDeposit({ receiptId: receiptDeposit }, session);
+// 			await Services.receipts.closeReceiptDeposit({ receiptId: receiptDeposit }, session);
 
-			newCheckoutCost = await Services.checkoutCosts.generateCheckoutCost(
-				{
-					roomId: roomId,
-					contractId: contractOwner.contract._id,
-					buildingId: buildingId,
-					creatorId: creatorId,
+// 			newCheckoutCost = await Services.checkoutCosts.generateCheckoutCost(
+// 				{
+// 					roomId: roomId,
+// 					contractId: contractOwner.contract._id,
+// 					buildingId: buildingId,
+// 					creatorId: creatorId,
 
-					customerName: contractOwner.fullName,
-					debtsAndReceiptUnpaid: debtsAndReceiptUnpaid,
-					roomFees: formatRoomFees,
-					currentPeriod: currentPeriod,
-					checkoutCostReceipt: checkoutCostReceipt,
-					totalCost: totalCost,
-					feesOther: feesOther,
-					stayDays: stayDays,
-				},
-				session,
-			);
+// 					customerName: contractOwner.fullName,
+// 					debtsAndReceiptUnpaid: debtsAndReceiptUnpaid,
+// 					roomFees: formatRoomFees,
+// 					currentPeriod: currentPeriod,
+// 					checkoutCostReceipt: checkoutCostReceipt,
+// 					totalCost: totalCost,
+// 					feesOther: feesOther,
+// 					stayDays: stayDays,
+// 				},
+// 				session,
+// 			);
 
-			if (Array.isArray(newCheckoutCost.debts) && newCheckoutCost.debts?.length > 0) {
-				await Services.debts.closeAndSetSourceInfo(
-					{ roomId: roomId, sourceId: newCheckoutCost._id, sourceType: sourceType['CHECKOUT_COST'] },
-					session,
-				);
-			}
-			if (newCheckoutCost.invoiceUnpaid !== null) {
-				await Services.invoices.closeAndSetDetucedInvoice(
-					newCheckoutCost.invoiceUnpaid,
-					'terminateContractEarly',
-					newCheckoutCost._id,
-					session,
-				);
-			}
-			if (newCheckoutCost.receiptsUnpaid?.length > 0) {
-				await Services.receipts.closeAndSetDetucted(newCheckoutCost.receiptsUnpaid, 'terminateContractEarly', newCheckoutCost._id, session);
-			}
+// 			if (Array.isArray(newCheckoutCost.debts) && newCheckoutCost.debts?.length > 0) {
+// 				await Services.debts.closeAndSetSourceInfo(
+// 					{ roomId: roomId, sourceId: newCheckoutCost._id, sourceType: sourceType['CHECKOUT_COST'] },
+// 					session,
+// 				);
+// 			}
+// 			if (newCheckoutCost.invoiceUnpaid !== null) {
+// 				await Services.invoices.closeAndSetDetucedInvoice(
+// 					newCheckoutCost.invoiceUnpaid,
+// 					'terminateContractEarly',
+// 					newCheckoutCost._id,
+// 					session,
+// 				);
+// 			}
+// 			if (newCheckoutCost.receiptsUnpaid?.length > 0) {
+// 				await Services.receipts.closeAndSetDetucted(newCheckoutCost.receiptsUnpaid, 'terminateContractEarly', newCheckoutCost._id, session);
+// 			}
 
-			if (roomFeeIndexIds.length > 0) {
-				await Services.fees.updateFeeIndexValues(roomFeeIndexIds, feeIndexValues, session);
-			}
-			await Services.rooms.generateRoomHistory(
-				{
-					roomId: roomId,
-					contractId: contractOwner.contract._id,
-					contractCode: contractOwner.contract.contractCode,
-					contractSignDate: contractOwner.contract.contractSignDate,
-					contractEndDate: contractOwner.contract.contractEndDate,
-					depositAmount: receiptDeposit.paidAmount,
-					checkoutDate: Date.now(),
-					checkoutType: 'checkoutEarly',
-					checkoutCostId: newCheckoutCost._id,
-					depositRefundId: null,
-					interiors: currentRoom.interior,
-					fees: fees,
-					rent: contractOwner.contract.rent,
-				},
-				session,
-			);
-			// await Services.rooms.bumpRoomVersion(roomObjectId, roomVersion, session);
-			// await Services.rooms.unLockedRoom(roomObjectId, session);
-			await Services.rooms.completeChangeRoomState({ roomId, roomVersion }, session);
-			await Services.customers.expiredCustomers({ roomId: roomObjectId, contractId: contractOwner.contract._id }, session);
-			await Services.contracts.expiredContract(contractOwner.contract._id, session);
+// 			if (roomFeeIndexIds.length > 0) {
+// 				await Services.fees.updateFeeIndexValues(roomFeeIndexIds, feeIndexValues, session);
+// 			}
+// 			await Services.rooms.generateRoomHistory(
+// 				{
+// 					roomId: roomId,
+// 					contractId: contractOwner.contract._id,
+// 					contractCode: contractOwner.contract.contractCode,
+// 					contractSignDate: contractOwner.contract.contractSignDate,
+// 					contractEndDate: contractOwner.contract.contractEndDate,
+// 					depositAmount: receiptDeposit.paidAmount,
+// 					checkoutDate: Date.now(),
+// 					checkoutType: 'checkoutEarly',
+// 					checkoutCostId: newCheckoutCost._id,
+// 					depositRefundId: null,
+// 					interiors: currentRoom.interior,
+// 					fees: fees,
+// 					rent: contractOwner.contract.rent,
+// 				},
+// 				session,
+// 			);
+// 			// await Services.rooms.bumpRoomVersion(roomObjectId, roomVersion, session);
+// 			// await Services.rooms.unLockedRoom(roomObjectId, session);
+// 			await Services.rooms.completeChangeRoomState({ roomId, roomVersion }, session);
+// 			await Services.customers.expiredCustomers({ roomId: roomObjectId, contractId: contractOwner.contract._id }, session);
+// 			await Services.contracts.expiredContract(contractOwner.contract._id, session);
 
-			return 'Success';
-		});
-		return newCheckoutCost;
-	} finally {
-		if (session) session.endSession();
-	}
-};
-
-exports.getDebtsAndReceiptUnpaid = async (roomId) => {
-	const roomObjectId = new mongoose.Types.ObjectId(roomId);
-	const currentRoom = await Services.rooms.findById(roomObjectId).populate({ path: 'building', select: '_id' }).lean().exec();
-	if (!currentRoom) throw new NotFoundError('Phòng không tồn tại !');
-
-	const { currentMonth, currentYear } = await getCurrentPeriod(currentRoom.building._id);
-	const result = await Services.debts.getDebtsAndReceiptUnpaid(roomObjectId, currentMonth, currentYear);
-	return result;
-};
+// 			return 'Success';
+// 		});
+// 		return newCheckoutCost;
+// 	} finally {
+// 		if (session) session.endSession();
+// 	}
+// };
 
 exports.getRoomFeesAndDebts = async (roomId, userId) => {
 	let session;

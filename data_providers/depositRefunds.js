@@ -1,4 +1,4 @@
-const { AppError, InvalidInputError, NotFoundError, BadRequestError, NoDataError, ConflictError } = require('../AppError');
+const { AppError, InvalidInputError, NotFoundError, BadRequestError, NoDataError, ConflictError, InternalError } = require('../AppError');
 const Entity = require('../models');
 const mongoose = require('mongoose');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
@@ -10,11 +10,12 @@ const { calculateTotalReceipts } = require('../service/receipts.helper');
 const { generateInvoiceFees } = require('../service/invoices.helper');
 const { calculateTotalFeeAmount, calculateTotalFeesOther, calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
 const { calculateDepositRefundAmount } = require('../service/depositRefunds.helper');
-const { receiptTypes, receiptStatus } = require('../constants/receipt');
-const { invoiceStatus } = require('../constants/invoices');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
-const { feeUnit } = require('../constants/fees');
-const { debtStatus } = require('../constants/debts');
+// const { receiptTypes, receiptStatus } = require('../constants/receipt');
+// const { invoiceStatus } = require('../constants/invoices');
+// const { feeUnit } = require('../constants/fees');
+// const { debtStatus } = require('../constants/debts');
+const { receiptTypes, receiptStatus, invoiceStatus, feeUnit, debtStatus, CHECKOUT_TYPES } = require('../constants');
 const { formatDebts } = require('../service/debts.helper');
 
 exports.getDepositRefunds = async (buildingId, mode) => {
@@ -311,7 +312,7 @@ exports.generateDepositRefund = async ({ contractId, roomVersion, feeIndexValues
 					contractEndDate: currentContractInfo.contractEndDate,
 					depositAmount: depositReceipt.paidAmount,
 					checkoutDate: Date.now(),
-					checkoutType: 'depositRefund',
+					checkoutType: CHECKOUT_TYPES['DEPOSIT_REFUND'],
 					checkoutCostId: null,
 					depositRefundId: createdDepositRefund._id,
 					interiors: currentRoom.interior,
@@ -341,9 +342,12 @@ exports.generateDepositRefund2 = async ({ contractId, roomVersion, feeIndexValue
 	try {
 		session = await mongoose.startSession();
 		return await session.withTransaction(async () => {
+			const currentContract = await Services.contracts.findById(contractId).populate('room').session(session).lean().exec();
+			if (!currentContract) throw new BadRequestError('Contract not found');
+
 			const debtsReceiptsUnpaid = await Services.contracts.getDebtsAndReceiptsUnpaid(contractId, session);
 			const { invoicesUnpaid, receiptsUnpaid, debts, contract, depositReceipt, fees, room } = debtsReceiptsUnpaid;
-			const currentPeriod = await getCurrentPeriod(room.building);
+			const currentPeriod = await getCurrentPeriod(currentContract.room.building);
 
 			const totalDebts = formatDebts(debts).amount;
 			const totalReceiptsUnpaid = calculateTotalReceipts(receiptsUnpaid);
@@ -357,7 +361,7 @@ exports.generateDepositRefund2 = async ({ contractId, roomVersion, feeIndexValue
 			let feeIndexTotalAmount = 0;
 			const formatRoomFeeIndex = generateInvoiceFees(roomFeeIndex, 0, 0, feeIndexValues, false);
 			if (roomFeeIndex.length > 0) {
-				const roomFeeIndexIds = roomFees.map((f) => f._id.toString());
+				const roomFeeIndexIds = roomFeeIndex.map((f) => f._id.toString());
 				validateFeeIndexMatch(roomFeeIndexIds, feeIndexValues);
 
 				feeIndexTotalAmount = calculateTotalFeeAmount(formatRoomFeeIndex);
@@ -374,23 +378,6 @@ exports.generateDepositRefund2 = async ({ contractId, roomVersion, feeIndexValue
 				feeIndexTotalAmount,
 			);
 
-			const createdDepositRefund = await Services.depositRefunds.createDepositRefund(
-				room._id,
-				formatRoomFeeIndex,
-				feesOther,
-				depositRefundAmount,
-				invoicesUnpaid?.length ? invoicesUnpaid[0]._id : null,
-				room.building,
-				contractId,
-				depositReceipt._id,
-				customer._id,
-				debts,
-				receiptsUnpaid,
-				currentPeriod,
-				userId,
-				session,
-			);
-
 			const debtIds = debts.map((d) => d._id.toString());
 			const receiptIds = receiptsUnpaid.map((r) => r._id.toString());
 			const createdDepositRefund = await Services.depositRefunds.createDepositRefund(
@@ -400,10 +387,10 @@ exports.generateDepositRefund2 = async ({ contractId, roomVersion, feeIndexValue
 					feesOther,
 					depositRefundAmount,
 					invoiceUnpaid: invoicesUnpaid?.length ? invoicesUnpaid[0]._id : null,
-					buildingId: room.building,
+					buildingId: currentContract.room.building,
 					contractId,
 					depositReceiptId: depositReceipt._id,
-					contractOwnerId: customer._id,
+					contractOwnerId: currentContract.customer,
 					debtIds,
 					receiptIds,
 					currentPeriod,
@@ -412,6 +399,49 @@ exports.generateDepositRefund2 = async ({ contractId, roomVersion, feeIndexValue
 
 				session,
 			);
+
+			await Services.receipts.closeAndSetDetucted([depositReceipt._id], CHECKOUT_TYPES['DEPOSIT_REFUND'], createdDepositRefund._id, session);
+			if (receiptsUnpaid.length) {
+				await Services.receipts.closeAndSetDetucted(receiptIds, CHECKOUT_TYPES['DEPOSIT_REFUND'], createdDepositRefund._id, session);
+			}
+			if (debts.length) {
+				await Services.debts.closeDebts(room._id, session);
+			}
+			if (invoicesUnpaid.length) {
+				const invoiceIds = invoicesUnpaid.map((i) => i._id.toString());
+
+				await Services.invoices.closeAndSetDetucedInvoice(
+					{ invoiceIds: invoiceIds, detuctedType: CHECKOUT_TYPES['DEPOSIT_REFUND'], detuctedId: createdDepositRefund._id },
+					session,
+				);
+			}
+
+			await Services.customers.expiredCustomers({ roomId: room._id, contractId: contractId }, session);
+			await Services.vehicles.expiredVehicles({ roomId: room._id, contractId: contractId }, session);
+			await Services.rooms.generateRoomHistory(
+				{
+					roomId: room._id,
+					contractId: contractId,
+					contractCode: contract.contractCode,
+					contractSignDate: contract.contractSignDate,
+					contractEndDate: contract.contractEndDate,
+					depositAmount: depositReceipt.paidAmount,
+					checkoutDate: Date.now(),
+					checkoutType: CHECKOUT_TYPES['DEPOSIT_REFUND'],
+					checkoutCostId: null,
+					depositRefundId: createdDepositRefund._id,
+					interiors: currentContract.room.interior,
+					fees: fees,
+					rent: contract.rent,
+				},
+				session,
+			);
+			await Services.rooms.completeChangeRoomState({ roomId: room._id, roomVersion: roomVersion }, session);
+			await Services.contracts.expiredContract(contractId, session);
+
+			console.log('Successfully: ', createdDepositRefund);
+			throw new InternalError('Stop for testing');
+			return createdDepositRefund;
 		});
 	} finally {
 		if (session) session.endSession();

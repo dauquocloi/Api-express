@@ -159,6 +159,7 @@ exports.getDebtsAndReceiptsUnpaid = (contractId) => {
 				invoicesUnpaid: 1,
 				receiptsUnpaid: 1,
 				contract: {
+					_id: '$_id',
 					rent: '$latestVersion.rent',
 					contractCode: '$latestVersion.contractCode',
 					contractSignDate: '$latestVersion.contractSignDate',

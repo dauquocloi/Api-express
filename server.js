@@ -1,4 +1,5 @@
 require('./instrument.js');
+require('dotenv').config();
 const Sentry = require('@sentry/node');
 
 const express = require('express');

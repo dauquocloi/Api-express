@@ -55,32 +55,25 @@ exports.modifyRent = asyncHandler(async (req, res) => {
 	return new SuccessMsgResponse('Success').send(res);
 });
 
-exports.generateCheckoutCost = asyncHandler(async (req, res) => {
-	console.log('log of req from generateCheckoutCost: ', req.body);
-	const result = await UseCase.generateCheckoutCost(
-		req.params.roomId,
-		req.body.buildingId,
-		req.user._id,
-		req.body.feeIndexValues,
-		req.body.feesOther,
-		req.body.stayDays,
-		req.body.roomVersion,
-	);
-	return new SuccessResponse('Success', result).send(res);
-});
+// exports.generateCheckoutCost = asyncHandler(async (req, res) => {
+// 	console.log('log of req from generateCheckoutCost: ', req.body);
+// 	const result = await UseCase.generateCheckoutCost(
+// 		req.params.roomId,
+// 		req.body.buildingId,
+// 		req.user._id,
+// 		req.body.feeIndexValues,
+// 		req.body.feesOther,
+// 		req.body.stayDays,
+// 		req.body.roomVersion,
+// 	);
+// 	return new SuccessResponse('Success', result).send(res);
+// });
 
 exports.deleteDebts = asyncHandler(async (req, res) => {
 	const data = req.params;
 	console.log('log of data from deleteDebts: ', data);
 	await UseCase.deleteDebts(data.roomId);
 	return new SuccessMsgResponse('Success').send(res);
-});
-
-exports.getDebtsAndReceiptUnpaid = asyncHandler(async (req, res) => {
-	const data = req.params;
-	console.log('log of data from getDebtsAndReceiptUnpaid: ', data);
-	const result = await UseCase.getDebtsAndReceiptUnpaid(data.roomId);
-	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.getRoomFeesAndDebts = asyncHandler(async (req, res) => {

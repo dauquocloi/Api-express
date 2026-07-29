@@ -1,8 +1,11 @@
+const mongoose = require('mongoose');
+const { contractStatus } = require('../../../constants');
+
 const getRoomFeesAndDebts = (roomObjectId) => {
 	return [
 		{
 			$match: {
-				_id: roomObjectId,
+				_id: new mongoose.Types.ObjectId(roomObjectId),
 			},
 		},
 		{
@@ -21,7 +24,7 @@ const getRoomFeesAndDebts = (roomObjectId) => {
 				pipeline: [
 					{
 						$match: {
-							status: 'active',
+							status: contractStatus['ACTIVE'],
 						},
 					},
 				],

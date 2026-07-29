@@ -2,11 +2,9 @@
  * configType = 0 is Development environment
  * configType = 1 is Production environment
  */
-var configType = 0;
-var cloudinary = require('./cloudinary');
-var { client, subscriber, opts } = require('./redisClient');
+const configType = 0;
+const { client, subscriber, opts } = require('./redisClient');
 const S3Client = require('./S3Client');
-require('dotenv').config;
 
 switch (configType) {
 	case 0: // Development environment
@@ -47,7 +45,6 @@ switch (configType) {
 			subscriber: subscriber,
 			opts: opts,
 		};
-		exports.cloudinary = cloudinary;
 		exports.S3 = {
 			accessKeyId: process.env.ACCESS_KEY,
 			secretAccessKey: process.env.SECRET_ACCESS_KEY,
