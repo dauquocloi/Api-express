@@ -1,9 +1,10 @@
 const contractStatus = {
 	ACTIVE: 'active',
-	EXPIRED: 'expired', //Hết hạn: Thời hạn HĐ đã hết
-	TERMINATED: 'terminated', // Hủy hợp đồng: Bỏ cọc.
+	EXPIRED: 'expired', //Hết hạn: Thời hạn HĐ đã hết.
+	TERMINATED: 'terminated', // Hủy hợp đồng: Chấm dứt hợp đồng trước thời hạn.
 	CANCELLED: 'cancelled', //Đóng: bị sửa đổi hoặc không còn đúng.
-	PENDING: 'pending',
+	SUSPENDED: 'suspended', //Đóng: bị sửa đổi hoặc bị thay thế.
+	PENDING: 'pending', //Chờ khách xác nhận.
 };
 
 const CONTRACT_DOCUMENT_FORM = {

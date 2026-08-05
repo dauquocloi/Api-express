@@ -8,7 +8,8 @@ const Services = require('../service');
 const { depositStatus } = require('../constants/deposits');
 const { client: redis } = require('../config').redisDb;
 const { feeUnit } = require('../constants/fees');
-const { notiRoomDepositedJob, notiDepositTerminatedJob } = require('../jobs/notification/notification.job');
+const { notificationJob } = require('../jobs/notification/notification.job');
+const { NOTI_ROOM_DEPOSITED, NOTI_DEPOSIT_TERMINATED } = require('../jobs/constant/jobNames');
 
 exports.getDeposits = async (buildingId) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -104,7 +105,7 @@ exports.createDeposit = async (data, redisKey) => {
 				session,
 			);
 
-			await notiRoomDepositedJob({ depositId: newDeposit._id });
+			await notificationJob({ depositId: newDeposit._id, notiType: NOTI_ROOM_DEPOSITED });
 
 			await Services.rooms.setRoomDeposited({ roomId: data.roomId, isDeposited: true, session });
 
@@ -328,7 +329,7 @@ exports.terminateDeposit = async (depositId, version) => {
 
 			await Services.rooms.setRoomDeposited({ roomId: deposit.room, isDeposited: false, session });
 
-			await notiDepositTerminatedJob({ depositId });
+			await notificationJob({ depositId, notiType: NOTI_DEPOSIT_TERMINATED });
 
 			return 'Success';
 		});

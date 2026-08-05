@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { contractStatus } = require('../../../constants');
+const { contractStatus, vehicleStatus, CUSTOMER_STATUS, debtStatus } = require('../../../constants');
 
 const getRoomFeesAndDebts = (roomObjectId) => {
 	return [
@@ -27,13 +27,39 @@ const getRoomFeesAndDebts = (roomObjectId) => {
 							status: contractStatus['ACTIVE'],
 						},
 					},
+					{
+						$set: {
+							versions: {
+								$ifNull: [
+									{
+										$first: {
+											$sortArray: {
+												input: '$versions',
+												sortBy: {
+													version: -1,
+												},
+											},
+										},
+									},
+									null,
+								],
+							},
+						},
+					},
 				],
 				as: 'contractInfo',
 			},
 		},
 		{
-			$unwind: {
-				path: '$contractInfo',
+			$set: {
+				contractInfo: {
+					$ifNull: [
+						{
+							$first: '$contractInfo',
+						},
+						null,
+					],
+				},
 			},
 		},
 		{
@@ -71,7 +97,7 @@ const getRoomFeesAndDebts = (roomObjectId) => {
 									},
 									{
 										$not: {
-											$in: ['$status', [0, 2]],
+											$in: ['$status', [CUSTOMER_STATUS['TERMINATED'], CUSTOMER_STATUS['SUSPENDED']]],
 										},
 									},
 								],
@@ -107,7 +133,7 @@ const getRoomFeesAndDebts = (roomObjectId) => {
 									},
 									{
 										$not: {
-											$in: ['$status', ['terminated', 'suspended']],
+											$in: ['$status', [vehicleStatus['TERMINATED'], vehicleStatus['SUSPENDED']]],
 										},
 									},
 								],
@@ -127,7 +153,7 @@ const getRoomFeesAndDebts = (roomObjectId) => {
 					{
 						$match: {
 							$expr: {
-								$eq: ['$status', 'pending'],
+								$eq: ['$status', debtStatus['PENDING']],
 							},
 						},
 					},
@@ -143,8 +169,7 @@ const getRoomFeesAndDebts = (roomObjectId) => {
 				debtsInfo: 1,
 				customerInfo: 1,
 				vehicleInfo: 1,
-				rent: '$contractInfo.rent',
-				version: 1,
+				rent: '$contractInfo.versions.rent',
 			},
 		},
 		{
@@ -155,7 +180,6 @@ const getRoomFeesAndDebts = (roomObjectId) => {
 					roomState: '$roomState',
 					rent: '$rent',
 					debtsInfo: '$debtsInfo',
-					version: '$version',
 				},
 				feeInfo: {
 					$push: {

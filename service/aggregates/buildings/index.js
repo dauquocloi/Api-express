@@ -712,7 +712,7 @@ const getExcelData = (buildingObjectId, month, year) => {
 							pipeline: [
 								{
 									$match: {
-										status: contractStatuses['ACTIVE'],
+										status: contractStatus['ACTIVE'],
 									},
 								},
 								{

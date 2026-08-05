@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const moment = require('moment');
 const Services = require('../../service');
-const { generateContract } = require('../../utils/generateContract');
+const generateContract = require('../../utils/generateContract');
 const { FEE_UNIT_TYPE } = require('../../constants/fees');
 
 const handleGenerateContractJob = async (payload) => {
@@ -11,7 +11,10 @@ const handleGenerateContractJob = async (payload) => {
 
 		if (!contract) throw new Error('Hợp đồng không tồn tại !');
 
-		const { contractSignDate, contractEndDate, contractTerm, depositAmount, rent, fees, room } = contract;
+		const { room, versions } = contract;
+
+		const latestContractVersion = versions.reduce((sum, v) => (v.version > sum.version ? v : sum));
+		const { contractSignDate, contractEndDate, contractTerm, rent, depositAmount, fees } = latestContractVersion;
 
 		// Validate ObjectId
 		if (!mongoose.isValidObjectId(buildingId)) throw new Error('Invalid buildingId');
@@ -21,8 +24,8 @@ const handleGenerateContractJob = async (payload) => {
 		const contractObjectId = new mongoose.Types.ObjectId(contractId);
 
 		const customerInfo = await Services.customers.findOwnerByContractId(contractObjectId).lean().exec();
-		console.log('log of customerInfo: ', customerInfo);
 		if (!customerInfo) throw new Error('Lỗi không tìm thấy khách hàng !');
+
 		// Helpers
 		const formatDate = (date) => ({
 			DAY: moment(date).utcOffset('+07:00').format('DD'),

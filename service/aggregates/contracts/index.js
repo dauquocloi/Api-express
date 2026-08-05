@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { invoiceStatus, receiptStatus, contractStatus, receiptTypes, debtStatus } = require('../../../constants');
+const { invoiceStatus, receiptStatus, receiptTypes, debtStatus } = require('../../../constants');
 
 exports.getDebtsAndReceiptsUnpaid = (contractId) => {
 	return [

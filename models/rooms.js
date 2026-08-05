@@ -20,63 +20,66 @@ const InteriorsSchema = new Schema({
 	},
 });
 
-const RoomsSchema = new Schema({
-	roomIndex: {
-		type: String,
-		required: true,
-		trim: true,
-	},
-	roomPrice: Number,
-	roomDeposit: Number,
-	roomTypes: String,
-	roomAcreage: Number,
+const RoomsSchema = new Schema(
+	{
+		roomIndex: {
+			type: String,
+			required: true,
+			trim: true,
+		},
+		roomPrice: Number,
+		roomDeposit: Number,
+		roomTypes: String,
+		roomAcreage: Number,
 
-	roomState: {
-		type: Number,
-		default: 0,
-		required: true,
-		enum: Object.values(roomState),
-		// 0 - trống
-		// 1 - đang ở
-		// 2 - sắp trả phòng
-	},
+		roomState: {
+			type: Number,
+			default: 0,
+			required: true,
+			enum: Object.values(roomState),
+			// 0 - trống
+			// 1 - đang ở
+			// 2 - sắp trả phòng
+		},
 
-	isDeposited: {
-		type: Boolean,
-		default: false,
-	},
+		isDeposited: {
+			type: Boolean,
+			default: false,
+		},
 
-	//Nên tham triếu đến depositRefunds
-	isRefundDeposit: {
-		//Trạng thái đang chờ trả cọc.
-		type: Boolean,
-		default: false,
-	},
-	building: {
-		type: Schema.Types.ObjectId,
-		ref: 'BuildingsEntity',
-	},
+		//Nên tham triếu đến depositRefunds
+		isRefundDeposit: {
+			//Trạng thái đang chờ trả cọc.
+			type: Boolean,
+			default: false,
+		},
+		building: {
+			type: Schema.Types.ObjectId,
+			ref: 'BuildingsEntity',
+		},
 
-	interior: [InteriorsSchema],
+		interior: [InteriorsSchema],
 
-	roomImage: {
-		ref: [{ type: String }],
-		lastUpload: { type: Date, default: Date.now },
+		roomImage: {
+			ref: [{ type: String }],
+			lastUpload: { type: Date, default: Date.now },
+		},
+		// Should be in the Contracts
+		note: {
+			type: String,
+			default: '',
+		},
+		version: { type: Number, default: 1 },
+		writeLock: {
+			ownerId: { type: Schema.Types.ObjectId, ref: 'UsersEntity' },
+			locked: { type: Boolean, default: false },
+			expAt: { type: Date },
+			reason: { type: String, default: '' },
+			lockedAt: { type: Date },
+		},
 	},
-	// Should be in the Contracts
-	note: {
-		type: String,
-		default: '',
-	},
-	version: { type: Number, default: 1 },
-	writeLock: {
-		ownerId: { type: Schema.Types.ObjectId, ref: 'UsersEntity' },
-		locked: { type: Boolean, default: false },
-		expAt: { type: Date },
-		reason: { type: String, default: '' },
-		lockedAt: { type: Date },
-	},
-});
+	{ timestamps: true, versionKey: false },
+);
 
 // RoomsSchema.post('aggregate', async function (docs, next) {
 // 	try {

@@ -1,11 +1,14 @@
 const { default: mongoose } = require('mongoose');
 const Services = require('../service');
-const { CREATED_BY, OWNER_CONFIRMED_STATUS } = require('../constants/transactions');
 const { BadRequestError, NoDataError, NotFoundError } = require('../AppError');
 const { getInvoiceStatus } = require('../service/invoices.helper');
-const { notiTransactionDeclinedJob } = require('../jobs/notification/notification.job');
+const { notificationJob } = require('../jobs/notification/notification.job');
+const { NOTI_TRANSACTION_DECLINED } = require('../jobs/constant/jobNames');
 const { client: redis } = require('../config').redisDb;
+const { CREATED_BY, OWNER_CONFIRMED_STATUS, paymentConfirmationMode } = require('../constants');
 const { billType: BILL_TYPE } = require('../constants/bills');
+const { calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
+const { calculateReceiptStatusAfterModified } = require('../service/receipts.helper');
 
 exports.confirmTransaction = async (transactionId, redisKey) => {
 	const currentTransaction = await Services.transactions.findById(transactionId).populate('invoice receipt').lean().exec();
@@ -74,12 +77,13 @@ exports.denyTransaction = async (transactionId, reason, redisKey) => {
 					await Services.transactions.removeTransaction(transactionId, session);
 				}
 
-				await notiTransactionDeclinedJob({
+				await notificationJob({
 					billType: BILL_TYPE['INVOICE'],
 					id: invoice._id,
 					reason: reason ?? '',
 					receiverId: collector,
 					transactionAmount: amount,
+					notiType: NOTI_TRANSACTION_DECLINED,
 				});
 
 				result = {
@@ -107,12 +111,13 @@ exports.denyTransaction = async (transactionId, reason, redisKey) => {
 					await Services.transactions.removeTransaction(transactionId, session);
 				}
 
-				await notiTransactionDeclinedJob({
+				await notificationJob({
 					billType: BILL_TYPE['RECEIPT'],
 					id: receipt._id,
 					reason: reason ?? '',
 					receiverId: collector,
 					transactionAmount: amount,
+					notiType: NOTI_TRANSACTION_DECLINED,
 				});
 
 				result = {
@@ -134,7 +139,7 @@ exports.denyTransaction = async (transactionId, reason, redisKey) => {
 	}
 };
 
-// exports.modifyTransaction = async (transactionId, amount, date) => {};s
+// exports.modifyTransaction = async (transactionId, amount, date) => {};
 
 exports.receiveCashFromManager = async (transactionId, redisKey) => {
 	const transaction = await Services.transactions.findById(transactionId).populate('invoice').populate('receipt').lean().exec();
@@ -160,5 +165,35 @@ exports.receiveCashFromManager = async (transactionId, redisKey) => {
 		};
 		await redis.set(redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 		return result;
+	}
+};
+
+exports.removeTransaction = async ({ transcationId, buildingId, userId }) => {
+	let session;
+	try {
+		session = await mongoose.startSession();
+		return await session.withTransaction(async () => {
+			const building = await Services.buildings.findById(buildingId).session(session).lean().exec();
+			if (!building) throw new NotFoundError('Tòa nhà không tồn tại !');
+			if (building.paymentConfirmationMode !== paymentConfirmationMode['MANUAL'])
+				throw new BadRequestError('Chức năng này chỉ khả dụng khi tòa nhà đang ở chế độ xác nhận thanh toán thủ công !');
+
+			const transaction = await Services.transactions.findById(transcationId).populate('invoice receipt').session(session).lean().exec();
+			if (transaction.receipt) {
+				const { receipt } = transaction;
+				if (receipt.locked === true) throw new BadRequestError('Giao dịch không thể xóa vì hóa đơn đã đóng !');
+				const calculateReceiptPaidAmount = calculateInvoiceUnpaidAmount(receipt.paidAmount, transaction.amount);
+				const newReceiptStatus = calculateReceiptStatusAfterModified(calculateReceiptPaidAmount, receipt.amount);
+				await Services.receipts.modifyReceiptPaidAmount(
+					{ receiptId: receipt._id, newPaidAmount: calculateReceiptPaidAmount, newReceiptStatus, version: receipt.version },
+					session,
+				);
+			} else if (transaction.invoice) {
+				const { invoice } = transaction;
+				if (invoice.locked === true) throw new BadRequestError('Giao dịch không thể xóa vì hóa đơn đã đóng !');
+			}
+		});
+	} finally {
+		if (session) session.endSession();
 	}
 };

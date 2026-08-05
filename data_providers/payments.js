@@ -14,7 +14,8 @@ const { billType: BILL_TYPE } = require('../constants/bills');
 const { checkoutCostStatus: CHECKOUT_COST_STATUS, receiptToCheckoutCostStatusMap } = require('../constants/checkoutCosts');
 const { receiptToDepositRefundStatusMap } = require('../constants/deposits');
 const { SepayError, sepayErrorTypes } = require('../infrastructure/Sepay/SepayError');
-const { notiPaymentJob } = require('../jobs/notification/notification.job');
+const { notificationJob } = require('../jobs/notification/notification.job');
+const { NOTI_PAYMENT } = require('../jobs/constant/jobNames');
 
 exports.handleSepayIPN = (data) => {
 	let session;
@@ -163,7 +164,7 @@ exports.webhookPayment = async (sepayData) => {
 					},
 				});
 
-				await notiPaymentJob({
+				await notificationJob({
 					managementIds: listManagementIds,
 					amount: sepayData.transferAmount,
 					paymentContent: sepayData.content.trim(),
@@ -173,6 +174,7 @@ exports.webhookPayment = async (sepayData) => {
 					billType: BILL_TYPE['INVOICE'],
 					billStatus: getNewInvoiceStatus,
 					billId: _id.toString(),
+					notiType: NOTI_PAYMENT,
 				});
 
 				return 'Success';
@@ -252,7 +254,7 @@ exports.webhookPayment = async (sepayData) => {
 						if (m.role === ROLES['OWNER'] || m.role === ROLES['MANAGER']) return m.user;
 					})
 					.filter(Boolean);
-				await notiPaymentJob({
+				await notificationJob({
 					managementIds: listManagementIds,
 					amount: sepayData.transferAmount,
 					paymentContent: sepayData.content.trim(),
@@ -262,6 +264,7 @@ exports.webhookPayment = async (sepayData) => {
 					billType: BILL_TYPE['RECEIPT'],
 					billStatus: getNewReceiptStatus,
 					billId: _id.toString(),
+					notiType: NOTI_PAYMENT,
 				});
 
 				transaction.broadcast({

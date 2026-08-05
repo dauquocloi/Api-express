@@ -63,7 +63,8 @@ exports.getContractInfo = async (contractCode) => {
 exports.confirmationContract = async (contractId, otp) => {
 	const contract = await Services.contracts.findById(contractId).lean().exec();
 	if (!contract) throw new NotFoundError('Dữ liệu không tồn tại');
-	if (contract.status === contractStatus['TERMINATED']) throw new BadRequestError('Hợp đồng này đã bị hủy !');
+	if (contract.status === contractStatus['TERMINATED'] || contract.status === contractStatus['SUSPENDED'])
+		throw new BadRequestError('Hợp đồng này đã bị hủy !');
 
 	const hasUnconfirmedVersion = contract.versions?.some((v) => v.customerConfirmed === false);
 	if (!hasUnconfirmedVersion) throw new BadRequestError('Hợp đồng đã được xác nhận');

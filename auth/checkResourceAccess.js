@@ -19,14 +19,14 @@ const checkResourceAccess = (resourceType, permissionKey = null, validateSource 
 		if (!buildingId) throw new NotFoundError('Dữ liệu không tồn tại');
 		req.buildingId = buildingId;
 
+		const buildingUser = await Services.buildings.findUserInBuilding({ userId: user._id, buildingId });
+		if (!buildingUser) {
+			throw new ForbiddenError('Bạn không có quyền truy cập tài nguyên này');
+		}
+
 		// Owner && Admin full quyền
 		if (user.role === ROLES[`ADMIN`]) return next();
-
 		if (permissionKey && ![ROLES.ADMIN, ROLES.OWNER].includes(user.role)) {
-			const buildingUser = await Services.buildings.findUserInBuilding({ userId: user._id, buildingId });
-			if (!buildingUser) {
-				throw new ForbiddenError('Bạn không có quyền truy cập tài nguyên này');
-			}
 			const company = await Services.companies.findById(buildingUser.companyId).lean().exec();
 			if (!company) {
 				throw new NotFoundError('Company not found !');

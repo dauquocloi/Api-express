@@ -10,7 +10,7 @@ const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const formatInitialFees = require('../utils/formatInitialFees');
 const getFieldUrl = require('../utils/getFileUrl');
 const { client: redis } = require('../config').redisDb;
-const { roomState, invoiceStatus, invoiceType, feeUnit, receiptTypes, receiptStatus } = require('../constants');
+const { roomState, invoiceStatus, invoiceType, feeUnit, receiptTypes, receiptStatus, depositStatus } = require('../constants');
 
 exports.prepareGenerateContract = async (
 	roomId,
@@ -414,7 +414,7 @@ exports.cancelIsEarlyTermination = async (contractId, roomId, redisKey) => {
 
 		const checkIsExistDeposit = await Entity.DepositsEntity.findOne({
 			room: roomId,
-			status: { $nin: ['close', 'cancelled', 'pending'] },
+			status: { $nin: [depositStatus['CLOSED'], depositStatus['CANCELLED'], depositStatus['PENDING']] },
 		}).session(session);
 		if (checkIsExistDeposit) throw new BadRequestError('Phòng đã được đặt cọc');
 
@@ -441,7 +441,7 @@ exports.cancelIsEarlyTermination = async (contractId, roomId, redisKey) => {
 };
 
 // should done this:
-exports.contractExtention = async (contractId, extensionDate, newRent, newDepositAmount, userId, version, redisKey) => {
+exports.contractExtention = async ({ contractId, extensionDate, contractSignDate, newRent, newDepositAmount, userId, contractTerm, version }) => {
 	let session;
 	try {
 		session = await mongoose.startSession();
@@ -450,22 +450,27 @@ exports.contractExtention = async (contractId, extensionDate, newRent, newDeposi
 			if (!currentContract) throw new NotFoundError('Hợp đồng không tồn tại');
 			if (currentContract.room.roomState === roomState['UN_HIRED']) throw new BadRequestError('Trạng thái phòng không hợp lệ');
 
-			const { contractEndDate, _id } = currentContract;
-			if (new Date(extensionDate).getTime() < new Date(contractEndDate).getTime()) {
+			await Services.rooms.assertRoomWritable({ roomId: currentContract.room._id, userId, session });
+
+			const lastestContractVersion = currentContract.versions.reduce((sum, v) => (v.version > sum.version ? v : sum));
+			console.log('log of lastestContractVersion: ', lastestContractVersion);
+
+			if (new Date(extensionDate).getTime() < new Date(lastestContractVersion.contractEndDate).getTime()) {
 				throw new BadRequestError('Ngày kết thúc không được bé hơn ngày hiện tại');
 			}
 			if (version !== currentContract.version) throw new ConflictError('Dữ liệu của hợp đồng đã bị thay đổi !');
 
-			const contractExtentionCreated = await Services.contractExtentions.createContractExtention(
+			await Services.contracts.contractExtention(
 				{
-					contractId: _id,
-					roomId: currentContract.room,
-					extentionDate: extensionDate,
+					contractId: contractId,
+					newContractEndDate: extensionDate,
+					newContractSignDate: contractSignDate,
 					newRent: newRent,
-					newDepositAmount: newDepositAmount,
-					creator: userId,
+					version: version,
+					depositAmount: newDepositAmount,
+					contractTerm: contractTerm,
 				},
-				version,
+				session,
 			);
 		});
 	} catch (error) {
@@ -520,7 +525,7 @@ exports.getDebtsAndReceiptsUnpaid = async (contractId, userId) => {
 		return await session.withTransaction(async () => {
 			const currentContract = await Services.contracts.findById(contractId).session(session).lean().exec();
 			if (!currentContract) throw new NotFoundError('Hợp đồng không tồn tại');
-			await Services.rooms.assertRoomWritable({ roomId: currentContract.room, userId, session });
+			// await Services.rooms.assertRoomWritable({ roomId: currentContract.room, userId, session });
 			await Services.rooms.setWriteLockedRoom(currentContract.room, session, null, userId);
 			return await Services.contracts.getDebtsAndReceiptsUnpaid(contractId, session);
 		});

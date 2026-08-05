@@ -5,7 +5,8 @@ const Services = require('../service');
 const { roomState } = require('../constants/rooms');
 const { NotiContractNearExpiJob } = require('../jobs/Notifications');
 const { Connect } = require('../utils/MongoConnect');
-const { notiContractNearExpiredJob } = require('../jobs/notification/notification.job');
+const { notificationJob } = require('../jobs/notification/notification.job');
+const { NOTI_CONTRACT_NEAR_EXPIRATION } = require('../jobs/constant/jobNames');
 
 // cron.schedule('0 0 * * *', async () => {
 // 	try {
@@ -53,11 +54,12 @@ const checkContracts = async () => {
 		for (const contract of contracts) {
 			await Services.rooms.updateRoomState({ roomId: contract.room._id, roomState: roomState['ABOUT_CHECKOUT'] });
 
-			await notiContractNearExpiredJob({
+			await notificationJob({
 				buildingId: contract.room.building,
 				roomIndex: contract.room.roomIndex,
 				roomId: contract.room._id.toString(),
 				contractEndDate: contract.versions[0].contractEndDate,
+				notiType: NOTI_CONTRACT_NEAR_EXPIRATION,
 			});
 		}
 		console.log('Finish checking.');

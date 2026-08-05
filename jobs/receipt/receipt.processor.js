@@ -12,5 +12,5 @@ const handleLockReceiptJob = async (payload) => {
 };
 
 module.exports = {
-	handleLockReceipt,
+	handleLockReceiptJob,
 };

@@ -11,4 +11,5 @@ module.exports = {
 	NOTI_DEPOSIT_TERMINATED: 'notiDepositTerminated',
 	LOCK_INVOICE: 'lockInvoice',
 	LOCK_RECEIPT: 'lockReceipt',
+	NOTIFICATIONS: 'notifications',
 };

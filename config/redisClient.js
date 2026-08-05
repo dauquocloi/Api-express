@@ -29,8 +29,10 @@ client.on('reconnecting', () => {
 	console.log('🔄 Redis reconnecting...');
 });
 
+//Bull options
 const opts = {
 	createClient: function (type) {
+		console.log('createClient:', type);
 		switch (type) {
 			case 'client':
 				return client;
@@ -38,6 +40,7 @@ const opts = {
 				return subscriber;
 
 			default:
+				console.log('=> NEW Redis connection (bclient)');
 				return new Redis(REDIS_CONFIG);
 		}
 	},

@@ -1,4 +1,4 @@
-const { NotFoundError, InternalError } = require('../AppError');
+const { NotFoundError, InternalError, ConflictError } = require('../AppError');
 const Entity = require('../models');
 const withSignedUrls = require('../utils/withSignedUrls');
 const generateContractCode = require('../utils/generateContractCode');
@@ -111,6 +111,7 @@ exports.generateContract = async (
 						updatedAt: new Date(),
 						customerConfirmed: false,
 						status: contractStatus['PENDING'],
+						fees: roomFees,
 					},
 				],
 			},
@@ -228,7 +229,15 @@ exports.importManyCustomerRef = async (ownerByContract, session) => {
 	return true;
 };
 
-exports.contractExtention = async ({ contractId, newContractEndDate, newRent, version }, session) => {
+exports.contractExtention = async (
+	{ contractId, newContractEndDate, newContractSignDate, newRent, version, depositAmount, contractTerm },
+	session,
+) => {
+	const currentContract = await Entity.ContractsEntity.findById(contractId).session(session).lean().exec();
+	if (!currentContract) throw new NotFoundError('Hợp đồng không tồn tại');
+	const latestContractVersion = currentContract.versions.reduce((sum, v) => (v.version > sum.version ? v : sum));
+	const fees = await Entity.FeesEntity.find({ room: currentContract.room }).session(session).lean().exec();
+
 	const result = await Entity.ContractsEntity.updateOne(
 		{
 			_id: contractId,
@@ -237,15 +246,35 @@ exports.contractExtention = async ({ contractId, newContractEndDate, newRent, ve
 		},
 		{
 			$set: {
-				'versions.$.contractEndDate': newContractEndDate,
-				'versions.$.rent': newRent,
 				'versions.$.updatedAt': new Date(),
+				'versions.$.status': contractStatus['EXPIRED'],
+			},
+			$push: {
+				versions: {
+					version: latestContractVersion.version + 1,
+					contractSignDate: newContractSignDate,
+					contractEndDate: newContractEndDate,
+					rent: newRent,
+					updatedAt: new Date(),
+					createdAt: new Date(),
+					depositAmount: depositAmount,
+					status: contractStatus['ACTIVE'],
+					contractCode: await generateContractCode(process.env.CONTRACT_CODE_LENGTH),
+					contractTerm: contractTerm,
+					fees: fees.map((fee) => ({
+						feeName: fee.feeName,
+						feeAmount: fee.feeAmount,
+						unit: fee.unit,
+						feeKey: fee.feeKey,
+						iconPath: fee.iconPath ?? '',
+					})),
+				},
 			},
 			$inc: { version: 1 },
 		},
 		{ session },
 	);
-	if (result.matchedCount === 0) throw new NotFoundError('Hợp đồng không tồn tại');
+	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu đã cũ, vui lòng tải lại trang');
 	return true;
 };
 

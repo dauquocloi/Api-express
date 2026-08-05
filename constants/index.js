@@ -7,5 +7,18 @@ const vehicles = require('./vehicle');
 const deposits = require('./deposits');
 const rooms = require('./rooms');
 const fees = require('./fees');
-
-module.exports = { ...invoices, ...receipt, ...customers, ...contracts, ...debts, ...vehicles, ...deposits, ...rooms, ...fees };
+const buildings = require('./buildings');
+const transactions = require('./transactions');
+module.exports = {
+	...invoices,
+	...receipt,
+	...customers,
+	...contracts,
+	...debts,
+	...vehicles,
+	...deposits,
+	...rooms,
+	...fees,
+	...buildings,
+	...transactions,
+};

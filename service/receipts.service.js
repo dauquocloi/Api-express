@@ -374,3 +374,23 @@ exports.closeReceiptDeposit = async ({ receiptId }, session = null) => {
 	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');
 	return result;
 };
+
+exports.modifyReceiptAmount = async ({ receiptId, newAmount, newReceiptStatus, version }, session) => {
+	const result = await Entity.ReceiptsEntity.updateOne(
+		{ _id: receiptId, version },
+		{ $set: { amount: newAmount, status: newReceiptStatus }, $inc: { version: 1 } },
+		{ session },
+	);
+	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');
+	return result;
+};
+
+exports.modifyReceiptPaidAmount = async ({ receiptId, newPaidAmount, newReceiptStatus, version }, session) => {
+	const result = await Entity.ReceiptsEntity.updateOne(
+		{ _id: receiptId, version },
+		{ $set: { paidAmount: newPaidAmount, status: newReceiptStatus }, $inc: { version: 1 } },
+		{ session },
+	);
+	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');
+	return result;
+};

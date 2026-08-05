@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { Connect: ConnectMongoDb } = require('./utils/MongoConnect');
 
 async function startWorker() {

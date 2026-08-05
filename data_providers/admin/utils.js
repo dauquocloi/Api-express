@@ -282,6 +282,7 @@ const createDepositTransactions = async ({ receipts, ownerId, session }) => {
 
 const createFees = async ({ data, roomMap, ownerId, session }) => {
 	const feesData = [];
+	const feesMap = new Map();
 
 	data.forEach((room) => {
 		const fees = parseFees(room);
@@ -292,6 +293,8 @@ const createFees = async ({ data, roomMap, ownerId, session }) => {
 				room: roomMap.get(room.roomIndex.trim()),
 			});
 		});
+
+		feesMap.set(roomMap.get(room.roomIndex.trim()), fees);
 	});
 
 	const createdFees = await Services.fees.importFees(feesData, session);
@@ -312,10 +315,10 @@ const createFees = async ({ data, roomMap, ownerId, session }) => {
 
 	await Services.fees.createFeeIndexHistory(feeIndexHistoryPayload, session);
 
-	return createdFees;
+	return { createdFees, feesMap };
 };
 
-const createContracts = async ({ data, roomMap, depositReceiptMap, session }) => {
+const createContracts = async ({ data, roomMap, depositReceiptMap, session, feesMap }) => {
 	const contractData = [];
 
 	for (const room of data) {
@@ -327,15 +330,17 @@ const createContracts = async ({ data, roomMap, depositReceiptMap, session }) =>
 			room: roomId,
 			rent: Number(room.rent),
 			depositReceiptId: depositReceiptMap.get(roomId.toString()),
-			contractSignDate: new Date(room.signDate),
-			contractEndDate: new Date(room.endDate),
-			contractTerm: room.contractTerm.trim(),
+			// contractSignDate: new Date(room.signDate),
+			// contractEndDate: new Date(room.endDate),
+			// contractTerm: room.contractTerm.trim(),
 			note: room.contractNote?.trim() ?? '',
 			status: CONTRACT_STATUS['ACTIVE'],
-			contractCode: await generateContractCode(process.env.CONTRACT_CODE_LENGTH),
+			// contractCode: await generateContractCode(process.env.CONTRACT_CODE_LENGTH),
 			versions: [
 				{
+					version: 0,
 					rent: Number(room.rent),
+					depositAmount: Number(room.deposit),
 					contractSignDate: new Date(room.signDate),
 					contractEndDate: new Date(room.endDate),
 					contractTerm: room.contractTerm.trim(),
@@ -344,7 +349,13 @@ const createContracts = async ({ data, roomMap, depositReceiptMap, session }) =>
 					createdAt: new Date(),
 					updatedAt: new Date(),
 					contractPdfUrl: '',
-					contractPdfFile: '',
+					fees: feesMap.get(roomId).map((fee) => ({
+						feeName: fee.feeName,
+						feeAmount: fee.feeAmount,
+						feeKey: fee.feeKey,
+						unit: fee.unit,
+						iconPath: fee.iconPath ?? '',
+					})),
 				},
 			],
 		});

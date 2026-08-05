@@ -4,7 +4,8 @@ const uploadFile = require('../utils/uploadFile');
 const getFileUrl = require('../utils/getFileUrl');
 const { errorCodes } = require('../constants/errorCodes');
 const Services = require('../service');
-const { notiTaskCompletedJob } = require('../jobs/notification/notification.job');
+const { notiTaskCompletedJob, notificationJob } = require('../jobs/notification/notification.job');
+const { NOTI_TASK_COMPLETED } = require('../jobs/constant/jobNames');
 const { BadRequestError } = require('../AppError');
 const ROLES = require('../constants/userRoles');
 const { TASK_STATUS } = require('../constants/tasks');
@@ -155,11 +156,12 @@ exports.modifyTask = async (data) => {
 
 	// Enqueue notification if task completed
 	if (data.status === TASK_STATUS['COMPLETED'] && existingTask.status !== TASK_STATUS['COMPLETED']) {
-		await notiTaskCompletedJob({
+		await notificationJob({
 			managementIds: taskModified.managements.map((m) => m._id),
 			performerIds: data.performers,
 			taskTitle: taskModified.taskContent,
 			taskId: data.taskId.toString(),
+			notiType: NOTI_TASK_COMPLETED,
 		});
 	}
 
