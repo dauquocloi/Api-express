@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+
 const getReceiptPaymentStatus = (buildingId, month, year) => {
 	return [
 		{
@@ -144,7 +146,7 @@ const getReceiptDetail = (receiptObjectId) => {
 	return [
 		{
 			$match: {
-				_id: receiptObjectId,
+				_id: new mongoose.Types.ObjectId(receiptObjectId),
 			},
 		},
 		{
@@ -152,6 +154,15 @@ const getReceiptDetail = (receiptObjectId) => {
 				from: 'rooms',
 				localField: 'room',
 				foreignField: '_id',
+				pipeline: [
+					{
+						$project: {
+							_id: 1,
+							roomIndex: 1,
+							roomState: 1,
+						},
+					},
+				],
 				as: 'roomInfo',
 			},
 		},
@@ -160,41 +171,71 @@ const getReceiptDetail = (receiptObjectId) => {
 				from: 'transactions',
 				localField: '_id',
 				foreignField: 'receipt',
+				pipeline: [
+					{
+						$lookup: {
+							from: 'users',
+							localField: 'collector',
+							foreignField: '_id',
+							pipeline: [
+								{
+									$project: {
+										fullName: 1,
+										_id: 1,
+									},
+								},
+							],
+							as: 'collectorInfo',
+						},
+					},
+					{
+						$set: {
+							collectorInfo: {
+								$ifNull: [
+									{
+										$first: '$collectorInfo',
+									},
+									null,
+								],
+							},
+						},
+					},
+					{
+						$project: {
+							_id: 1,
+							transactionDate: 1,
+							amount: 1,
+							content: 1,
+							paymentMethod: 1,
+							collector: '$collectorInfo',
+							transactionId: 1,
+							accountNumber: 1,
+							gateway: 1,
+							ownerConfirmed: 1,
+							confirmedDate: 1,
+							createdBy: 1,
+							version: 1,
+							month: 1,
+							year: 1,
+							ownerDeclinedReason: 1,
+						},
+					},
+				],
 				as: 'transactions',
 			},
 		},
-		{
-			$unwind: {
-				path: '$transactions',
-				preserveNullAndEmptyArrays: true,
-			},
-		},
-		{
-			$lookup: {
-				from: 'users',
-				localField: 'transactions.collector',
-				foreignField: '_id',
-				as: 'collectorInfo',
-			},
-		},
+
 		{
 			$project: {
 				_id: 1,
 				status: 1,
 				room: {
-					$let: {
-						vars: {
-							roomObj: {
-								$arrayElemAt: ['$roomInfo', 0],
-							},
+					$ifNull: [
+						{
+							$first: '$roomInfo',
 						},
-						in: {
-							_id: '$$roomObj._id',
-							roomIndex: '$$roomObj.roomIndex',
-
-							// thêm các trường khác nếu cần
-						},
-					},
+						null,
+					],
 				},
 				receiptContent: 1,
 				amount: 1,
@@ -206,60 +247,8 @@ const getReceiptDetail = (receiptObjectId) => {
 				locked: 1,
 				transactions: 1,
 				paidAmount: 1,
-				collectorInfo: {
-					$arrayElemAt: ['$collectorInfo', 0],
-				},
 				detuctedInfo: 1,
 				version: 1,
-				receiptType: 1,
-			},
-		},
-		{
-			$group: {
-				_id: {
-					_id: '$_id',
-					status: '$status',
-					room: '$room',
-					receiptContent: '$receiptContent',
-					amount: '$amount',
-					month: '$month',
-					year: '$year',
-					paymentContent: '$paymentContent',
-					date: '$date',
-					payer: '$payer',
-					locked: '$locked',
-					paidAmount: '$paidAmount',
-					detuctedInfo: '$detuctedInfo',
-					version: '$version',
-					receiptType: '$receiptType',
-				},
-				transactionInfo: {
-					$push: {
-						$cond: [
-							{
-								$gt: [{ $ifNull: ['$transactions', null] }, null],
-							},
-							{
-								_id: '$transactions._id',
-								transactionDate: '$transactions.transactionDate',
-								amount: '$transactions.amount',
-								content: '$transactions.content',
-								paymentMethod: '$transactions.paymentMethod',
-								collector: {
-									fullName: '$collectorInfo.fullName',
-									_id: '$collectorInfo._id',
-								},
-								transactionId: '$transactions.transactionId',
-								accountNumber: '$transactions.accountNumber',
-								gateway: '$transactions.gateway',
-								ownerConfirmed: '$transactions.ownerConfirmed',
-								confirmedDate: '$transactions.confirmedDate',
-								createdBy: '$transactions.createdBy',
-							},
-							'$$REMOVE',
-						],
-					},
-				},
 			},
 		},
 	];

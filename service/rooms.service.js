@@ -257,21 +257,29 @@ const importRooms = async (roomData, session) => {
 	return result;
 };
 
-const lockAllRoomsForSettlement = async (buildingId, ownerId, session) => {
+const lockAllRoomsForSettlement = async (buildingId, ownerId, expAt) => {
+	const now = new Date();
+
+	const expiredAt = expAt instanceof Date ? expAt : new Date(now.getTime() + ROOM_LOCK_TTL_MS);
+
 	const result = await Entity.RoomsEntity.updateMany(
-		{ building: buildingId },
+		{
+			building: buildingId,
+		},
 		{
 			$set: {
 				'writeLock.locked': true,
 				'writeLock.ownerId': ownerId,
-				'writeLock.expAt': ROOM_LOCK_TTL_MS,
-				'writeLock.lockAt': new Date(),
-				'writeLock.reason': LOCK_REASON['SETTLEMENT'],
+				'writeLock.expAt': expiredAt,
+				'writeLock.lockAt': now,
+				'writeLock.reason': LOCK_REASON.SETTLEMENT,
 			},
-			$inc: { version: 1 },
+			$inc: {
+				version: 1,
+			},
 		},
-		{ session },
 	);
+
 	return result;
 };
 

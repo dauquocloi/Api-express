@@ -57,7 +57,6 @@
 		"path": "^0.12.7",
 		"pizzip": "^3.1.8",
 		"puppeteer": "^24.36.1",
-		"randomstring": "^1.1.5",
 		"sharp": "^0.33.5",
 		"socket.io": "^4.8.0",
 		"underscore": "^1.10.2",

@@ -7,5 +7,7 @@ module.exports = {
 	}),
 	declineTransaction: Joi.object().keys({
 		reason: Joi.string().allow('').optional(),
+		buildingId: JoiObjectId().required(),
+		version: Joi.number().integer().min(1).required(),
 	}),
 };

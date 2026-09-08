@@ -10,6 +10,7 @@ const { client: redis } = require('../config').redisDb;
 const { feeUnit } = require('../constants/fees');
 const { notificationJob } = require('../jobs/notification/notification.job');
 const { NOTI_ROOM_DEPOSITED, NOTI_DEPOSIT_TERMINATED } = require('../jobs/constant/jobNames');
+const { calculateDepositStatus } = require('../service/deposits.helper');
 
 exports.getDeposits = async (buildingId) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -80,11 +81,6 @@ exports.createDeposit = async (data, redisKey) => {
 				return fees;
 			};
 
-			const getDepositStatus = () => {
-				if (paidAmount >= room.depositAmount) return depositStatus['PAID'];
-				else if (paidAmount < room.depositAmount) return depositStatus['PARTIAL'];
-			};
-
 			const newDeposit = await Services.deposits.generateDeposit(
 				{
 					roomId: roomObjectId,
@@ -100,7 +96,7 @@ exports.createDeposit = async (data, redisKey) => {
 					customer: customer,
 					interiors: data.interiors,
 					fees: getInitialFeesByFeeKey(),
-					status: getDepositStatus(),
+					status: calculateDepositStatus(room.depositAmount, paidAmount),
 				},
 				session,
 			);

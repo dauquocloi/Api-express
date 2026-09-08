@@ -21,6 +21,8 @@ exports.getDeposits = async (buildingObjectId) => {
 	return result?.listDeposits ?? [];
 };
 
+exports.findByReceiptId = (receiptId) => Entity.DepositsEntity.findOne({ receipt: receiptId });
+
 exports.cancelledDeposit = async (depositId, version, session) => {
 	const result = await Entity.DepositsEntity.updateOne(
 		{ _id: depositId, version: version },
@@ -73,5 +75,22 @@ exports.generateDeposit = async (
 	);
 
 	if (!result) throw new InternalError('Tạo khoản đặt cọc thất bại !');
+	return result;
+};
+
+exports.updateActualDepositAmountByReceiptId = async ({ receiptId, actualDepositAmount, status, version }, session) => {
+	const result = await Entity.DepositsEntity.updateOne(
+		{
+			receipt: receiptId,
+			// version: version,
+		},
+		{
+			$set: { actualDepositAmount, status },
+			$inc: { version: 1 },
+		},
+		{ session },
+	);
+
+	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu đặt cọc đã bị thay đổi!');
 	return result;
 };

@@ -62,8 +62,8 @@ const generateInvoiceFees = (listFeeOfRoom, rentAmount, stayDays, feeIndexValues
 };
 
 const getInvoiceStatus = (paidAmount, amount) => {
-	if (paidAmount === 0) return invoiceStatus['UNPAID'];
 	if (paidAmount >= amount) return invoiceStatus['PAID'];
+	if (paidAmount === 0) return invoiceStatus['UNPAID'];
 	return invoiceStatus['PARTIAL'];
 };
 

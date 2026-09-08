@@ -1,3 +1,14 @@
+const {
+	AuthFailureResponse,
+	AccessTokenErrorResponse,
+	BadRequestResponse,
+	ConflictResponse,
+	InternalServerErrorResponse,
+	NotFoundResponse,
+	ForbiddenResponse,
+	InvalidInputResponse,
+} = require('./utils/apiResponse');
+
 const errorTypes = {
 	accessToken: 'AccessTokenError',
 	badToken: 'BadTokenError',
@@ -14,22 +25,15 @@ const errorTypes = {
 	toManyRequest: 'TooManyRequestError',
 };
 
-const {
-	AuthFailureResponse,
-	AccessTokenErrorResponse,
-	BadRequestResponse,
-	ConflictResponse,
-	InternalServerErrorResponse,
-	NotFoundResponse,
-	ForbiddenResponse,
-	InvalidInputResponse,
-} = require('./utils/apiResponse');
-
 class AppError extends Error {
 	constructor(type, message) {
-		super(type);
+		super(message);
+
+		this.name = type;
 		this.type = type;
 		this.message = message;
+
+		Error.captureStackTrace?.(this, this.constructor);
 	}
 
 	static handle(err, res) {
@@ -72,6 +76,19 @@ class AppError extends Error {
 				return new InternalServerErrorResponse(message).send(res);
 			}
 		}
+	}
+
+	toJSON() {
+		return {
+			type: this.type,
+			message: this.message,
+		};
+	}
+
+	static fromJSON({ type, message }) {
+		const ErrorClass = errorFactories[type] ?? InternalError;
+
+		return new ErrorClass(message);
 	}
 }
 
@@ -153,6 +170,30 @@ class ToManyRequestError extends AppError {
 	}
 }
 
+class AppErrorFactory {
+	static fromSerialized({ type, message }) {
+		const ErrorClass = errorFactories[type] ?? InternalError;
+
+		return new ErrorClass(message);
+	}
+}
+
+const errorFactories = {
+	[errorTypes.accessToken]: AccessTokenError,
+	[errorTypes.badToken]: BadTokenError,
+	[errorTypes.badRequest]: BadRequestError,
+	[errorTypes.conflict]: ConflictError,
+	[errorTypes.tokenExpired]: TokenExpiredError,
+	[errorTypes.unauthorized]: AuthFailureError,
+	[errorTypes.internal]: InternalError,
+	[errorTypes.invalidInput]: InvalidInputError,
+	[errorTypes.forbidden]: ForbiddenError,
+	[errorTypes.notFound]: NotFoundError,
+	[errorTypes.noData]: NoDataError,
+	[errorTypes.noEntry]: NoEntryError,
+	[errorTypes.toManyRequest]: ToManyRequestError,
+};
+
 module.exports = {
 	AppError,
 	AuthFailureError,
@@ -169,4 +210,5 @@ module.exports = {
 	TokenExpiredError,
 	ToManyRequestError,
 	errorTypes,
+	AppErrorFactory,
 };

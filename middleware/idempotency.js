@@ -2,10 +2,10 @@ const { client } = require('../config').redisDb;
 const { BadRequestError } = require('../AppError');
 const { ProcessingResponse, SuccessResponse } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
+const { IDEMPOTENCY_RECORD_STATUS } = require('../constants');
 
 exports.checkIdempotency = asyncHandler(async (req, res, next) => {
 	const idempotencyKey = req.get('Idempotency-Key');
-	console.log('log of idempotencyKey from idem middleware: ', idempotencyKey);
 
 	if (!idempotencyKey) {
 		throw new BadRequestError('Idempotency-Key is required');
@@ -13,19 +13,14 @@ exports.checkIdempotency = asyncHandler(async (req, res, next) => {
 
 	const redisKey = `idem:${idempotencyKey}`;
 
-	const isSet = await client.set(redisKey, 'PROCESSING', 'EX', process.env.REDIS_EXP_SEC, 'NX');
+	const cached = await client.get(redisKey);
 
-	if (!isSet) {
-		const existing = await client.get(redisKey);
-		console.log('Log of existing from idem middleware: ', existing);
-
-		if (existing === 'PROCESSING') {
-			return new ProcessingResponse('Request is still processing. Try again shortly.').send(res);
+	if (cached) {
+		if (cached.status === IDEMPOTENCY_RECORD_STATUS['SUCCESS']) {
+			return new SuccessResponse('Success', JSON.parse(cached.body)).send(res);
 		}
-
-		if (existing?.startsWith('SUCCESS:')) {
-			const data = JSON.parse(existing.replace('SUCCESS:', '')) || {};
-			return new SuccessResponse('Success', data).send(res);
+		if (cached.status === IDEMPOTENCY_RECORD_STATUS['PROCESSING']) {
+			return new ProcessingResponse('Processing', JSON.parse(cached.body)).send(res);
 		}
 	}
 

@@ -2,6 +2,7 @@ const { NotFoundError, BadRequestError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
 const Roles = require('../constants/userRoles');
+const mongoose = require('mongoose');
 
 const findById = (buildingId) => Entity.BuildingsEntity.findById(buildingId);
 
@@ -100,6 +101,14 @@ const getFinanceSettlementData = async (buildingObjectId, currentMonth, currentY
 	const [result] = await Entity.BuildingsEntity.aggregate(
 		Pipelines.buildings.getFinanceSettlementData(buildingObjectId, currentMonth, currentYear),
 	).session(session);
+	if (!result) throw new BadRequestError('Id tòa nhà không tồn tại');
+	return result;
+};
+
+const getPrepareFinanceSettlementV2 = async (buildingObjectId, currentMonth, currentYear) => {
+	const [result] = await Entity.BuildingsEntity.aggregate(
+		Pipelines.buildings.getPrepareFinanceSettlementV2(buildingObjectId, currentMonth, currentYear),
+	);
 	if (!result) throw new BadRequestError('Id tòa nhà không tồn tại');
 	return result;
 };
@@ -209,6 +218,28 @@ const getExcelData = async (buildingId, month, year) => {
 	return currentBuilding;
 };
 
+const getRevenues = async (buildingId, month, year) => {
+	const [result] = await Entity.BuildingsEntity.aggregate(Pipelines.revenues.getAllRevenues(buildingId, month, year));
+	if (!result) throw new NotFoundError('Id tòa nhà không tồn tại');
+
+	const depositReceiptsUnCarriedOverPaidAmount = await Entity.DepositsEntity.aggregate(
+		Pipelines.deposits.getDepositReceiptsUnCarriedOverPaidAmount(buildingId),
+	);
+
+	result.revenues = result.revenues.map((revenue) => {
+		const carriedOver = depositReceiptsUnCarriedOverPaidAmount.find((item) => item.room.toString() === revenue.roomId.toString());
+
+		if (!carriedOver) return revenue;
+
+		return {
+			...revenue,
+			receiptInfo: [...(revenue.receiptInfo ?? []), ...(carriedOver.receipts ?? [])],
+		};
+	});
+
+	return result;
+};
+
 module.exports = {
 	getAllBuildingsByManagementId,
 	getAllBills,
@@ -222,9 +253,11 @@ module.exports = {
 	addManagement,
 	pullManagementNotMatchBuilding,
 	findAndModifyManagement,
+	getPrepareFinanceSettlementV2,
 	getPrepareFinanceSettlementData,
 	getOwnerInfo,
 	importPaymentInfo,
 	getAllInvoicesInPeriod,
 	getExcelData,
+	getRevenues,
 };

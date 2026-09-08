@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { contractStatus, CUSTOMER_STATUS, vehicleStatus, invoiceStatus, receiptStatus, receiptTypes } = require('../../../constants');
+const { contractStatus, CUSTOMER_STATUS, vehicleStatus, invoiceStatus, receiptStatus, receiptTypes, roomState } = require('../../../constants');
 
 // const getStatisticsPipeline = (buildingId, month, year) => {
 // 	const prevMonth = month === 1 ? 12 : Number(month) - 1;
@@ -536,7 +536,7 @@ const getStatisticsPipelineModify = (buildingObjectId, month, year) => {
 		// Stage 1: Lọc building theo ID
 		{
 			$match: {
-				_id: buildingObjectId,
+				_id: new mongoose.Types.ObjectId(buildingObjectId),
 			},
 		},
 
@@ -1253,4 +1253,466 @@ const getStatisticsPipelineModify = (buildingObjectId, month, year) => {
 	];
 };
 
-module.exports = { getStatisticsPipelineModify };
+const getStatistics = (buildingId, month, year) => {
+	return [
+		{
+			$match: {
+				_id: new mongoose.Types.ObjectId(buildingId),
+			},
+		},
+		{
+			$lookup: {
+				from: 'rooms',
+				localField: '_id',
+				foreignField: 'building',
+				as: 'listRooms',
+			},
+		},
+		{
+			$lookup: {
+				from: 'customers',
+				localField: 'listRooms._id',
+				foreignField: 'room',
+				as: 'listCustomers',
+			},
+		},
+		{
+			$lookup: {
+				from: 'vehicles',
+				localField: 'listRooms._id',
+				foreignField: 'room',
+				as: 'listVehicles',
+			},
+		},
+
+		{
+			$lookup: {
+				from: 'statistics',
+				let: {
+					buildingId: '$_id',
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$eq: ['$building', '$$buildingId'],
+									},
+									{
+										$eq: ['$year', year],
+									},
+								],
+							},
+						},
+					},
+					{
+						$sort: {
+							month: 1,
+						},
+					},
+				],
+				as: 'recentStatistics',
+			},
+		},
+		{
+			$lookup: {
+				from: 'statistics',
+				let: {
+					buildingId: '$_id',
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$eq: ['$building', '$$buildingId'],
+									},
+									{
+										$eq: ['$month', month === 1 ? 12 : month - 1],
+									},
+									{
+										$eq: ['$year', month === 12 ? year - 1 : year],
+									},
+								],
+							},
+						},
+					},
+					{
+						$project: {
+							_id: 1,
+							month: 1,
+							year: 1,
+							profit: 1,
+							revenue: 1,
+							expenditure: 1,
+							revenueComparisonRate: 1,
+							profitComparisonRate: 1,
+							expenditureComparisonRate: 1,
+							roomOccupancyRate: '$room.occupancyRate',
+							totalVehicle: '$vehicle.totalVehicle',
+							totalCustomer: '$customer.totalCustomer',
+						},
+					},
+				],
+				as: 'preStatistics',
+			},
+		},
+		{
+			$addFields: {
+				totalRoom: {
+					$size: '$listRooms',
+				},
+				totalRoomStateHired: {
+					$size: {
+						$filter: {
+							input: '$listRooms',
+							as: 'room',
+							cond: {
+								$eq: ['$$room.roomState', 1], // 1 = hired
+							},
+						},
+					},
+				},
+				totalRoomStateUnHired: {
+					$size: {
+						$filter: {
+							input: '$listRooms',
+							as: 'room',
+							cond: {
+								$or: [
+									{
+										$eq: ['$$room.roomState', roomState['UN_HIRED']],
+									},
+									{
+										$eq: ['$$room.roomState', roomState['ABOUT_CHECKOUT']],
+									},
+								],
+							},
+						},
+					},
+				},
+				totalCustomer: {
+					$size: '$listCustomers',
+				},
+				customerTemporaryResidence: {
+					$size: {
+						$filter: {
+							input: '$listCustomers',
+							as: 'customer',
+							cond: {
+								$eq: ['$$customer.temporaryResidence', true],
+							},
+						},
+					},
+				},
+				totalVehicle: {
+					$size: '$listVehicles',
+				},
+				preStatistics: {
+					$arrayElemAt: ['$preStatistics', 0],
+				},
+			},
+		},
+		{
+			$project: {
+				_id: 1,
+				room: {
+					totalRoom: '$totalRoom',
+					rentedRoom: '$totalRoomStateHired',
+					emptyRoom: '$totalRoomStateUnHired',
+					occupancyRate: {
+						$round: [
+							{
+								$multiply: [
+									{
+										$divide: ['$totalRoomStateHired', '$totalRoom'],
+									},
+									100,
+								],
+							},
+						],
+					},
+					occupancyComparisonRate: {
+						$subtract: [
+							{
+								$round: [
+									{
+										$multiply: [
+											{
+												$divide: ['$totalRoomStateHired', '$totalRoom'],
+											},
+											100,
+										],
+									},
+								],
+							},
+							'$preStatistics.roomOccupancyRate',
+						],
+					},
+				},
+				customer: {
+					totalCustomer: '$totalCustomer',
+					customerComparisonRate: {
+						$round: [
+							{
+								$multiply: [
+									{
+										$divide: [
+											{
+												$subtract: ['$totalCustomer', '$preStatistics.totalCustomer'],
+											},
+											'$preStatistics.totalCustomer',
+										],
+									},
+									100,
+								],
+							},
+						],
+					},
+					temporaryResidentTotal: '$customerTemporaryResidence',
+				},
+				vehicle: {
+					totalVehicle: '$totalVehicle',
+					vehicleComparisonRate: {
+						$round: [
+							{
+								$multiply: [
+									{
+										$divide: [
+											{
+												$subtract: ['$totalVehicle', '$preStatistics.totalVehicle'],
+											},
+											'$preStatistics.totalVehicle',
+										],
+									},
+									100,
+								],
+							},
+						],
+					},
+				},
+				recentStatistics: 1,
+				preStatistics: 1,
+			},
+		},
+	];
+};
+
+const getStatisticCurrentPeriod = (buildingId, month, year) => {
+	return [
+		{
+			$match: {
+				_id: new mongoose.Types.ObjectId(buildingId),
+			},
+		},
+		{
+			$lookup: {
+				from: 'rooms',
+				localField: '_id',
+				foreignField: 'building',
+				as: 'listRooms',
+			},
+		},
+		{
+			$lookup: {
+				from: 'customers',
+				localField: 'listRooms._id',
+				foreignField: 'room',
+				as: 'listCustomers',
+			},
+		},
+		{
+			$lookup: {
+				from: 'vehicles',
+				localField: 'listRooms._id',
+				foreignField: 'room',
+				as: 'listVehicles',
+			},
+		},
+		{
+			$lookup: {
+				from: 'statistics',
+				let: {
+					buildingId: '$_id',
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$and: [
+									{
+										$eq: ['$building', '$$buildingId'],
+									},
+									{
+										$eq: ['$month', month === 1 ? 12 : month - 1],
+									},
+									{
+										$eq: ['$year', month === 12 ? year - 1 : year],
+									},
+								],
+							},
+						},
+					},
+					{
+						$project: {
+							_id: 1,
+							month: 1,
+							year: 1,
+							profit: 1,
+							revenue: 1,
+							expenditure: 1,
+							revenueComparisonRate: 1,
+							profitComparisonRate: 1,
+							expenditureComparisonRate: 1,
+							roomOccupancyRate: '$room.occupancyRate',
+							totalVehicle: '$vehicle.totalVehicle',
+							totalCustomer: '$customer.totalCustomer',
+						},
+					},
+				],
+				as: 'preStatistics',
+			},
+		},
+		{
+			$addFields: {
+				totalRoom: {
+					$size: '$listRooms',
+				},
+				totalRoomStateHired: {
+					$size: {
+						$filter: {
+							input: '$listRooms',
+							as: 'room',
+							cond: {
+								$eq: ['$$room.roomState', roomState['HIRED']], // 1 = hired
+							},
+						},
+					},
+				},
+				totalRoomStateUnHired: {
+					$size: {
+						$filter: {
+							input: '$listRooms',
+							as: 'room',
+							cond: {
+								$or: [
+									{
+										$eq: ['$$room.roomState', roomState['UN_HIRED']],
+									},
+									{
+										$eq: ['$$room.roomState', roomState['ABOUT_CHECKOUT']],
+									},
+								],
+							},
+						},
+					},
+				},
+				totalCustomer: {
+					$size: '$listCustomers',
+				},
+				customerTemporaryResidence: {
+					$size: {
+						$filter: {
+							input: '$listCustomers',
+							as: 'customer',
+							cond: {
+								$eq: ['$$customer.temporaryResidence', true],
+							},
+						},
+					},
+				},
+				totalVehicle: {
+					$size: '$listVehicles',
+				},
+				preStatistics: {
+					$arrayElemAt: ['$preStatistics', 0],
+				},
+			},
+		},
+		{
+			$project: {
+				_id: 1,
+				room: {
+					totalRoom: '$totalRoom',
+					rentedRoom: '$totalRoomStateHired',
+					emptyRoom: '$totalRoomStateUnHired',
+					occupancyRate: {
+						$round: [
+							{
+								$multiply: [
+									{
+										$divide: ['$totalRoomStateHired', '$totalRoom'],
+									},
+									100,
+								],
+							},
+						],
+					},
+					occupancyComparisonRate: {
+						$subtract: [
+							{
+								$round: [
+									{
+										$multiply: [
+											{
+												$divide: ['$totalRoomStateHired', '$totalRoom'],
+											},
+											100,
+										],
+									},
+								],
+							},
+							'$preStatistics.roomOccupancyRate',
+						],
+					},
+				},
+				customer: {
+					totalCustomer: '$totalCustomer',
+					customerComparisonRate: {
+						$round: [
+							{
+								$multiply: [
+									{
+										$divide: [
+											{
+												$subtract: ['$totalCustomer', '$preStatistics.totalCustomer'],
+											},
+											'$preStatistics.totalCustomer',
+										],
+									},
+									100,
+								],
+							},
+						],
+					},
+					temporaryResidentTotal: '$customerTemporaryResidence',
+				},
+				vehicle: {
+					totalVehicle: '$totalVehicle',
+					vehicleComparisonRate: {
+						$round: [
+							{
+								$multiply: [
+									{
+										$divide: [
+											{
+												$subtract: ['$totalVehicle', '$preStatistics.totalVehicle'],
+											},
+											'$preStatistics.totalVehicle',
+										],
+									},
+									100,
+								],
+							},
+						],
+					},
+				},
+				preStatistics: 1,
+			},
+		},
+	];
+};
+
+module.exports = { getStatisticsPipelineModify, getStatistics, getStatisticCurrentPeriod };

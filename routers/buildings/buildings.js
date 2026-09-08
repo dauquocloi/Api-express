@@ -1,6 +1,9 @@
 const UseCase = require('../../data_providers/buildings');
 const asyncHandler = require('../../utils/asyncHandler');
 const { SuccessResponse, SuccessMsgResponse, XlsxResponse } = require('../../utils/apiResponse');
+const { client: redis } = require('../../config').redisDb;
+const { executeIdempotent } = require('../../utils/idempotent');
+const generateRequestHash = require('../../utils/generateRequestHash');
 const delay = require('../../utils/delay');
 
 exports.getAll = asyncHandler(async (req, res) => {
@@ -42,7 +45,7 @@ exports.getAllCheckoutCosts = asyncHandler(async (req, res) => {
 exports.getStatistics = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.query };
 	console.log('log of getStatistics', data);
-	const result = await UseCase.getStatistics(data.buildingId, data.month, data.year);
+	const result = await UseCase.getStatisticsV2(data.buildingId, data.month, data.year);
 	return new SuccessResponse('Success', result).send(res);
 });
 
@@ -89,8 +92,24 @@ exports.financeSettlement = asyncHandler(async (req, res) => {
 	return new SuccessMsgResponse('Success').send(res);
 });
 
+exports.getFinanceSettlemntCondition = asyncHandler(async (req, res) => {
+	const data = req.params;
+	console.log('log of data fromgetFinanceSettlemntCondition', data);
+	const result = await UseCase.getFinanceSettlementConditionInfo(req.params.buildingId);
+	return new SuccessResponse('Success', result).send(res);
+});
+
 exports.getPrepareFinanceSettlementData = asyncHandler(async (req, res) => {
-	const result = await UseCase.prepareFinanceSettlement(req.params.buildingId);
+	const result = await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			buildingId: req.params.buildingId,
+		}),
+		resourceId: req.params.buildingId,
+		execute: () => UseCase.prepareFinanceSettlement(req.params.buildingId, req.user._id),
+	});
 	return new SuccessResponse('Success', result).send(res);
 });
 

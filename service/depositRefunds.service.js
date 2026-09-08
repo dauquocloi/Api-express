@@ -82,7 +82,9 @@ const updateDepositRefundStatusByReceiptId = async (receiptId, status, session) 
 const getDepositRefunds = async (buildingId, mode, session) => {
 	let result = [];
 	if (mode === depositRefundStatus['PENDING']) {
-		result = await Entity.DepositRefundsEntity.aggregate(Pipelines.depositRefunds.getDepositRefunds(buildingId, mode), { session });
+		result = await Entity.DepositRefundsEntity.aggregate(Pipelines.depositRefunds.getDepositRefundsModePendingPipeline(buildingId, mode), {
+			session,
+		});
 	} else {
 		result = await Entity.DepositRefundsEntity.aggregate(Pipelines.depositRefunds.getDepositRefundsModeRefundedPipeline(buildingId), { session });
 	}

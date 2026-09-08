@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
-const MongoConnect = require('../utils/MongoConnect');
-var Entity = require('../models');
+const Entity = require('../models');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const generatePaymentContent = require('../utils/generatePaymentContent');
 const { AppError, NoEntryError, NotFoundError, BadRequestError, ConflictError, InternalError } = require('../AppError');
@@ -12,13 +11,11 @@ const { formatDebts } = require('../service/debts.helper');
 const { calculateTotalFeeAmount, calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
 const { generateInvoiceFees } = require('../service/invoices.helper');
 const { getInvoiceStatus } = require('../service/invoices.helper');
-const { feeUnit } = require('../constants/fees');
-const { invoiceStatus, invoiceType } = require('../constants/invoices');
+const { billType, invoiceStatus, invoiceType, feeUnit, PAYMENT_METHOD } = require('../constants');
 const { client: redis } = require('../config').redisDb;
 const { NotiManagerCollectCashInvoiceJob } = require('../jobs/Notifications');
 const { znsNewInvoiceNotiJob } = require('../jobs/ZNS/zns.job');
 const Roles = require('../constants/userRoles');
-const { billType } = require('../constants/bills');
 const { notificationJob } = require('../jobs/notification/notification.job');
 const { NOTI_MANAGER_COLLECT_CASH_INVOICE } = require('../jobs/constant/jobNames');
 
@@ -131,13 +128,12 @@ exports.getInvoiceDetail = async (invoiceId, buildingId) => {
 	const invoiceObjectId = new mongoose.Types.ObjectId(invoiceId);
 
 	const invoice = await Services.invoices.getInvoiceDetail(invoiceObjectId);
-	const { _id: invoiceInfo, transactionInfo } = invoice;
-
+	const { transactions, ...invoiceInfo } = invoice;
 	const bankAccount = await Services.bankAccounts.findByBuildingId(buildingId).populate('bank').lean().exec();
 	if (!bankAccount) throw new NotFoundError('Không tìm thấy tài khoản ngân hàng của tòa nhà !');
 
 	return {
-		invoiceDetail: { ...invoiceInfo, transactionInfo },
+		invoiceDetail: { transactionInfo: transactions, ...invoiceInfo },
 		paymentInfo: {
 			_id: bankAccount._id,
 			accountNumber: bankAccount.accountNumber,
@@ -148,6 +144,7 @@ exports.getInvoiceDetail = async (invoiceId, buildingId) => {
 };
 
 //owner only
+// Cần check case hóa đơn đang có transaction chưa được xác thực
 exports.deleteInvoice = async (invoiceId, userId, invoiceVersion) => {
 	let session;
 	try {
@@ -274,7 +271,7 @@ exports.collectCashMoney = async (invoiceId, buildingId, date, amount, collector
 
 				checkoutCost.total -= appliedAmount;
 				if (newInvoiceStatus === invoiceStatus['PAID']) {
-					checkoutCost.invoiceUnpaid = null;
+					checkoutCost.invoicesUnpaid = null;
 					await Services.invoices.removeDetuctedInfo(invoiceObjectId, session);
 				}
 				checkoutCost.version += 1;
@@ -330,7 +327,7 @@ exports.checkout = async (invoiceId, buildingId, date, amount, collectorInfo, ve
 		const currentPeriod = await getCurrentPeriod(buildingId);
 
 		let createTransaction;
-		if (paymentMethod === 'cash') {
+		if (paymentMethod === PAYMENT_METHOD['CASH']) {
 			createTransaction = await Services.transactions.createCashTransaction(
 				{
 					amount: amount,

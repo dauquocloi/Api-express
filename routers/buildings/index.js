@@ -91,6 +91,14 @@ router.get(
 );
 
 router.get(
+	'/:buildingId/finance-settlement-condition',
+	authorization(ROLES['OWNER'], ROLES['MANAGER'], ROLES['STAFF']),
+	validator(schema.id, ValidateSource.PARAM),
+	checkResourceAccess(RESOURCES['buildings']),
+	Buildings.getFinanceSettlemntCondition,
+);
+
+router.get(
 	'/:buildingId/workflow/finance-settlement-prepare',
 	authorization(ROLES['OWNER']),
 	validator(schema.id, ValidateSource.PARAM),
@@ -103,7 +111,7 @@ router.post(
 	authorization(ROLES['OWNER']),
 	validator(schema.id, ValidateSource.PARAM),
 	checkResourceAccess(RESOURCES['buildings']),
-	checkIdempotency,
+	// checkIdempotency,
 	Buildings.financeSettlement,
 );
 

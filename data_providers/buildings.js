@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 let Entity = require('../models');
 const Services = require('../service');
 const { BadRequestError, NotFoundError, InternalError, NoDataError, InvalidInputError } = require('../AppError');
+const crypto = require('crypto');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const getFileUrl = require('../utils/getFileUrl');
 const {
@@ -15,16 +16,24 @@ const {
 	generateRowExcelData,
 	formatExcel,
 	styleExcel,
+	checkFinnaceSettlementCondition,
+	calculateFinalProfit,
 } = require('./buildings.util');
 const ExcelJS = require('exceljs');
 const uploadFile = require('../utils/uploadFile');
 const { FailureMsgResponse } = require('../utils/apiResponse');
 const deleteFileFromS3 = require('../utils/deleteFileFromS3');
+const { client: redis } = require('../config').redisDb;
+const { getRevenues } = require('./revenues');
+const { getExpenditures } = require('./expenditures');
+const { calculateTotalExpenditures } = require('./expenditures.util');
+const calculateComparisonRate = require('../utils/calculateComparisonRate');
+const { STATISTIC_STATUS } = require('../constants');
 
 //  get all buildings by managername
 exports.getAll = async (userId) => {
 	const userObjectId = new mongoose.Types.ObjectId(userId);
-	const buildings = await await Services.buildings.getAllBuildingsByManagementId(userObjectId);
+	const buildings = await Services.buildings.getAllBuildingsByManagementId(userObjectId);
 	if (!buildings || buildings.length === 0) throw new NotFoundError('Dữ liệu không tồn tại');
 	return buildings;
 };
@@ -69,27 +78,6 @@ exports.getCheckoutCosts = async (buildingId, month, year) => {
 	return result;
 };
 
-// exports.getStatistics = async (buildingId, month, year) => {
-// 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
-
-// 	if (!month || !year) {
-// 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
-// 		month = currentPeriod.currentMonth;
-// 		year = currentPeriod.currentYear;
-// 	} else {
-// 		Number(month);
-// 		Number(year);
-// 	}
-
-// 	const statistics = await Entity.BuildingsEntity.aggregate(Pipelines.statistics.getStatisticsPipeline(buildingObjectId, month, year));
-
-// 	if (statistics.length == 0) {
-// 		throw new NoDataError(`Không có dữ liệu thống kê cho kỳ ${month}, ${year}`);
-// 	}
-
-// 	return { statistics: statistics[0].recentStatistics };
-// };
-
 exports.getStatistics = async (buildingId, month, year) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
@@ -105,6 +93,59 @@ exports.getStatistics = async (buildingId, month, year) => {
 	const statistics = await Services.statistics.getStatistics(buildingObjectId, month, year);
 
 	return statistics;
+};
+
+exports.getStatisticsV2 = async (buildingId, month, year) => {
+	let result;
+
+	const currentPeriod = await getCurrentPeriod(buildingId);
+	if (!month || !year) {
+		month = currentPeriod.currentMonth;
+		year = currentPeriod.currentYear;
+	}
+
+	if (year == currentPeriod.currentYear) {
+		const currentMonth = currentPeriod.currentMonth;
+		const currentYear = currentPeriod.currentYear;
+		const [revenues, expenditures, statistics, currentStatistics] = await Promise.all([
+			getRevenues({ buildingId, month: currentMonth, year: currentYear }),
+			getExpenditures(buildingId, currentMonth, currentYear),
+			Services.statistics.getAllStatisticsInYear(buildingId, currentYear),
+			Services.statistics.getStatisticCurrentPeriod(buildingId, currentMonth, currentYear),
+		]);
+		const { preStatistics } = currentStatistics;
+
+		if (!preStatistics) throw new NoDataError('Dữ liệu ban đầu chưa được khởi tạo !');
+
+		const totalExpenditure = calculateTotalExpenditures(expenditures?.incidentalExpenditures || [], expenditures?.periodicExpenditures || []);
+		const totalProfit = calculateFinalProfit(revenues?.actualTotalRevenue ?? 0, totalExpenditure);
+
+		const formatCurrentStatistics = {
+			_id: new mongoose.Types.ObjectId(),
+			statisticsStatus: STATISTIC_STATUS['UN_LOCK'],
+			buildingId: buildingId,
+			month: currentPeriod.currentMonth,
+			year: currentPeriod.currentYear,
+			revenue: revenues?.actualTotalRevenue,
+			revenueComparisonRate: calculateComparisonRate(preStatistics?.revenue ?? 0, revenues?.actualTotalRevenue ?? 0),
+			expenditure: totalExpenditure,
+			expenditureComparisonRate: calculateComparisonRate(preStatistics?.expenditure ?? 0, totalExpenditure),
+			profit: totalProfit,
+			profitComparisonRate: calculateComparisonRate(preStatistics?.profit ?? 0, totalProfit),
+
+			room: currentStatistics.room,
+			vehicle: currentStatistics.vehicle,
+			customer: currentStatistics.customer,
+		};
+
+		result = {
+			statistics: [...statistics, formatCurrentStatistics],
+		};
+	} else {
+		result = await Services.statistics.getAllStatisticsInYear(buildingId, year);
+	}
+
+	return result;
 };
 
 // owner only // REFACTORED !
@@ -166,17 +207,104 @@ exports.upLoadDepositTermFile = async (buildingId, depositTermFile) => {
 	return { depositTermFileUrl: result.url };
 };
 
-exports.prepareFinanceSettlement = async (buildingId, userId) => {
-	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
-	const currentPeriod = await getCurrentPeriod(buildingObjectId);
-
-	const { depositRefundsUnpaid, checkoutCostsUnpaid, invoicesUnpaid, receiptsUnpaid } = await Services.buildings.getPrepareFinanceSettlementData(
-		buildingObjectId,
-		currentPeriod.currentMonth,
-		currentPeriod.currentYear,
-	);
-	return { depositRefundsUnpaid, checkoutCostsUnpaid, invoicesUnpaid, receiptsUnpaid };
+exports.getFinanceSettlementConditionInfo = async (buildingId) => {
+	const currentPeriod = await getCurrentPeriod(buildingId);
+	const result = await Services.buildings.getPrepareFinanceSettlementV2(buildingId, currentPeriod.currentMonth, currentPeriod.currentYear);
+	const { checkoutCostsUnpaid, depositRefundsUnpaid, invoicesUnpaid, receiptsUnpaid, pendingTransactions } = result;
+	const { pass } = checkFinnaceSettlementCondition({ checkoutCostsUnpaid, depositRefundsUnpaid, pendingTransactions });
+	const response = {
+		buildingId: result._id,
+		checkoutCostsUnpaid: checkoutCostsUnpaid.length || 0,
+		depositRefundsUnpaid: depositRefundsUnpaid.length || 0,
+		invoicesUnpaid: invoicesUnpaid.length || 0,
+		receiptsUnpaid: receiptsUnpaid.length || 0,
+		pendingTransactions: pendingTransactions.length || 0,
+		pass,
+	};
+	return response;
 };
+
+// Cần khóa việc sửa các collections (DONE)
+exports.prepareFinanceSettlement = async (buildingId, userId) => {
+	const ttl = 10 * 60 * 1000;
+	const createdAt = Date.now();
+	const expiredAt = createdAt + ttl;
+	const queryId = crypto.randomUUID();
+
+	const currentPeriod = await getCurrentPeriod(buildingId);
+
+	const { depositRefundsUnpaid, checkoutCostsUnpaid, invoicesUnpaid, receiptsUnpaid, pendingTransactions } =
+		await Services.buildings.getPrepareFinanceSettlementV2(buildingId, currentPeriod.currentMonth, currentPeriod.currentYear);
+
+	const { pass, reason, items } = checkFinnaceSettlementCondition({
+		checkoutCostsUnpaid,
+		depositRefundsUnpaid,
+		pendingTransactions,
+	});
+
+	if (!pass) {
+		return {
+			passed: false,
+			reason,
+			items,
+		};
+	}
+
+	await Services.rooms.lockAllRoomsForSettlement(buildingId, userId, expiredAt);
+
+	return {
+		passed: true,
+		invoicesUnpaid: invoicesUnpaid || [],
+		receiptsUnpaid: receiptsUnpaid || [],
+		queryId,
+		createdAt,
+		expiredAt,
+	};
+};
+
+// exports.prepareFinanceSettlementV2 = idempotent(async (buildingId, userId) => {
+// 	const ttl = 10 * 60 * 1000;
+// 	const createdAt = new Date();
+// 	const expiredAt = new Date(createdAt.getTime() + ttl);
+// 	const queryId = crypto.randomUUID();
+
+// 	const currentPeriod = await getCurrentPeriod(buildingId);
+
+// 	const { depositRefundsUnpaid, checkoutCostsUnpaid, invoicesUnpaid, receiptsUnpaid, pendingTransactions } =
+// 		await Services.buildings.getPrepareFinnaceSettlementDataV2(buildingId, currentPeriod.currentMonth, currentPeriod.currentYear, session);
+
+// 	const { pass, reason, items } = checkFinnaceSettlementCondition({
+// 		checkoutCostsUnpaid,
+// 		depositRefundsUnpaid,
+// 		pendingTransactions,
+// 	});
+
+// 	if (!pass) {
+// 		return {
+// 			passed: false,
+// 			reason,
+// 			items,
+// 		};
+// 	}
+
+// 	await Services.rooms.lockAllRoomsForSettlement(buildingId, userId, session, expiredAt);
+
+// 	return {
+// 		passed: true,
+// 		invoicesUnpaid: invoicesUnpaid || [],
+// 		receiptsUnpaid: receiptsUnpaid || [],
+// 		queryId,
+// 		createdAt,
+// 		expiredAt,
+// 	};
+
+// 	// return {
+// 	// 	...result,
+// 	// 	queryId,
+// 	// 	createdAt,
+// 	// 	expiredAt,
+// 	// };
+// });
 
 exports.financeSettlement = async (buildingId, userId) => {
 	let result;

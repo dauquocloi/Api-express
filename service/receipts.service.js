@@ -152,10 +152,11 @@ exports.modifyReceipt = async ({ receiptObjectId, receiptVersion, receiptAmount,
 	return result.toObject();
 };
 
-exports.updateReceiptPaidAmount = async ({ receiptId, paidAmount, receiptStatus }, session) => {
-	const result = await Entity.ReceiptsEntity.findOneAndUpdate(
+exports.updateReceiptPaidAmount = async ({ receiptId, paidAmount, receiptStatus, version }, session) => {
+	const result = await Entity.ReceiptsEntity.updateOne(
 		{
 			_id: receiptId,
+			version: version,
 		},
 		{
 			$set: {
@@ -166,10 +167,9 @@ exports.updateReceiptPaidAmount = async ({ receiptId, paidAmount, receiptStatus 
 		},
 		{
 			session,
-			new: true,
 		},
 	);
-	if (!result) return null;
+	if (result.matchedCount === 0) throw new ConflictError('Hóa đơn đã bị thay đổi hoặc dữ liệu không hợp lệ');
 	return result;
 };
 
@@ -369,26 +369,6 @@ exports.closeReceiptDeposit = async ({ receiptId }, session = null) => {
 	const result = await Entity.ReceiptsEntity.updateOne(
 		{ _id: receiptId, receiptType: receiptTypes.DEPOSIT },
 		{ $set: { locked: true, isActive: false } },
-		{ session },
-	);
-	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');
-	return result;
-};
-
-exports.modifyReceiptAmount = async ({ receiptId, newAmount, newReceiptStatus, version }, session) => {
-	const result = await Entity.ReceiptsEntity.updateOne(
-		{ _id: receiptId, version },
-		{ $set: { amount: newAmount, status: newReceiptStatus }, $inc: { version: 1 } },
-		{ session },
-	);
-	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');
-	return result;
-};
-
-exports.modifyReceiptPaidAmount = async ({ receiptId, newPaidAmount, newReceiptStatus, version }, session) => {
-	const result = await Entity.ReceiptsEntity.updateOne(
-		{ _id: receiptId, version },
-		{ $set: { paidAmount: newPaidAmount, status: newReceiptStatus }, $inc: { version: 1 } },
 		{ session },
 	);
 	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');

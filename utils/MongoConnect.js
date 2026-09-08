@@ -1,7 +1,9 @@
 'use strict';
 
-var mongoose = require('mongoose');
+const mongoose = require('mongoose');
 global.config = require('../config');
+
+mongoose.set('transactionAsyncLocalStorage', true);
 
 var db;
 

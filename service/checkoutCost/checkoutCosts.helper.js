@@ -1,5 +1,5 @@
 const { calculateTotalFeeAmount } = require('../../utils/calculateFeeTotal');
-
+const { checkoutCostStatus } = require('../../constants');
 const calculateTotalCheckoutCostAmount = (roomFees, debts, receiptsUnpaid, invoicesUnpaid, feesOther) => {
 	let totalCost = 0;
 	totalCost += calculateTotalFeeAmount(roomFees);
@@ -15,6 +15,19 @@ const calculateTotalCheckoutCostAmount = (roomFees, debts, receiptsUnpaid, invoi
 	return Math.max(totalCost, 0);
 };
 
+const calculateCheckoutCostStatus = (checkoutCostAmount, checkoutCostPaidAmount) => {
+	if (checkoutCostPaidAmount >= checkoutCostAmount) {
+		return checkoutCostStatus.PAID;
+	}
+
+	if (checkoutCostPaidAmount === 0) {
+		return checkoutCostStatus.PENDING;
+	}
+
+	return checkoutCostStatus.PARTIAL;
+};
+
 module.exports = {
 	calculateTotalCheckoutCostAmount,
+	calculateCheckoutCostStatus,
 };

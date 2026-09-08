@@ -74,15 +74,15 @@ router.patch(
 );
 
 //NOT USED
-router.post(
-	'/:receiptId/collect-cash',
-	authorization(ROLES['OWNER'], ROLES['MANAGER']),
-	checkIdempotency,
-	validator(schema.id, ValidateSource.PARAM),
-	validator(schema.collectCash, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['receipts']),
-	Receipts.collectCashMoney,
-);
+// router.post(
+// 	'/:receiptId/collect-cash',
+// 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+// 	checkIdempotency,
+// 	validator(schema.id, ValidateSource.PARAM),
+// 	validator(schema.collectCash, ValidateSource.BODY),
+// 	checkResourceAccess(RESOURCES['receipts']),
+// 	Receipts.collectCashMoney,
+// );
 
 router.post(
 	'/:receiptId/checkout',

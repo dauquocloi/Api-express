@@ -9,6 +9,11 @@ const rooms = require('./rooms');
 const fees = require('./fees');
 const buildings = require('./buildings');
 const transactions = require('./transactions');
+const checkoutCosts = require('./checkoutCosts');
+const bills = require('./bills');
+const excels = require('./excel');
+const idempotencyRecords = require('./idempotencyRecords');
+const statistics = require('./statistics');
 module.exports = {
 	...invoices,
 	...receipt,
@@ -21,4 +26,9 @@ module.exports = {
 	...fees,
 	...buildings,
 	...transactions,
+	...checkoutCosts,
+	...bills,
+	...excels,
+	...idempotencyRecords,
+	...statistics,
 };

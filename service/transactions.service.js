@@ -1,7 +1,7 @@
 const { NotFoundError } = require('../AppError');
-const { CREATED_BY, OWNER_CONFIRMED_STATUS } = require('../constants/transactions');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
+const { PAYMENT_METHOD, CREATED_BY, OWNER_CONFIRMED_STATUS } = require('../constants');
 
 exports.findById = (transactionId) => Entity.TransactionsEntity.findById(transactionId);
 
@@ -17,7 +17,7 @@ exports.createCashTransaction = async ({ amount, date, type, collectorId, create
 			{
 				transactionDate: date,
 				amount: amount,
-				paymentMethod: 'cash',
+				paymentMethod: PAYMENT_METHOD['CASH'],
 				receipt: type === 'receipt' ? id : null,
 				invoice: type === 'invoice' ? id : null,
 				collector: collectorId,
@@ -65,7 +65,7 @@ exports.generateTransferTransactionBySepay = async (
 				referenceCode,
 				transactionId,
 				idempotencyKey,
-				paymentMethod: 'transfer',
+				paymentMethod: PAYMENT_METHOD['TRANSFER'],
 				isTransactionDetected: true,
 				invoice: invoice,
 				receipt: receipt,
@@ -88,7 +88,7 @@ exports.generateTransferTransactionByManagement = async (
 		[
 			{
 				amount,
-				paymentMethod: 'transfer',
+				paymentMethod: PAYMENT_METHOD['TRANSFER'],
 				transferType: 'credit',
 				collector,
 				createdBy,
@@ -134,7 +134,7 @@ exports.generateUnDetectedTransaction = async (
 				referenceCode,
 				transactionId,
 				idempotencyKey,
-				paymentMethod: 'transfer',
+				paymentMethod: PAYMENT_METHOD['TRANSFER'],
 				isTransactionDetected: false,
 				invoice: null,
 				receipt: null,
@@ -157,7 +157,7 @@ exports.importCashTransactions = async (data, session) => {
 		createdAt: data.createdAt,
 		updatedAt: data.createdAt,
 		amount: data.amount,
-		paymentMethod: 'cash',
+		paymentMethod: PAYMENT_METHOD['CASH'],
 		receipt: data.receipt,
 		collector: data.collector,
 		month: data.month,
@@ -171,12 +171,16 @@ exports.importCashTransactions = async (data, session) => {
 };
 
 exports.transformCashPaymentMethod = async (transactionId, session) => {
-	const result = await Entity.TransactionsEntity.updateOne({ _id: transactionId }, { $set: { paymentMethod: 'cash' } }, { session });
+	const result = await Entity.TransactionsEntity.updateOne(
+		{ _id: transactionId },
+		{ $set: { paymentMethod: PAYMENT_METHOD['CASH'] } },
+		{ session },
+	);
 	if (result.matchedCount === 0) throw new NotFoundError('Giao dịch không tồn tại');
 	return true;
 };
 
-exports.removeTransaction = async (transactionId, session) => Entity.TransactionsEntity.deleteOne({ _id: transactionId }, { session });
+exports.removeTransaction = (transactionId, session) => Entity.TransactionsEntity.deleteOne({ _id: transactionId }, { session });
 
 exports.getAllTransactionsInPeriod = async (buildingObjectId, currentMonth, currentYear, session) => {
 	const [result] = await Entity.BuildingsEntity.aggregate(
@@ -185,3 +189,21 @@ exports.getAllTransactionsInPeriod = async (buildingObjectId, currentMonth, curr
 
 	return result;
 };
+
+exports.updateOwnerConfirmationStatus = async ({ transactionId, ownerConfirmationStatus, version, ownerDeclinedReason = '' }, session) => {
+	const result = await Entity.TransactionsEntity.updateOne(
+		{ _id: transactionId, version: version },
+		{ $set: { ownerConfirmed: ownerConfirmationStatus, ownerDeclinedReason }, $inc: { version: 1 } },
+		{ session },
+	);
+
+	if (!result) throw new ConFlictError('Giao dịch đã bị thay đổi, vui lòng tải lại trang !');
+
+	return true;
+};
+
+// exports.updateOwnerConfirmedStatus = async ({ transactionId, ownerConfirmedStatus }, session) => {
+// 	const result = awat Entity.TransactionsEntity.updateOne(
+
+// 	)
+// }

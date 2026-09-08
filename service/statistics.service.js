@@ -1,4 +1,4 @@
-const { NoDataError } = require('../AppError');
+const { NoDataError, NotFoundError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
 
@@ -46,26 +46,26 @@ exports.createStatistics = async (
 	return result.toObject();
 };
 
-// exports.getStatistics = async (buildingObjectId, month, year, session) => {
-// 	const statistics = await Entity.StatisticsEntity.aggregate(Pipelines.statistics.getStatisticsPipeline(buildingObjectId, month, year)).session(
-// 		session,
-// 	);
-
-// 	if (statistics.length == 0) {
-// 		throw new NoDataError(`Không có dữ liệu thống kê cho kỳ ${month}, ${year}`);
-// 	}
-
-// 	return { statistics: statistics[0].recentStatistics };
-// };
-
 exports.getStatistics = async (buildingObjectId, month, year, session) => {
-	const statistics = await Entity.BuildingsEntity.aggregate(
+	const [statistics] = await Entity.BuildingsEntity.aggregate(
 		Pipelines.statistics.getStatisticsPipelineModify(buildingObjectId, month, year),
 	).session(session);
 
-	if (statistics.length === 0) {
-		throw new NoDataError(`Không có dữ liệu thống kê cho kỳ ${month}, ${year}`);
-	}
+	if (!statistics) throw new NotFoundError('Id tòa nhà không tồn tại');
 
-	return { statistics: statistics[0].recentStatistics };
+	return statistics;
+};
+
+exports.getAllStatisticsInYear = async (buildingId, year) => {
+	const result = await Entity.StatisticsEntity.find({ building: buildingId, year }).lean().exec();
+	if (!result || !result.length) throw new NoDataError('Không có dữ liệu !');
+	return result;
+};
+
+exports.getStatisticCurrentPeriod = async (buildingId, currentMonth, currentYear) => {
+	const [result] = await Entity.BuildingsEntity.aggregate(Pipelines.statistics.getStatisticCurrentPeriod(buildingId, currentMonth, currentYear));
+
+	if (!result) throw new NotFoundError('Id tòa nhà không tồn tại');
+
+	return result;
 };

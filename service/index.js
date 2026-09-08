@@ -25,6 +25,7 @@ const contractExtentions = require('./contractExtentions.service');
 const companies = require('./companies.service');
 const otps = require('./otps.service');
 const OA = require('./OA.service');
+const idempotencyRecords = require('./idempotencyRecords.service');
 
 module.exports = {
 	buildings,
@@ -54,4 +55,5 @@ module.exports = {
 	expenditures,
 	revenues,
 	otps,
+	idempotencyRecords,
 };

@@ -1,11 +1,18 @@
-const { debtStatus } = require('../constants/debts');
-const { receiptTypes: RECEIPT_TYPES, receiptStatus } = require('../constants/receipt');
-const { invoiceStatus } = require('../constants/invoices');
 const { calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
-const { OWNER_CONFIRMED_STATUS } = require('../constants/transactions');
-const { feeUnit } = require('../constants/fees');
-const { Schema, FormatType } = require('../constants/excel');
-const { roomState, roomStateTransform } = require('../constants/rooms');
+const {
+	Schema,
+	FormatType,
+	roomState,
+	roomStateTransform,
+	checkoutCostStatus,
+	depositRefundStats,
+	invoiceStatus,
+	receiptStatus,
+	receiptTypes: RECEIPT_TYPES,
+	debtStatus,
+	OWNER_CONFIRMED_STATUS,
+	feeUnit,
+} = require('../constants');
 
 const isMissingInvoice = (rooms, invoices) =>
 	rooms.filter((room) => room.roomState !== 0).some((room) => !invoices.some((invoice) => invoice.room.toString() === room._id.toString()));
@@ -277,6 +284,39 @@ const styleExcel = (worksheet, schema) => {
 	});
 };
 
+const checkFinnaceSettlementCondition = ({ checkoutCostsUnpaid, depositRefundsUnpaid, pendingTransactions }) => {
+	if (depositRefundsUnpaid.length) {
+		return {
+			pass: false,
+			reason: 'Tồn tại khoản phí trả cọc chưa được hoàn thành !',
+			reasonDetail: 'Tồn tại khoản phí trả cọc chưa được hoàn thành. Bạn cần hoàn thành các khoản trả cọc trước khi thực hiện quyết toán.',
+			items: depositRefundsUnpaid.length,
+		};
+	}
+	if (checkoutCostsUnpaid.length) {
+		return {
+			pass: false,
+			reason: 'Tồn tại khoản phí trả phòng chưa được thu !',
+			reasonDetail: 'Tồn tại khoản phí trả phòng chưa được thu. Bạn cần hoàn thành các khoản phí này trước khi thực hiện quyết toán.',
+			items: checkoutCostsUnpaid.length,
+		};
+	}
+	if (pendingTransactions.length) {
+		return {
+			pass: false,
+			reason: 'Tồn tại giao dịch đang chờ xác nhận được xác nhận !',
+			reasonDetail: 'Tồn tại giao dịch đang chờ xác nhận được xác nhận. Bạn cần xác nhận các giao dịch này trước khi thực hiện quyết toán.',
+			items: pendingTransactions.length,
+		};
+	}
+
+	return {
+		pass: true,
+	};
+};
+
+const calculateFinalProfit = (totalActualRevenue, totalExpenditure) => totalActualRevenue - totalExpenditure;
+
 module.exports = {
 	isMissingInvoice,
 	formatPeriodicExpenditurePayload,
@@ -288,4 +328,6 @@ module.exports = {
 	generateRowExcelData,
 	formatExcel,
 	styleExcel,
+	checkFinnaceSettlementCondition,
+	calculateFinalProfit,
 };

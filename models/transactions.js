@@ -1,6 +1,6 @@
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-const { CREATED_BY, OWNER_CONFIRMED_STATUS } = require('../constants/transactions');
+const { CREATED_BY, OWNER_CONFIRMED_STATUS, PAYMENT_METHOD } = require('../constants/transactions');
 
 // Create  Mongoose Schema
 const TransactionsSchema = new mongoose.Schema(
@@ -18,7 +18,7 @@ const TransactionsSchema = new mongoose.Schema(
 		// accumulated: { type: Number, required: true }, // Số dư tích lũy (chưa hỗ trợ)
 		transactionId: { type: String, required: false, unique: true }, // ID giao dịch (from bank)
 		idempotencyKey: { type: String, required: false, unique: true }, // ID request
-		paymentMethod: { type: String, enum: ['transfer', 'cash'], required: true }, // Loại thanh toán
+		paymentMethod: { type: String, enum: Object.values(PAYMENT_METHOD), required: true }, // Loại thanh toán
 
 		isTransactionDetected: { type: Boolean, default: false },
 		createdBy: { type: String, enum: Object.values(CREATED_BY), required: true },
@@ -51,8 +51,10 @@ const TransactionsSchema = new mongoose.Schema(
 			required: false,
 			default: null,
 		},
+		ownerDeclinedReason: { type: String, required: false, trim: true },
+		version: { type: Number, default: 1 },
 	},
-	{ timestamps: true }, // Tự động thêm createdAt và updatedAt
+	{ timestamps: true, versionKey: false },
 );
 
 exports.TransactionsEntity = mongoose.model('TransactionsEntity', TransactionsSchema, 'transactions');

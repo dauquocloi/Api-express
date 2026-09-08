@@ -3,9 +3,9 @@ const asyncHandler = require('../../utils/asyncHandler');
 const UseCase = require('../../data_providers/notifications');
 
 exports.getNotifications = asyncHandler(async (req, res) => {
-	const data = { ...req.user, ...req.query };
+	const data = { ...req.query };
 	console.log('log of getNotifications: ', data);
-	const result = await UseCase.getNotifications(data._id, Number(data.page));
+	const result = await UseCase.getNotifications(req.user._id, Number(data.page));
 	return new SuccessResponse('Success', result).send(res);
 });
 

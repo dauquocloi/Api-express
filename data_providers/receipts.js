@@ -6,7 +6,7 @@ const { AppError, NotFoundError, InternalError, BadRequestError, InvalidInputErr
 const { errorCodes } = require('../constants/errorCodes');
 const getContractOwnerByRoomId = require('./customers').getContractOwnerByRoomId;
 const { client: redis } = require('../config').redisDb;
-const { receiptTypes, receiptStatus } = require('../constants/receipt');
+const { receiptTypes, receiptStatus, debtStatus, sourceType, billType, PAYMENT_METHOD } = require('../constants');
 
 const { calculateReceiptStatusAfterModified } = require('../service/receipts.helper');
 const Services = require('../service');
@@ -14,9 +14,7 @@ const { calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
 const { TaskNotiJob, NotiManagerCollectCashReceiptJob } = require('../jobs/Notifications');
 const { getInvoiceStatus } = require('../service/invoices.helper');
 const Roles = require('../constants/userRoles');
-const { debtStatus, sourceType } = require('../constants/debts');
 const { znsNewInvoiceNotiJob } = require('../jobs/ZNS/zns.job');
-const { billType } = require('../constants/bills');
 const { notificationJob } = require('../jobs/notification/notification.job');
 const { NOTI_MANAGER_COLLECT_CASH_RECEIPT } = require('../jobs/constant/jobNames');
 
@@ -38,8 +36,9 @@ exports.getListReceiptPaymentStatus = async (buildingId, month, year) => {
 };
 
 exports.createDepositReceipt = async (roomId, buildingId, receipAmount, payerName, userId, roomVersion) => {
+	let session;
 	try {
-		let session = await mongoose.startSession();
+		session = await mongoose.startSession();
 		return await session.withTransaction(async () => {
 			const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 			await Services.bankAccounts.checkExistBankAccount({ buildingId: buildingObjectId }, session);
@@ -83,7 +82,7 @@ exports.createReceipt = async (roomId, receiptAmount, receiptContent, date, user
 			const currentRoom = await Services.rooms.findById(roomObjectId).session(session).lean().exec();
 			if (!currentRoom) throw new NotFoundError('Phòng không tồn tại !');
 
-			await Services.bankAccounts.checkExistBankAccount({ buildingId: data.buildingId }, session);
+			await Services.bankAccounts.checkExistBankAccount({ buildingId: currentRoom.buildingId }, session);
 			await Services.rooms.assertRoomWritable({ roomId, userId, session: null });
 
 			const currentPeriod = await getCurrentPeriod(currentRoom.building);
@@ -132,17 +131,17 @@ exports.createReceipt = async (roomId, receiptAmount, receiptContent, date, user
 };
 
 exports.getReceiptDetail = async (receiptId, buildingId) => {
-	// const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 	const receiptObjectId = new mongoose.Types.ObjectId(receiptId);
 
-	const getReceipt = await Services.receipts.getReceiptAndTransDetail(receiptObjectId);
+	const receipt = await Services.receipts.getReceiptAndTransDetail(receiptObjectId);
 
 	const bankAccount = await Services.bankAccounts.findByBuildingId(buildingId).populate('bank').lean().exec();
 	if (!bankAccount) throw new NotFoundError('Không tìm thấy tài khoản ngân hàng của tòa nhà !');
 
+	const { transactions, ...receiptInfo } = receipt;
 	return {
-		receiptInfo: getReceipt._id,
-		transactionInfo: getReceipt.transactionInfo,
+		receiptInfo,
+		transactionInfo: transactions,
 		paymentInfo: {
 			_id: bankAccount._id,
 			accountNumber: bankAccount.accountNumber,
@@ -296,7 +295,7 @@ exports.checkout = async (receiptId, amount, date, collectorInfo, version, redis
 		const currentPeriod = await getCurrentPeriod(currentReceipt.room.building._id);
 
 		let createTransaction;
-		if (paymentMethod === 'cash') {
+		if (paymentMethod === PAYMENT_METHOD['CASH']) {
 			createTransaction = await Services.transactions.createCashTransaction(
 				{
 					amount: amount,

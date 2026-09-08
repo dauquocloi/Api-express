@@ -1,7 +1,6 @@
-const { date } = require('joi');
 var mongoose = require('mongoose');
-// (Schema = mongoose.Schema), (ObjectId = Schema.ObjectId);
 require('mongoose-double')(mongoose);
+const { STATISTIC_STATUS } = require('../constants');
 
 const Schema = mongoose.Schema;
 // Create a Mongoose Schema
@@ -61,9 +60,7 @@ let StatisticsSchema = new Schema(
 	{
 		statisticsStatus: {
 			type: String,
-			enum: {
-				values: ['lock', 'unLock'],
-			},
+			enum: Object.values(STATISTIC_STATUS),
 			required: true,
 		},
 		building: {
@@ -100,7 +97,7 @@ let StatisticsSchema = new Schema(
 			type: Number,
 			required: true,
 		},
-		expenditureComparitionRate: {
+		expenditureComparisonRate: {
 			type: Number,
 			default: null,
 		},

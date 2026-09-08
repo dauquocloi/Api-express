@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+const { depositStatus, OWNER_CONFIRMED_STATUS } = require('../../../constants');
 // Should be refactored => to month/year
 const getDepositsPipeline = (buildingId, month, year) => {
 	return [
@@ -209,4 +211,93 @@ const getDepositDetail = (depositId) => {
 	];
 };
 
-module.exports = { getDepositsPipeline, getDepositDetail };
+const getDepositReceiptsUnCarriedOverPaidAmount = (buildingId) => {
+	return [
+		{
+			$match: {
+				building: new mongoose.Types.ObjectId(buildingId),
+				status: {
+					$nin: [depositStatus['PENDING']],
+				},
+			},
+		},
+		{
+			$lookup: {
+				from: 'receipts',
+				localField: 'receipt',
+				foreignField: '_id',
+				let: {
+					status: '$status',
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$cond: [
+									{
+										$eq: ['$$status', depositStatus['CANCELLED']],
+									},
+									//then
+									{
+										$ne: ['$carriedOverPaidAmount', '$paidAmount'],
+									},
+									//else
+									{
+										$and: [
+											{
+												$lt: ['$carriedOverPaidAmount', '$amount'],
+											},
+										],
+									},
+								],
+							},
+						},
+					},
+					{
+						$lookup: {
+							from: 'transactions',
+							localField: '_id',
+							foreignField: 'receipt',
+							pipeline: [
+								{
+									$match: {
+										ownerConfirmed: {
+											$ne: OWNER_CONFIRMED_STATUS['DECLINED'],
+										},
+										isTransactionDetected: true,
+									},
+								},
+							],
+							as: 'transactions',
+						},
+					},
+					{
+						$set: {
+							depositStatus: '$status',
+						},
+					},
+				],
+				as: 'receipts',
+			},
+		},
+		{
+			$match: {
+				'receipts.0': {
+					$exists: true,
+				},
+			},
+		},
+		{
+			$project: {
+				_id: 1,
+				receipt: 1,
+				room: 1,
+				receipts: 1,
+				status: 1,
+				building: 1,
+			},
+		},
+	];
+};
+
+module.exports = { getDepositsPipeline, getDepositDetail, getDepositReceiptsUnCarriedOverPaidAmount };

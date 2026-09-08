@@ -71,3 +71,7 @@ exports.FeeIndexHistoryEntity = require('./feeIndexHistory').FeeIndexHistoryEnti
 exports.ContractExtentionsEntity = require('./contractExtentions').ContractExtentionsEntity;
 
 exports.OtpsEntity = require('./otps').OtpsEntity;
+
+exports.IdempotencyRecordsEntity = require('./idempotencyRecords').IdempotencyRecordsEntity;
+
+exports.RevenuesEntity = require('./revenues').RevenuesEntity;

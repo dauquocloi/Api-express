@@ -1,5 +1,6 @@
 const { unitPriority } = require('../constants/fees');
 const { receiptTypes } = require('../constants/receipt');
+const { depositStatus } = require('../constants');
 
 function getDepositPaidInCurrentPeriod(transactionReceipt, month, year) {
 	if (!Array.isArray(transactionReceipt)) return 0;
@@ -136,15 +137,23 @@ function processIncidentalRevenues(revenues, month, year) {
 			// Skip empty or invalid receipts
 			if (!receipt.receiptContent) continue;
 
-			const { _id, amount = 0, paidAmount = 0, status, receiptType, transactionReceipt = [], carriedOverPaidAmount = 0 } = receipt;
+			const { _id, amount = 0, paidAmount = 0, status, receiptType, carriedOverPaidAmount = 0 } = receipt;
 
 			let revenueToPush = null;
 			let revenueAmount = 0;
 
 			// Handle DEPOSIT type specially
 			if (receiptType === receiptTypes.DEPOSIT) {
+				console.log('deposit receipt: ', receipt);
+				const transactionReceipt = receipt.transactions || [];
+
 				const depositPaidInPeriod = getDepositPaidInCurrentPeriod(transactionReceipt, month, year);
-				const depositRevenue = getDepositRevenueThisPeriod(receipt);
+
+				if (receipt.depositStatus === depositStatus['CANCELLED']) {
+					revenueAmount = paidAmount;
+				} else {
+					revenueAmount = getDepositRevenueThisPeriod(receipt);
+				}
 
 				// Only include if there's payment in current period
 				if (depositPaidInPeriod > 0) {
@@ -155,7 +164,6 @@ function processIncidentalRevenues(revenues, month, year) {
 						amount: depositPaidInPeriod,
 					};
 				}
-				revenueAmount = depositRevenue;
 			} else {
 				// For non-deposit types: only include if paid or partial
 				if (paidAmount > 0) {

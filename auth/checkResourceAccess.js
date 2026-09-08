@@ -27,7 +27,7 @@ const checkResourceAccess = (resourceType, permissionKey = null, validateSource 
 		// Owner && Admin full quyền
 		if (user.role === ROLES[`ADMIN`]) return next();
 		if (permissionKey && ![ROLES.ADMIN, ROLES.OWNER].includes(user.role)) {
-			const company = await Services.companies.findById(buildingUser.companyId).lean().exec();
+			const company = await Services.companies.findById(buildingUser.company).lean().exec();
 			if (!company) {
 				throw new NotFoundError('Company not found !');
 			}

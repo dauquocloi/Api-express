@@ -49,8 +49,6 @@ const DepositsSchema = new Schema(
 		fees: [FeeSchema],
 		interiors: [InteriorSchema],
 		customer: { type: PersonSchema, required: true },
-		//cancelled: Đã cọc sau đó hủy,
-		//close: Đã làm hợp đồng => đã vào ở.
 		status: { type: String, enum: Object.values(depositStatus), default: depositStatus['PENDING'] },
 		version: { type: Number, default: 1 },
 	},

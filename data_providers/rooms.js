@@ -54,69 +54,6 @@ exports.removeInterior = async (interiorId) => {
 	}
 };
 
-//NOT USED
-// exports.generateDepositReceiptAndFirstInvoice = async (roomId, buildingId, createrId, depositAmount, payer, stayDays, feeIndexValues) => {
-// 	let session;
-// 	try {
-// 		const roomObjectId = new mongoose.Types.ObjectId(roomId);
-// 		const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
-// 		const createrObjectId = new mongoose.Types.ObjectId(createrId);
-
-// 		session = await mongoose.startSession();
-// 		session.startTransaction();
-// 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
-// 		const roomInfo = await Entity.RoomsEntity.findOne({ _id: roomObjectId }).session(session);
-// 		if (!roomInfo) {
-// 			throw new NotFoundError(`Phòng với id: ${roomId} không tồn tại !`);
-// 		}
-
-// 		// Phòng đang trống ko thể lấy fees được ! => phải lấy từ contract Draft
-// 		const roomFees = await Services.fees.getRoomFeesAndDebts(roomObjectId, session);
-// 		const formatRoomFees = generateInvoiceFees(roomFees.feeInfo, roomFees._id.rent, stayDays, feeIndexValues, true);
-// 		const totalFirstInvoiceAmount = calculateTotalFeeAmount(formatRoomFees);
-
-// 		const generateInvoice = await Services.invoices.createInvoice(
-// 			{
-// 				roomId: roomObjectId,
-// 				listFees: formatRoomFees,
-// 				totalInvoiceAmount: totalFirstInvoiceAmount,
-// 				stayDays: stayDays,
-// 				debtInfo: null,
-// 				currentPeriod: currentPeriod,
-// 				payerName: payer,
-// 				creater: createrObjectId,
-// 			},
-// 			session,
-// 		);
-
-// 		const createDepositReceipt = await Services.receipts.createReceipt(
-// 			{
-// 				roomObjectId: roomObjectId,
-// 				receiptAmount: depositAmount,
-// 				payer: payer,
-// 				currentPeriod: currentPeriod,
-// 				receiptContent: roomInfo.roomIndex,
-// 				receiptType: receiptTypes['DEPOSIT'],
-// 				initialStatus: receiptStatus['PENDING'],
-// 				creater: createrObjectId,
-// 			},
-// 			session,
-// 		);
-
-// 		await session.commitTransaction();
-
-// 		return {
-// 			invoiceId: generateInvoice?._id,
-// 			receiptId: createDepositReceipt?._id,
-// 		};
-// 	} catch (error) {
-// 		if (session) await session.abortTransaction();
-// 		throw error;
-// 	} finally {
-// 		if (session) session.endSession();
-// 	}
-// };
-
 exports.modifyRent = async (roomId, rentModify, userId) => {
 	let session;
 

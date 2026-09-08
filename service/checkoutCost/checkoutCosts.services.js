@@ -127,6 +127,8 @@ const findByReceiptUnpaidId = (receiptId) => {
 	return Entity.CheckoutCostsEntity.findOne({ receiptsUnpaid: receiptId });
 };
 
+const findByReceiptId = (receiptId) => Entity.CheckoutCostsEntity.findOne({ checkoutCostReceipt: receiptId });
+
 module.exports = {
 	generateCheckoutCost,
 	getCheckoutCostDetail,
@@ -138,4 +140,5 @@ module.exports = {
 	updateCheckoutCostPaymentStatusByReceiptId,
 	findByInvoiceId,
 	findByReceiptUnpaidId,
+	findByReceiptId,
 };

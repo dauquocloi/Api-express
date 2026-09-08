@@ -184,8 +184,20 @@ exports.webhookPayment = async (sepayData) => {
 			console.log('log of findReceipt: ', findReceipt);
 			if (findReceipt) {
 				if (!findReceipt.paymentInfo || findReceipt.paymentInfo === null) return 'Success';
-				const { paidAmount, receiptContent, amount, _id, status, buildingId, management, room, buildingName, receiptType, paymentInfo } =
-					findReceipt;
+				const {
+					version,
+					paidAmount,
+					receiptContent,
+					amount,
+					_id,
+					status,
+					buildingId,
+					management,
+					room,
+					buildingName,
+					receiptType,
+					paymentInfo,
+				} = findReceipt;
 				if (status === receiptStatus['PAID'])
 					throw new SepayError({
 						type: sepayErrorTypes['INVOICE_PAID'],
@@ -207,11 +219,12 @@ exports.webhookPayment = async (sepayData) => {
 				const newPaidAmount = paidAmount + sepayData.transferAmount;
 				const getNewReceiptStatus = calculateReceiptStatusAfterModified(newPaidAmount, amount);
 
-				const receiptStatusUpdated = await Services.receipts.updateReceiptPaidAmount(
+				await Services.receipts.updateReceiptPaidAmount(
 					{
 						receiptId: _id,
 						paidAmount: newPaidAmount,
 						receiptStatus: getNewReceiptStatus,
+						version: version,
 					},
 					session,
 				);
@@ -276,7 +289,7 @@ exports.webhookPayment = async (sepayData) => {
 						metaData: {
 							_id: transactionGenerated._id,
 							accountNumber: transactionGenerated.accountNumber,
-							receiptType: receiptStatusUpdated.receiptType,
+							receiptType: receiptType,
 						},
 					},
 				});

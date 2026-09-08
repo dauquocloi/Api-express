@@ -1,8 +1,11 @@
+const mongoose = require('mongoose');
+const { receiptStatus, invoiceStatus, OWNER_CONFIRMED_STATUS, receiptTypes } = require('../../../constants');
+
 const getAllRevenues = (buildingId, month, year) => {
 	return [
 		{
 			$match: {
-				_id: buildingId,
+				_id: new mongoose.Types.ObjectId(buildingId),
 			},
 		},
 		{
@@ -42,7 +45,7 @@ const getAllRevenues = (buildingId, month, year) => {
 									},
 									{
 										$not: {
-											$in: ['$status', ['terminated', 'pending']],
+											$in: ['$status', [invoiceStatus['TERMINATED'], invoiceStatus['PENDING']]],
 										},
 									},
 								],
@@ -53,6 +56,7 @@ const getAllRevenues = (buildingId, month, year) => {
 				as: 'invoiceInfo',
 			},
 		},
+
 		{
 			$lookup: {
 				from: 'receipts',
@@ -65,37 +69,22 @@ const getAllRevenues = (buildingId, month, year) => {
 					{
 						$match: {
 							$expr: {
-								$cond: [
+								$and: [
 									{
-										$eq: ['$receiptType', 'deposit'],
+										// Ta lấy riêng các receipt deposit ở pipeline thứ 2.
+										$ne: ['$receiptType', receiptTypes['DEPOSIT']],
 									},
-									//then
 									{
-										$and: [
-											{
-												$eq: ['$room', '$$roomId'],
-											},
-											{
-												$lt: ['$carriedOverPaidAmount', '$amount'],
-											},
-										],
+										$eq: ['$room', '$$roomId'],
 									},
-									//else
 									{
-										$and: [
-											{
-												$eq: ['$room', '$$roomId'],
-											},
-											{
-												$eq: ['$month', '$$month'],
-											},
-											{
-												$eq: ['$year', '$$year'],
-											},
-											{
-												$in: ['$status', ['paid', 'partial', 'unpaid']],
-											},
-										],
+										$eq: ['$month', '$$month'],
+									},
+									{
+										$eq: ['$year', '$$year'],
+									},
+									{
+										$in: ['$status', [receiptStatus['PAID'], receiptStatus['PARTIAL'], receiptStatus['UNPAID']]],
 									},
 								],
 							},
@@ -103,30 +92,6 @@ const getAllRevenues = (buildingId, month, year) => {
 					},
 				],
 				as: 'receiptInfo',
-			},
-		},
-		{
-			$lookup: {
-				from: 'transactions',
-				let: {
-					receiptId: {
-						$map: {
-							input: '$receiptInfo',
-							as: 'r',
-							in: '$$r._id',
-						},
-					},
-				},
-				pipeline: [
-					{
-						$match: {
-							$expr: {
-								$in: ['$receipt', '$$receiptId'],
-							},
-						},
-					},
-				],
-				as: 'transactionReceipt',
 			},
 		},
 		{
@@ -153,44 +118,8 @@ const getAllRevenues = (buildingId, month, year) => {
 						},
 					},
 				},
-				receiptInfo: {
-					$map: {
-						input: '$receiptInfo',
-						as: 'r',
-						in: {
-							_id: '$$r._id',
-							amount: '$$r.amount',
-							status: '$$r.status',
-							receiptContent: '$$r.receiptContent',
-							receiptContentDetail: '$$r.receiptContentDetail',
-							receiptType: '$$r.receiptType',
-							paidAmount: '$$r.paidAmount',
-							carriedOverPaidAmount: '$$r.carriedOverPaidAmount',
-							transactionReceipt: {
-								$map: {
-									input: {
-										$filter: {
-											input: '$transactionReceipt',
-											as: 'tr',
-											cond: {
-												$eq: ['$$tr.receipt', '$$r._id'],
-											},
-										},
-									},
-									as: 'tr',
-									in: {
-										_id: '$$tr._id',
-										amount: '$$tr.amount',
-										receipt: '$$tr.receipt',
-										month: '$$tr.month',
-										year: '$$tr.year',
-										paymentMethod: '$$tr.paymentMethod',
-									},
-								},
-							},
-						},
-					},
-				},
+
+				receiptInfo: 1,
 			},
 		},
 		{

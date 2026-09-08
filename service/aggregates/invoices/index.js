@@ -118,137 +118,6 @@ const getInvoicePaymentStatus = (buildingId, month, year) => {
 };
 
 const getInvoicesSendingStatus = (buildingId, currentMonth, currentYear) => {
-	// return [
-	// 	{
-	// 		$match: {
-	// 			_id: buildingId,
-	// 		},
-	// 	},
-	// 	{
-	// 		$addFields: {
-	// 			month: currentMonth,
-	// 			year: currentYear,
-	// 		},
-	// 	},
-	// 	{
-	// 		$lookup: {
-	// 			from: 'rooms',
-	// 			localField: '_id',
-	// 			foreignField: 'building',
-	// 			as: 'roomInfo',
-	// 		},
-	// 	},
-	// 	{
-	// 		$unwind: {
-	// 			path: '$roomInfo',
-	// 		},
-	// 	},
-	// 	{
-	// 		$sort: {
-	// 			'roomInfo.roomIndex': 1,
-	// 		},
-	// 	},
-	// 	{
-	// 		$lookup: {
-	// 			from: 'invoices',
-	// 			let: {
-	// 				roomObjectId: '$roomInfo._id',
-	// 				month: currentMonth,
-	// 				year: currentYear,
-	// 			},
-	// 			pipeline: [
-	// 				{
-	// 					$match: {
-	// 						$expr: {
-	// 							$and: [
-	// 								{
-	// 									$eq: ['$room', '$$roomObjectId'],
-	// 								},
-	// 								{
-	// 									$eq: ['$month', '$$month'],
-	// 								},
-	// 								{
-	// 									$eq: ['$year', '$$year'],
-	// 								},
-	// 								{
-	// 									$not: {
-	// 										$in: ['$status', ['cencelled', 'terminated', 'pending']],
-	// 									},
-	// 								},
-	// 							],
-	// 						},
-	// 					},
-	// 				},
-	// 				// {
-	// 				// 	$sort: { createdAt: 1 },
-	// 				// },
-	// 				// {
-	// 				// 	$limit: 1,
-	// 				// },
-	// 			],
-	// 			as: 'invoiceRecent',
-	// 		},
-	// 	},
-	// 	{
-	// 		$addFields: {
-	// 			invoiceStatus: {
-	// 				$cond: {
-	// 					if: { $eq: [{ $size: '$invoiceRecent' }, 0] },
-	// 					then: false,
-	// 					else: {
-	// 						$anyElementTrue: {
-	// 							$map: {
-	// 								input: '$invoiceRecent',
-	// 								as: 'inv',
-	// 								in: {
-	// 									$or: [
-	// 										// 1. Không phải là firstInvoice thì coi như true
-	// 										{ $ne: ['$$inv.invoiceType', 'firstInvoice'] },
-	// 										// 2. Là firstInvoice nhưng cùng tháng hiện tại
-	// 										{ $eq: [{ $month: '$$inv.createdAt' }, { $month: new Date() }] },
-	// 										// 3. Là firstInvoice, khác tháng nhưng ở trên 30 ngày
-	// 										{ $gte: ['$$inv.stayDays', 30] },
-	// 									],
-	// 								},
-	// 							},
-	// 						},
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	},
-	// 	{
-	// 		$addFields: {
-	// 			invoiceId: {
-	// 				$cond: [
-	// 					{
-	// 						$eq: ['$invoiceStatus', true],
-	// 					},
-	// 					// Nếu status là true
-	// 					{
-	// 						$first: '$invoiceRecent._id',
-	// 					},
-	// 					// Lấy ID của phần tử đầu tiên trong mảng
-	// 					null, // Nếu status là false
-	// 				],
-	// 			},
-	// 		},
-	// 	},
-	// 	{
-	// 		$group: {
-	// 			_id: '$_id',
-	// 			listInvoiceInfo: {
-	// 				$push: {
-	// 					roomId: '$roomInfo._id',
-	// 					roomIndex: '$roomInfo.roomIndex',
-	// 					invoiceStatus: '$invoiceStatus',
-	// 					roomState: '$roomInfo.roomState',
-	// 					invoiceId: '$invoiceId',
-	// 				},
-	// 			},
-	// 		},
-	// 	},
-	// ];
 	return [
 		{
 			$match: {
@@ -403,7 +272,25 @@ const getInvoiceDetail = (invoiceId) => {
 	return [
 		{
 			$match: {
-				_id: invoiceId,
+				_id: new mongoose.Types.ObjectId(invoiceId),
+			},
+		},
+
+		{
+			$lookup: {
+				from: 'rooms',
+				localField: 'room',
+				foreignField: '_id',
+				pipeline: [
+					{
+						$project: {
+							_id: 1,
+							roomIndex: 1,
+							roomState: 1,
+						},
+					},
+				],
+				as: 'roomInfo',
 			},
 		},
 		{
@@ -411,31 +298,60 @@ const getInvoiceDetail = (invoiceId) => {
 				from: 'transactions',
 				localField: '_id',
 				foreignField: 'invoice',
-				as: 'transactionInfo',
+				pipeline: [
+					{
+						$lookup: {
+							from: 'users',
+							localField: 'collector',
+							foreignField: '_id',
+							pipeline: [
+								{
+									$project: {
+										fullName: 1,
+										_id: 1,
+									},
+								},
+							],
+							as: 'collectorInfo',
+						},
+					},
+					{
+						$set: {
+							collectorInfo: {
+								$ifNull: [
+									{
+										$first: '$collectorInfo',
+									},
+									null,
+								],
+							},
+						},
+					},
+					{
+						$project: {
+							_id: 1,
+							transactionDate: 1,
+							amount: 1,
+							content: 1,
+							paymentMethod: 1,
+							collector: '$collectorInfo',
+							transactionId: 1,
+							accountNumber: 1,
+							gateway: 1,
+							ownerConfirmed: 1,
+							confirmedDate: 1,
+							createdBy: 1,
+							version: 1,
+							month: 1,
+							year: 1,
+							ownerDeclinedReason: 1,
+						},
+					},
+				],
+				as: 'transactions',
 			},
 		},
-		{
-			$unwind: {
-				path: '$transactionInfo',
-				preserveNullAndEmptyArrays: true,
-			},
-		},
-		{
-			$lookup: {
-				from: 'users',
-				localField: 'transactionInfo.collector',
-				foreignField: '_id',
-				as: 'collectorInfo',
-			},
-		},
-		{
-			$lookup: {
-				from: 'rooms',
-				localField: 'room',
-				foreignField: '_id',
-				as: 'room',
-			},
-		},
+
 		{
 			$project: {
 				_id: 1,
@@ -448,86 +364,20 @@ const getInvoiceDetail = (invoiceId) => {
 				fee: 1,
 				debts: 1,
 				payer: 1,
-				debts: 1,
+				room: {
+					$ifNull: [
+						{
+							$first: '$roomInfo',
+						},
+						null,
+					],
+				},
 				locked: 1,
 				fee: 1,
-				transactionInfo: 1,
+				transactions: 1,
 				invoiceContent: 1,
 				detuctedInfo: 1,
 				version: 1,
-				paymentContent: 1,
-				room: {
-					$let: {
-						vars: {
-							room: {
-								$arrayElemAt: ['$room', 0],
-							},
-						},
-						in: {
-							_id: '$$room._id',
-							roomIndex: '$$room.roomIndex',
-							version: '$$room.version',
-						},
-					},
-				},
-				collector: {
-					$arrayElemAt: ['$collectorInfo', 0],
-				},
-			},
-		},
-		{
-			$group: {
-				_id: {
-					_id: '$_id',
-					status: '$status',
-					room: '$room',
-					total: '$total',
-					paidAmount: '$paidAmount',
-					month: '$month',
-					year: '$year',
-					paymentContent: '$paymentContent',
-					date: '$date',
-					payer: '$payer',
-					locked: '$locked',
-					debts: '$debts',
-					fee: '$fee',
-					stayDays: '$stayDays',
-					invoiceContent: '$invoiceContent',
-					detuctedInfo: '$detuctedInfo',
-					version: '$version',
-				},
-				transactionInfo: {
-					$push: {
-						$cond: [
-							{
-								$gt: [
-									{
-										$ifNull: ['$transactionInfo', null],
-									},
-									null,
-								],
-							},
-							{
-								_id: '$transactionInfo._id',
-								transactionDate: '$transactionInfo.transactionDate',
-								amount: '$transactionInfo.amount',
-								content: '$transactionInfo.content',
-								paymentMethod: '$transactionInfo.paymentMethod',
-								collector: {
-									fullName: '$collector.fullName',
-									_id: '$collector._id',
-								},
-								transactionId: '$transactionInfo.transactionId',
-								accountNumber: '$transactionInfo.accountNumber',
-								gateway: '$transactionInfo.gateway',
-								ownerConfirmed: '$transactionInfo.ownerConfirmed',
-								confirmedDate: '$transactionInfo.confirmedDate',
-								createdBy: '$transactionInfo.createdBy',
-							},
-							'$$REMOVE',
-						],
-					},
-				},
 			},
 		},
 	];

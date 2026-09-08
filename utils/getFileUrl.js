@@ -10,7 +10,7 @@ const getFileUrl = async (Key) => {
 		};
 
 		const command = new GetObjectCommand(getObjectParams);
-		const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
+		const url = await getSignedUrl(s3, command, { expiresIn: 3600 }); // Cần set lại expires
 
 		return url;
 	} catch (error) {
