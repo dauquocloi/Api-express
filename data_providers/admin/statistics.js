@@ -36,6 +36,7 @@ exports.importFirstStatistics = async (data) => {
 			totalVehicle: data.vehicle.totalVehicle,
 			vehicelComparisonRate: null,
 		},
+		isInitialStatistics: true,
 	};
 	console.log('statisticData: ', statisticData);
 	const result = await Services.statistics.importFirstStatistics(statisticData);

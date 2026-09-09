@@ -52,7 +52,7 @@ const DepositsSchema = new Schema(
 		status: { type: String, enum: Object.values(depositStatus), default: depositStatus['PENDING'] },
 		version: { type: Number, default: 1 },
 	},
-	{ timestamps: true },
+	{ timestamps: true, versionKey: false },
 );
 
 exports.DepositsEntity = mongoose.model('DepositsEntity', DepositsSchema, 'deposits');

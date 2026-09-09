@@ -138,8 +138,10 @@ exports.getStatisticsV2 = async (buildingId, month, year) => {
 			customer: currentStatistics.customer,
 		};
 
+		const statisticsInYear = [formatCurrentStatistics, ...(statistics || [])].sort((a, b) => a.month - b.month);
+
 		result = {
-			statistics: [...statistics, formatCurrentStatistics],
+			statistics: statisticsInYear,
 		};
 	} else {
 		result = await Services.statistics.getAllStatisticsInYear(buildingId, year);

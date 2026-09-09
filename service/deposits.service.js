@@ -1,7 +1,7 @@
 const Entity = require('../models');
 const { depositStatus } = require('../constants/deposits');
 const Pipelines = require('./aggregates');
-const { ConflictError, InternalError } = require('../AppError');
+const { ConflictError, InternalError, NotFoundError } = require('../AppError');
 
 exports.findById = (depositId) => Entity.DepositsEntity.findById(depositId);
 
@@ -19,6 +19,12 @@ exports.getDeposits = async (buildingObjectId) => {
 	const [result] = await Entity.DepositsEntity.aggregate(Pipelines.deposits.getDepositsPipeline(buildingObjectId));
 	if (!result) return [];
 	return result?.listDeposits ?? [];
+};
+
+exports.getDepositDetail = async ({ depositId }) => {
+	const [result] = await Entity.DepositsEntity.aggregate(Pipelines.deposits.getDepositDetail(depositId));
+	if (!result) throw new NotFoundError('Dữ liệu không tồn tại !');
+	return result;
 };
 
 exports.findByReceiptId = (receiptId) => Entity.DepositsEntity.findOne({ receipt: receiptId });
@@ -93,4 +99,51 @@ exports.updateActualDepositAmountByReceiptId = async ({ receiptId, actualDeposit
 
 	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu đặt cọc đã bị thay đổi!');
 	return result;
+};
+
+exports.getDepositInfoForModifyDeposit = async ({ depositId }) => {
+	const [result] = await Entity.DepositsEntity.aggregate(Pipelines.deposits.getDepositInfoForModifyDeposit(depositId));
+	if (!result) throw new NotFoundError('Dữ liệu không tồn tại');
+	return result;
+};
+
+exports.modifyDeposit = async ({
+	depositId,
+	fees,
+	customer,
+	interiors,
+	status,
+	rent,
+	depositAmount,
+	actualDepositAmount,
+	checkinDate,
+	depositCompletionDate,
+	rentalTerm,
+	numberOfOccupants,
+	version,
+}) => {
+	const result = await Entity.DepositsEntity.updateOne(
+		{
+			_id: depositId,
+			version: version,
+		},
+		{
+			$set: {
+				fees,
+				customer,
+				interiors,
+				status,
+				rent,
+				depositAmount,
+				actualDepositAmount,
+				checkinDate,
+				depositCompletionDate,
+				rentalTerm,
+				numberOfOccupants,
+			},
+			$inc: { version: 1 },
+		},
+	);
+
+	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu đặt cọc đã bị thay đổi !');
 };

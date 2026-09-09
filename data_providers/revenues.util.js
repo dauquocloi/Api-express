@@ -1,6 +1,6 @@
 const { unitPriority } = require('../constants/fees');
 const { receiptTypes } = require('../constants/receipt');
-const { depositStatus } = require('../constants');
+const { depositStatus, feeUnit } = require('../constants');
 
 function getDepositPaidInCurrentPeriod(transactionReceipt, month, year) {
 	if (!Array.isArray(transactionReceipt)) return 0;
@@ -65,7 +65,7 @@ function processInvoiceAllocation(invoice, fees) {
 			periodicRevenue.push({
 				feeName: 'nợ',
 				amount: allocated,
-				unit: 'room',
+				unit: feeUnit['ROOM'],
 				feeKey: 'SPEC101PH',
 			});
 
@@ -79,7 +79,7 @@ function processInvoiceAllocation(invoice, fees) {
 		periodicRevenue.push({
 			feeName: 'nợ',
 			amount: 0,
-			unit: 'room',
+			unit: feeUnit['ROOM'],
 			feeKey: 'SPEC101PH',
 		});
 	}
@@ -88,6 +88,7 @@ function processInvoiceAllocation(invoice, fees) {
 }
 
 function aggregateRevenueByFeeKey(revenueList) {
+	if (!Array.isArray(revenueList) || !revenueList.length) return [];
 	// First grouping by full feeKey
 	const groupedByFull = revenueList.reduce((acc, curr) => {
 		const key = curr.feeKey || 'SPEC100PH';
@@ -124,68 +125,6 @@ function aggregateRevenueByFeeKey(revenueList) {
 	}
 
 	return Object.values(groupedByTrimmed);
-}
-
-function processIncidentalRevenues(revenues, month, year) {
-	const incidentalRevenue = [];
-	let total = 0;
-
-	for (const room of revenues) {
-		if (!Array.isArray(room.receiptInfo)) continue;
-
-		for (const receipt of room.receiptInfo) {
-			// Skip empty or invalid receipts
-			if (!receipt.receiptContent) continue;
-
-			const { _id, amount = 0, paidAmount = 0, status, receiptType, carriedOverPaidAmount = 0 } = receipt;
-
-			let revenueToPush = null;
-			let revenueAmount = 0;
-
-			// Handle DEPOSIT type specially
-			if (receiptType === receiptTypes.DEPOSIT) {
-				console.log('deposit receipt: ', receipt);
-				const transactionReceipt = receipt.transactions || [];
-
-				const depositPaidInPeriod = getDepositPaidInCurrentPeriod(transactionReceipt, month, year);
-
-				if (receipt.depositStatus === depositStatus['CANCELLED']) {
-					revenueAmount = paidAmount;
-				} else {
-					revenueAmount = getDepositRevenueThisPeriod(receipt);
-				}
-
-				// Only include if there's payment in current period
-				if (depositPaidInPeriod > 0) {
-					revenueToPush = {
-						_id,
-						receiptType: receiptTypes.DEPOSIT,
-						receiptContent: receipt.receiptContent,
-						amount: depositPaidInPeriod,
-					};
-				}
-			} else {
-				// For non-deposit types: only include if paid or partial
-				if (paidAmount > 0) {
-					revenueToPush = {
-						_id,
-						receiptType: receiptType ?? receiptTypes.INCIDENTAL,
-						receiptContent: receiptType === receiptTypes.DEBTS ? receipt?.receiptContentDetail : receipt?.receiptContent,
-						amount: paidAmount,
-					};
-				}
-				revenueAmount = amount;
-			}
-
-			// Add to list and total
-			if (revenueToPush) {
-				incidentalRevenue.push(revenueToPush);
-			}
-			total += revenueAmount;
-		}
-	}
-
-	return { incidentalRevenue, total };
 }
 
 function calculateActualTotal(periodicRevenueList, incidentalRevenueList, otherTotal) {
@@ -234,7 +173,7 @@ function allocateInvoiceFees(invoice, fees) {
 				feeName: 'nợ',
 				amount: requiredAmount,
 				actualPaidAmount: actualPaid,
-				unit: 'room',
+				unit: feeUnit['ROOM'],
 				feeKey: 'SPEC101PH',
 			});
 
@@ -248,7 +187,7 @@ function allocateInvoiceFees(invoice, fees) {
 			feeName: 'nợ',
 			amount: 0,
 			actualPaidAmount: 0,
-			unit: 'room',
+			unit: feeUnit['ROOM'],
 			feeKey: 'SPEC101PH',
 		});
 	}
@@ -299,13 +238,114 @@ function aggregateFeesByKey(feeList) {
 	return Object.values(groupedByTrimmed);
 }
 
+function processInvoicesReceipts(revenues, month, year) {
+	const periodicRevenueList = [];
+	const incidentalRevenue = [];
+
+	let totalPeriodicRequired = 0;
+	let totalIncidental = 0;
+
+	for (const room of revenues) {
+		// ============================================
+		// PROCESS PERIODIC REVENUES - INVOICES
+		// ============================================
+		if (Array.isArray(room.invoiceInfo) && room.invoiceInfo.length > 0) {
+			for (const invoice of room.invoiceInfo) {
+				// Skip invalid invoices
+				if (!invoice || Object.keys(invoice).length === 0) continue;
+
+				// Skip if no fees
+				if (!Array.isArray(invoice.fee) || invoice.fee.length === 0) {
+					continue;
+				}
+
+				// Allocate paid amount to fees and debts
+				const { periodicRevenue } = processInvoiceAllocation(invoice, invoice.fee);
+
+				periodicRevenueList.push(...periodicRevenue);
+
+				// Add to total based on invoice total
+				// Use paidAmount if deducted, otherwise use total
+				const amountToCount = !invoice.deductedInfo || !invoice.deductedInfo.deductedId ? invoice.total || 0 : invoice.paidAmount || 0;
+
+				totalPeriodicRequired += amountToCount;
+			}
+		}
+
+		// ============================================
+		// PROCESS INCIDENTAL REVENUES - RECEIPTS
+		// ============================================
+		if (Array.isArray(room.receiptInfo)) {
+			for (const receipt of room.receiptInfo) {
+				// Skip empty or invalid receipts
+				if (!receipt.receiptContent) continue;
+
+				const { _id, amount = 0, paidAmount = 0, receiptType } = receipt;
+
+				let revenueToPush = null;
+				let revenueAmount = 0;
+
+				// Handle DEPOSIT type specially
+				if (receiptType === receiptTypes.DEPOSIT) {
+					const transactionReceipt = receipt.transactions || [];
+
+					const depositPaidInPeriod = getDepositPaidInCurrentPeriod(transactionReceipt, month, year);
+
+					if (receipt.depositStatus === depositStatus['CANCELLED']) {
+						revenueAmount = paidAmount;
+					} else {
+						revenueAmount = getDepositRevenueThisPeriod(receipt);
+					}
+
+					// Only include if there's payment in current period
+					if (depositPaidInPeriod > 0) {
+						revenueToPush = {
+							_id,
+							receiptType: receiptTypes.DEPOSIT,
+							receiptContent: receipt.receiptContent,
+							amount: depositPaidInPeriod,
+						};
+					}
+				} else {
+					// For non-deposit types:
+					// only include if paid or partial
+					if (paidAmount > 0) {
+						revenueToPush = {
+							_id,
+							receiptType: receiptType ?? receiptTypes.INCIDENTAL,
+							receiptContent: receiptType === receiptTypes.DEBTS ? receipt.receiptContentDetail : receipt.receiptContent,
+							amount: paidAmount,
+						};
+					}
+
+					revenueAmount = amount;
+				}
+
+				// Add to list
+				if (revenueToPush) {
+					incidentalRevenue.push(revenueToPush);
+				}
+
+				totalIncidental += revenueAmount;
+			}
+		}
+	}
+
+	return {
+		periodicRevenueList,
+		totalPeriodicRequired,
+		incidentalRevenue,
+		totalIncidental,
+	};
+}
+
 module.exports = {
 	getDepositPaidInCurrentPeriod,
 	getDepositRevenueThisPeriod,
 	aggregateRevenueByFeeKey,
-	processIncidentalRevenues,
 	calculateActualTotal,
 	processInvoiceAllocation,
 	aggregateFeesByKey,
 	allocateInvoiceFees,
+	processInvoicesReceipts,
 };

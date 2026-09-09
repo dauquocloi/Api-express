@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
-const { invoiceStatus: INVOICE_STATUS, invoiceType: INVOICE_TYPE } = require('../../../constants/invoices');
-const { contractStatus: CONTRACT_STATUS } = require('../../../constants/contracts');
+const {
+	contractStatus: CONTRACT_STATUS,
+	OWNER_CONFIRMED_STATUS,
+	invoiceStatus: INVOICE_STATUS,
+	invoiceType: INVOICE_TYPE,
+} = require('../../../constants');
 
 const getInvoicePaymentStatus = (buildingId, month, year) => {
 	return [
@@ -44,7 +48,7 @@ const getInvoicePaymentStatus = (buildingId, month, year) => {
 									},
 									{
 										$not: {
-											$in: ['$status', ['cencelled', 'terminated', 'pending']],
+											$in: ['$status', [INVOICE_STATUS['CANCELLED'], INVOICE_STATUS['TERMINATED'], INVOICE_STATUS['PENDING']]],
 										},
 									},
 								],
@@ -56,6 +60,16 @@ const getInvoicePaymentStatus = (buildingId, month, year) => {
 							from: 'transactions',
 							localField: '_id',
 							foreignField: 'invoice',
+							pipeline: [
+								{
+									$match: {
+										ownerConfirmed: {
+											$ne: OWNER_CONFIRMED_STATUS['DECLINED'],
+										},
+										isTransactionDetected: true,
+									},
+								},
+							],
 							as: 'transactions',
 						},
 					},

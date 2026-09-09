@@ -285,9 +285,13 @@ const getFeeRevenueDetail = (buildingId, month, year) => {
 				pipeline: [
 					{
 						$match: {
-							$expr: {
-								$eq: ['$invoice', '$$invoiceId'],
-							},
+							$and: [
+								{ $in: ['$invoice', '$$invoiceId'] },
+								{
+									$ne: ['$ownerConfirmed', OWNER_CONFIRMED_STATUS['DECLINED']],
+								},
+								{ $eq: ['$isTransactionDetected', true] },
+							],
 						},
 					},
 				],

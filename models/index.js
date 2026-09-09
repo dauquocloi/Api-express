@@ -73,5 +73,3 @@ exports.ContractExtentionsEntity = require('./contractExtentions').ContractExten
 exports.OtpsEntity = require('./otps').OtpsEntity;
 
 exports.IdempotencyRecordsEntity = require('./idempotencyRecords').IdempotencyRecordsEntity;
-
-exports.RevenuesEntity = require('./revenues').RevenuesEntity;

@@ -680,9 +680,12 @@ const getPrepareFinanceSettlementV2 = (buildingObjectId, month, year) => {
 								{
 									$match: {
 										$expr: {
-											$or: [
+											$and: [
 												{
 													$eq: ['$ownerConfirmed', OWNER_CONFIRMED_STATUS['PENDING']],
+												},
+												{
+													$eq: ['$isTransactionDetected', true],
 												},
 											],
 										},
@@ -745,9 +748,12 @@ const getPrepareFinanceSettlementV2 = (buildingObjectId, month, year) => {
 								{
 									$match: {
 										$expr: {
-											$or: [
+											$and: [
 												{
 													$eq: ['$ownerConfirmed', OWNER_CONFIRMED_STATUS['PENDING']],
+												},
+												{
+													$eq: ['$isTransactionDetected', true],
 												},
 											],
 										},

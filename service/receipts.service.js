@@ -374,3 +374,12 @@ exports.closeReceiptDeposit = async ({ receiptId }, session = null) => {
 	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');
 	return result;
 };
+
+exports.updateReceiptPeriod = async ({ receiptId, month, year }, session) => {
+	const result = await Entity.ReceiptsEntity.updateOne(
+		{ _id: receiptId },
+		{ $set: { month, year, locked: true }, $inc: { version: 1 } },
+		{ session },
+	);
+	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');
+};

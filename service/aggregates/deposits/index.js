@@ -69,6 +69,14 @@ const getDepositDetail = (depositId) => {
 				from: 'transactions',
 				localField: 'receiptInfo._id',
 				foreignField: 'receipt',
+				pipeline: [
+					{
+						$match: {
+							isTransactionDetected: true,
+							ownerConfirmed: { $ne: OWNER_CONFIRMED_STATUS['DECLINED'] },
+						},
+					},
+				],
 				as: 'transactions',
 			},
 		},
@@ -300,4 +308,73 @@ const getDepositReceiptsUnCarriedOverPaidAmount = (buildingId) => {
 	];
 };
 
-module.exports = { getDepositsPipeline, getDepositDetail, getDepositReceiptsUnCarriedOverPaidAmount };
+const getDepositInfoForModifyDeposit = (depositId) => {
+	return [
+		{
+			$match: {
+				_id: new mongoose.Types.ObjectId(depositId),
+			},
+		},
+		{
+			$lookup: {
+				from: 'rooms',
+				localField: 'room',
+				foreignField: '_id',
+				pipeline: [
+					{
+						$project: {
+							_id: 1,
+							roomIndex: 1,
+						},
+					},
+				],
+				as: 'roomInfo',
+			},
+		},
+		{
+			$lookup: {
+				from: 'receipts',
+				localField: 'receipt',
+				foreignField: '_id',
+				as: 'receipts',
+			},
+		},
+		{
+			$lookup: {
+				from: 'receipts',
+				localField: 'receipt',
+				foreignField: '_id',
+				pipeline: [
+					{
+						$lookup: {
+							from: 'transactions',
+							localField: '_id',
+							foreignField: 'receipt',
+							pipeline: [
+								{
+									$match: {
+										ownerConfirmed: {
+											$ne: OWNER_CONFIRMED_STATUS['DECLINED'],
+										},
+										isTransactionDetected: true,
+									},
+								},
+							],
+							as: 'transactions',
+						},
+					},
+				],
+				as: 'receipt',
+			},
+		},
+		{
+			$set: {
+				receipt: {
+					$ifNull: [{ $arrayElemAt: ['$receipt', 0] }, null],
+				},
+			},
+		},
+	];
+};
+
+module.exports = { getDepositsPipeline, getDepositDetail, getDepositReceiptsUnCarriedOverPaidAmount, getDepositInfoForModifyDeposit };

@@ -5,12 +5,12 @@ const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const { NotFoundError, BadRequestError } = require('../AppError');
 const Pipelines = require('../service/aggregates');
 const Services = require('../service');
-const { depositStatus } = require('../constants/deposits');
 const { client: redis } = require('../config').redisDb;
-const { feeUnit } = require('../constants/fees');
+const { feeUnit } = require('../constants');
 const { notificationJob } = require('../jobs/notification/notification.job');
 const { NOTI_ROOM_DEPOSITED, NOTI_DEPOSIT_TERMINATED } = require('../jobs/constant/jobNames');
 const { calculateDepositStatus } = require('../service/deposits.helper');
+const { getInvoiceStatus } = require('../service/invoices.helper');
 
 exports.getDeposits = async (buildingId) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -122,8 +122,7 @@ exports.createDeposit = async (data, redisKey) => {
 exports.getDepositDetail = async (depositId, buildingId) => {
 	const depositObjectId = new mongoose.Types.ObjectId(depositId);
 
-	const [depositDetail] = await Entity.DepositsEntity.aggregate(Pipelines.deposits.getDepositDetail(depositObjectId));
-	if (!depositDetail) throw new NotFoundError('Dữ liệu không tồn tại');
+	const depositDetail = await Services.deposits.getDepositDetail({ depositId: depositObjectId });
 
 	const bankAccount = await Services.bankAccounts.findByBuildingId(buildingId).populate('bank').lean().exec();
 	if (!bankAccount) throw new NotFoundError('Không tìm thấy tài khoản ngân hàng của tòa nhà !');
@@ -144,86 +143,33 @@ exports.modifyDeposit = async (data, redisKey) => {
 	try {
 		const depositObjectId = new mongoose.Types.ObjectId(data.depositId);
 
-		const { room, customer } = data;
+		const { room, customer, version } = data;
 		// Khởi tạo transaction
 		session = await mongoose.startSession();
 		session.startTransaction();
 
-		const currentDeposit = await Entity.DepositsEntity.aggregate([
-			{
-				$match: {
-					_id: depositObjectId,
-				},
-			},
-			{
-				$lookup: {
-					from: 'rooms',
-					localField: 'room',
-					foreignField: '_id',
-					pipeline: [
-						{
-							$project: {
-								_id: 1,
-								roomIndex: 1,
-							},
-						},
-					],
-					as: 'roomInfo',
-				},
-			},
-			{
-				$lookup: {
-					from: 'receipts',
-					localField: 'receipt',
-					foreignField: '_id',
-					as: 'receipts',
-				},
-			},
-			{
-				$lookup: {
-					from: 'transactions',
-					localField: 'receipts._id',
-					foreignField: 'receipt',
-					as: 'transactions',
-				},
-			},
-		]);
-		console.log('log of currentDeposit: ', currentDeposit);
+		const currentDeposit = await Services.deposits.getDepositInfoForModifyDeposit({ depositId: depositObjectId });
 
-		if (currentDeposit.length === 0) {
-			throw new Error(`không tìm thấy thông tin cọc ${data.depositId}`);
-		}
-		const { receipts } = currentDeposit[0];
-		console.log('log of receipts: ', receipts[0]._id);
+		const { depositAmount } = currentDeposit;
 
 		// create new Receipt if depositAmount raise
-		let currentDepositAmount = currentDeposit[0].depositAmount;
+		let currentDepositAmount = depositAmount;
 		const shouldModifyDepositReceipt = currentDepositAmount !== room.depositAmount;
-		console.log('log of shouldModifyDepositReceipt: ', shouldModifyDepositReceipt);
 
 		let depositNewStatus;
 		let receiptPaidAmount = 0;
 		if (shouldModifyDepositReceipt) {
-			const { transactions } = currentDeposit[0];
+			const { transactions, receipt } = currentDeposit;
 
 			if (transactions?.length > 0) {
-				receiptPaidAmount = transactions?.reduce((sum, item) => sum + item.amount, 0);
+				receiptPaidAmount = transactions.reduce((sum, item) => sum + item.amount, 0);
 			} else receiptPaidAmount = 0;
 
-			let getReceiptStatus = () => {
-				if (receiptPaidAmount === 0) {
-					return 'unpaid';
-				} else if (room.depositAmount > receiptPaidAmount) {
-					return 'partial';
-				} else if (room.depositAmount <= receiptPaidAmount) {
-					return 'paid';
-				}
-			};
-			depositNewStatus = getReceiptStatus();
+			depositNewStatus = getInvoiceStatus(receiptPaidAmount, room.depositAmount);
 
 			// Terminate old receipt
 			const modifyReceipt = await Entity.ReceiptsEntity.findOneAndUpdate(
-				{ _id: receipts[0]?._id },
+				{ _id: receipt._id },
 				{
 					status: depositNewStatus,
 					amount: room.depositAmount,
@@ -250,13 +196,14 @@ exports.modifyDeposit = async (data, redisKey) => {
 			console.log('log of modifyReceipt: ', modifyReceipt);
 		}
 
+		// ?????????????????????????
 		const getInitialFeesByFeeKey = () => {
 			let fees = [];
 			for (const feeItem of data.fees) {
 				const normalize = (str) => str?.toString().trim().toLowerCase().replace(/\s+/g, ' ') ?? '';
 				const findFeeMatch = listFees.find((fee) => normalize(fee.feeKey) === normalize(feeItem.feeKey));
 				if (findFeeMatch) {
-					if (findFeeMatch.unit === 'index') {
+					if (findFeeMatch.unit === feeUnit['INDEX']) {
 						fees.push({ ...findFeeMatch, feeAmount: feeItem.feeAmount, lastIndex: feeItem.lastIndex });
 					} else {
 						fees.push({ ...findFeeMatch, feeAmount: feeItem.feeAmount });
@@ -276,24 +223,21 @@ exports.modifyDeposit = async (data, redisKey) => {
 			} else return [];
 		};
 
-		await Entity.DepositsEntity.findOneAndUpdate(
-			{
-				_id: depositObjectId,
-			},
-			{
-				fees: getInitialFeesByFeeKey(),
-				customer: customer,
-				interiors: formatInteriors(),
-				status: !shouldModifyDepositReceipt ? currentDeposit[0].status : depositNewStatus,
-				rent: room.rent,
-				depositAmount: room.depositAmount,
-				actualDepositAmount: !shouldModifyDepositReceipt ? currentDeposit[0].actualDepositAmount : receiptPaidAmount,
-				checkinDate: room.checkinDate,
-				depositCompletionDate: room.depositCompletionDate,
-				rentalTerm: room.rentalTerm,
-				numberOfOccupants: room.numberOfOccupants,
-			},
-		).session(session);
+		await Services.deposits.modifyDeposit({
+			depositId: depositObjectId,
+			fees: getInitialFeesByFeeKey(),
+			customer: customer,
+			interiors: formatInteriors(),
+			status: !shouldModifyDepositReceipt ? currentDeposit.status : depositNewStatus,
+			rent: room.rent,
+			depositAmount: room.depositAmount,
+			actualDepositAmount: !shouldModifyDepositReceipt ? currentDeposit.actualDepositAmount : receiptPaidAmount,
+			checkinDate: room.checkinDate,
+			depositCompletionDate: room.depositCompletionDate,
+			rentalTerm: room.rentalTerm,
+			numberOfOccupants: room.numberOfOccupants,
+			version,
+		});
 		await session.commitTransaction();
 
 		await redis.set(redisKey, `SUCCESS:${JSON.stringify(data)}`, 'EX', process.env.REDIS_EXP_SEC);
@@ -313,7 +257,7 @@ exports.terminateDeposit = async (depositId, version) => {
 		// Khởi tạo transaction
 		session = await mongoose.startSession();
 		await session.withTransaction(async () => {
-			const deposit = await Entity.DepositsEntity.findById(depositId).session(session).lean().exec();
+			const deposit = await Services.deposits.findById(depositId).session(session).lean().exec();
 			if (!deposit) NotFoundError('Dữ liệu đặt cọc không tồn tại');
 
 			const currentPeriod = await getCurrentPeriod(deposit.building);
@@ -321,7 +265,7 @@ exports.terminateDeposit = async (depositId, version) => {
 
 			await Services.deposits.cancelledDeposit(depositId, version, session);
 
-			await Entity.ReceiptsEntity.updateOne({ _id: deposit.receipt }, { $set: { month, year, locked: true } }, { session });
+			await Services.receipts.updateReceiptPeriod({ receiptId: deposit.receipt, month, year }, session);
 
 			await Services.rooms.setRoomDeposited({ roomId: deposit.room, isDeposited: false, session });
 
@@ -334,6 +278,7 @@ exports.terminateDeposit = async (depositId, version) => {
 	}
 };
 
+// finish this
 exports.uploardDepositTerm = async (data) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
 	const buildingInfo = await Entity.BuildingsEntity.exists({ _id: buildingObjectId });

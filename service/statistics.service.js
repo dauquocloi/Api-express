@@ -58,7 +58,7 @@ exports.getStatistics = async (buildingObjectId, month, year, session) => {
 
 exports.getAllStatisticsInYear = async (buildingId, year) => {
 	const result = await Entity.StatisticsEntity.find({ building: buildingId, year }).lean().exec();
-	if (!result || !result.length) throw new NoDataError('Không có dữ liệu !');
+	// if (!result || !result.length) throw new NoDataError('Không có dữ liệu !');
 	return result;
 };
 
@@ -69,3 +69,5 @@ exports.getStatisticCurrentPeriod = async (buildingId, currentMonth, currentYear
 
 	return result;
 };
+
+exports.findByBuildingId = (buildingId, month, year) => Entity.StatisticsEntity.findOne({ building: buildingId, month, year });

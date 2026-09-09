@@ -113,6 +113,10 @@ let StatisticsSchema = new Schema(
 		room: RoomStatisticsSchema,
 		vehicle: VehicleStatisticSchema,
 		customer: CustomerStatisticsSchema,
+		isInitialStatistics: {
+			type: Boolean,
+			default: false,
+		},
 	},
 
 	{

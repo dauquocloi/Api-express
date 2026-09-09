@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { OWNER_CONFIRMED_STATUS } = require('../../../constants');
 
 const getReceiptPaymentStatus = (buildingId, month, year) => {
 	return [
@@ -67,7 +68,13 @@ const getReceiptPaymentStatus = (buildingId, month, year) => {
 					{
 						$match: {
 							$expr: {
-								$in: ['$receipt', '$$receiptIds'],
+								$and: [
+									{ $in: ['$receipt', '$$receiptIds'] },
+									{
+										$ne: ['$ownerConfirmed', OWNER_CONFIRMED_STATUS['DECLINED']],
+									},
+									{ $eq: ['$isTransactionDetected', true] },
+								],
 							},
 						},
 					},
@@ -173,6 +180,14 @@ const getReceiptDetail = (receiptObjectId) => {
 				foreignField: 'receipt',
 				pipeline: [
 					{
+						$match: {
+							ownerConfirmed: {
+								$ne: OWNER_CONFIRMED_STATUS['DECLINED'],
+							},
+							isTransactionDetected: true,
+						},
+					},
+					{
 						$lookup: {
 							from: 'users',
 							localField: 'collector',
@@ -266,6 +281,16 @@ const getDepositReceiptDetail = (receiptObjectId) => {
 				from: 'transactions',
 				localField: '_id',
 				foreignField: 'receipt',
+				pipeline: [
+					{
+						$match: {
+							ownerConfirmed: {
+								$ne: OWNER_CONFIRMED_STATUS['DECLINED'],
+							},
+							isTransactionDetected: true,
+						},
+					},
+				],
 				as: 'transactions',
 			},
 		},
@@ -404,6 +429,16 @@ const getCurrentReceiptAndTransaction = (receiptObjectId) => {
 				from: 'transactions',
 				localField: '_id',
 				foreignField: 'receipt',
+				pipeline: [
+					{
+						$match: {
+							ownerConfirmed: {
+								$ne: OWNER_CONFIRMED_STATUS['DECLINED'],
+							},
+							isTransactionDetected: true,
+						},
+					},
+				],
 				as: 'transactionInfo',
 			},
 		},

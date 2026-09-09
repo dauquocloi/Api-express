@@ -60,6 +60,7 @@ module.exports = {
 		interiors: Joi.array().items(InteriorSchema.required()).optional(),
 		fees: Joi.array().items(feeSchema.required()).optional(),
 		customer: customerSchema.required(),
+		version: Joi.number().integer().min(1).required(),
 	}),
 	terminateDeposit: Joi.object().keys({
 		version: Joi.number().integer().min(1).required(),

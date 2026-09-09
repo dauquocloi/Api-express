@@ -1,8 +1,10 @@
+const mongoose = require('mongoose');
+const { OWNER_CONFIRMED_STATUS } = require('../../../constants');
 const getTransactionsByUserId = (userObjectId) => {
 	return [
 		{
 			$match: {
-				_id: userObjectId,
+				_id: new mongoose.Types.ObjectId(userObjectId),
 			},
 		},
 
@@ -12,6 +14,14 @@ const getTransactionsByUserId = (userObjectId) => {
 				localField: '_id',
 				foreignField: 'collector',
 				pipeline: [
+					{
+						$match: {
+							ownerConfirmed: {
+								$ne: OWNER_CONFIRMED_STATUS['DECLINED'],
+							},
+							isTransactionDetected: true,
+						},
+					},
 					{
 						$project: {
 							_id: 1,
@@ -72,6 +82,16 @@ const getAllTransactionsInPeriod = (buildingObjectId, currentMonth, currentYear)
 							from: 'transactions',
 							localField: '_id',
 							foreignField: 'receipt',
+							pipeline: [
+								{
+									$match: {
+										ownerConfirmed: {
+											$ne: OWNER_CONFIRMED_STATUS['DECLINED'],
+										},
+										isTransactionDetected: true,
+									},
+								},
+							],
 							as: 'transactions',
 						},
 					},
@@ -99,6 +119,16 @@ const getAllTransactionsInPeriod = (buildingObjectId, currentMonth, currentYear)
 							from: 'transactions',
 							localField: '_id',
 							foreignField: 'receipt',
+							pipeline: [
+								{
+									$match: {
+										ownerConfirmed: {
+											$ne: OWNER_CONFIRMED_STATUS['DECLINED'],
+										},
+										isTransactionDetected: true,
+									},
+								},
+							],
 							as: 'transactions',
 						},
 					},

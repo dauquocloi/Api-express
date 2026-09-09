@@ -1,75 +1,55 @@
 const mongoose = require('mongoose');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const formatFee = require('../utils/formatFee');
-const { NotFoundError, BadRequestError } = require('../AppError');
+const { NotFoundError, BadRequestError, NoDataError } = require('../AppError');
 const {
-	processInvoiceAllocation,
-	processIncidentalRevenues,
 	calculateActualTotal,
 	aggregateRevenueByFeeKey,
 	allocateInvoiceFees,
 	aggregateFeesByKey,
+	processInvoicesReceipts,
 } = require('./revenues.util');
 const Services = require('../service');
 
 exports.getRevenues = async (data) => {
-	const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
+	const { month, year, buildingId } = data;
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
 	// Determine period
 	const currentPeriod = await getCurrentPeriod(buildingObjectId);
 	const { currentMonth, currentYear } = currentPeriod;
 
-	const month = data.month ? parseInt(data.month) : currentMonth;
-	const year = data.year ? parseInt(data.year) : currentYear;
-	const isCurrentPeriod = month === currentMonth && year === currentYear;
-	const status = isCurrentPeriod ? 'unlock' : 'lock';
+	if ((!!month && parseInt(month) !== currentMonth) || (!!year && parseInt(year) !== currentYear)) {
+		const checkExistedStatisticInPeriod = await Services.statistics.findByBuildingId(buildingObjectId, month, year).lean().exec();
+		if (!checkExistedStatisticInPeriod || checkExistedStatisticInPeriod?.isInitialStatistics === true) return null;
+	}
+
+	const queryMonth = !month ? currentMonth : parseInt(month);
+	const queryYear = !year ? currentYear : parseInt(year);
+	const revenueStatus = queryMonth == currentMonth && queryYear == currentYear ? 'unlock' : 'lock';
 
 	// Fetch revenue data
-	const revenueInfo = await Services.buildings.getRevenues(buildingObjectId, month, year);
+	const revenueInfo = await Services.buildings.getRevenues(buildingObjectId, queryMonth, queryYear);
 
 	const { revenues, otherRevenues = [] } = revenueInfo;
 
-	// ===== PROCESS PERIODIC REVENUES =====
-	const periodicRevenueList = [];
-	let totalPeriodicRequired = 0;
+	// ===== PROCESS INCIDENTAL & PERIODIC REVENUES =====
 
-	for (const room of revenues) {
-		if (!Array.isArray(room.invoiceInfo) || room.invoiceInfo.length === 0) {
-			continue;
-		}
-
-		for (const invoice of room.invoiceInfo) {
-			// Skip invalid invoices
-			if (!invoice || Object.keys(invoice).length === 0) continue;
-
-			// Skip if no fees
-			if (!Array.isArray(invoice.fee) || invoice.fee.length === 0) continue;
-
-			// Allocate paid amount to fees and debts
-			const { periodicRevenue, totalAmount } = processInvoiceAllocation(invoice, invoice.fee);
-
-			periodicRevenueList.push(...periodicRevenue);
-
-			// Add to total based on invoice total (not paidAmount)
-			// Use paidAmount if deducted, otherwise use total
-			const amountToCount = !invoice.deductedInfo || !invoice.deductedInfo.deductedId ? invoice.total || 0 : invoice.paidAmount || 0;
-
-			totalPeriodicRequired += amountToCount;
-		}
-	}
+	const { periodicRevenueList, totalPeriodicRequired, incidentalRevenue, totalIncidental } = processInvoicesReceipts(
+		revenues,
+		queryMonth,
+		queryYear,
+	);
 
 	// Aggregate periodic revenues
 	const periodicRevenue = aggregateRevenueByFeeKey(periodicRevenueList);
-
-	// ===== PROCESS INCIDENTAL REVENUES =====
-	const { incidentalRevenue, total: totalIncidentalRevenue } = processIncidentalRevenues(revenues, month, year);
 
 	// ===== PROCESS OTHER REVENUES =====
 	const totalOtherRevenue = Array.isArray(otherRevenues) ? otherRevenues.reduce((sum, item) => sum + (item.amount || 0), 0) : 0;
 
 	// ===== CALCULATE TOTALS =====
 	// totalRevenue: sum of all invoice totals (required to collect)
-	const totalRevenue = totalPeriodicRequired + totalIncidentalRevenue + totalOtherRevenue;
+	const totalRevenue = totalPeriodicRequired + totalIncidental + totalOtherRevenue;
 
 	// actualTotalRevenue: sum of actual paid amounts
 	const actualTotalRevenue = calculateActualTotal(periodicRevenue, incidentalRevenue, totalOtherRevenue);
@@ -77,7 +57,7 @@ exports.getRevenues = async (data) => {
 	// console.log('DEBUG - Periodic Revenue List:', periodicRevenueList);
 	console.log('DEBUG - Incidental Revenue List:', incidentalRevenue);
 	console.log('DEBUG - Total Periodic Required:', totalPeriodicRequired);
-	console.log('DEBUG - Incidental Total Actual:', totalIncidentalRevenue);
+	console.log('DEBUG - Incidental Total Actual:', totalIncidental);
 	console.log('DEBUG - Other Revenue Total:', totalOtherRevenue);
 	console.log('DEBUG - Total Revenue (Required):', totalRevenue);
 	console.log('DEBUG - Actual Total Revenue (Paid):', actualTotalRevenue);
@@ -86,16 +66,16 @@ exports.getRevenues = async (data) => {
 		periodicRevenue,
 		incidentalRevenue,
 		otherRevenue: otherRevenues,
-		period: { month, year },
-		status,
+		period: { month: queryMonth, year: queryYear },
+		status: revenueStatus,
 		totalRevenue, // Theoretical/Required revenue
 		actualTotalRevenue, // Actual/Paid revenue
-		totals: {
-			periodicRequired: totalPeriodicRequired,
-			periodicActual: calculateActualTotal(periodicRevenue, [], 0),
-			incidentalActual: totalIncidentalRevenue,
-			otherActual: totalOtherRevenue,
-		},
+		// totals: {
+		// 	periodicRequired: totalPeriodicRequired,
+		// 	periodicActual: calculateActualTotal(periodicRevenue, [], 0),
+		// 	incidentalActual: totalIncidentalRevenue,
+		// 	otherActual: totalOtherRevenue,
+		// },
 	};
 };
 

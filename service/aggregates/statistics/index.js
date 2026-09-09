@@ -1,5 +1,14 @@
 const mongoose = require('mongoose');
-const { contractStatus, CUSTOMER_STATUS, vehicleStatus, invoiceStatus, receiptStatus, receiptTypes, roomState } = require('../../../constants');
+const {
+	contractStatus,
+	CUSTOMER_STATUS,
+	vehicleStatus,
+	invoiceStatus,
+	receiptStatus,
+	receiptTypes,
+	roomState,
+	OWNER_CONFIRMED_STATUS,
+} = require('../../../constants');
 
 // const getStatisticsPipeline = (buildingId, month, year) => {
 // 	const prevMonth = month === 1 ? 12 : Number(month) - 1;
@@ -723,6 +732,10 @@ const getStatisticsPipelineModify = (buildingObjectId, month, year) => {
 									},
 									{ $eq: ['$month', month] },
 									{ $eq: ['$year', year] },
+									{
+										$ne: ['$ownerConfirmed', OWNER_CONFIRMED_STATUS['DECLINED']],
+									},
+									{ $eq: ['$isTransactionDetected', true] },
 								],
 							},
 						},

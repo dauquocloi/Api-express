@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { OWNER_CONFIRMED_STATUS } = require('../../../constants');
 // module.exports = function getCheckoutCostDetailPipeline(checkoutCostId) {
 // 	return [
 // 		{
@@ -252,6 +253,12 @@ const getCheckoutCostDetailPipeline = (checkoutCostId) => {
 							localField: '_id',
 							foreignField: 'receipt',
 							pipeline: [
+								{
+									$match: {
+										isTransactionDetected: true,
+										ownerConfirmed: { $ne: OWNER_CONFIRMED_STATUS['DECLINED'] },
+									},
+								},
 								{
 									$lookup: {
 										from: 'users',
