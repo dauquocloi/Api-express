@@ -11,9 +11,7 @@ exports.findById = (contractId) => {
 	return Entity.ContractsEntity.findById(contractId);
 };
 
-exports.findByRoomId = (roomId) => {
-	return Entity.ContractsEntity.findOne({ room: roomId, status: contractStatus['ACTIVE'] });
-};
+exports.findByRoomId = (roomId) => Entity.ContractsEntity.findOne({ room: roomId, status: contractStatus['ACTIVE'] });
 
 exports.findByContractCode = (contractCode) => Entity.ContractsEntity.findOne({ 'versions.contractCode': contractCode });
 
@@ -195,14 +193,15 @@ exports.importContracts = async (contractsData, session) => {
 
 exports.importContractPdfUrlAndContractFile = async (contractId, contractPdfUrl, contractFile) => {
 	const result = await Entity.ContractsEntity.findOneAndUpdate(
-		{ _id: contractId },
+		{ _id: contractId, 'versions.status': contractStatus['ACTIVE'] },
 		{
 			$set: {
 				contractPdfUrl: contractPdfUrl,
 				contractPdfFile: contractFile,
-				'versions.0.contractPdfUrl': contractPdfUrl,
-				'versions.0.contractPdfFile': contractFile,
+				'versions.$.contractPdfUrl': contractPdfUrl,
+				'versions.$.contractPdfFile': contractFile,
 			},
+			$inc: { version: 1 },
 		},
 		{ new: true },
 	);
@@ -309,4 +308,89 @@ exports.setContractOwner = async ({ currentCustomerId, customerId }, session = n
 	);
 	if (result.matchedCount === 0) throw new NotFoundError('Hợp đồng không tồn tại');
 	return true;
+};
+
+exports.modifyContractVersion = async ({
+	contractId,
+	rent,
+	depositAmount,
+	contractSignDate,
+	contractEndDate,
+	contractTerm,
+	fees,
+	status = contractStatus['ACTIVE'],
+	currentVersionNumber,
+}) => {
+	const contractCode = await generateContractCode(process.env.CONTRACT_CODE_LENGTH);
+
+	const now = new Date();
+
+	const result = await Entity.ContractsEntity.findOneAndUpdate(
+		{
+			_id: contractId,
+			'versions.status': contractStatus.ACTIVE,
+		},
+		[
+			{
+				$set: {
+					versions: {
+						$concatArrays: [
+							{
+								$map: {
+									input: '$versions',
+									as: 'v',
+									in: {
+										$cond: [
+											{
+												$eq: ['$$v.status', contractStatus.ACTIVE],
+											},
+											{
+												$mergeObjects: [
+													'$$v',
+													{
+														status: contractStatus.EXPIRED,
+														updatedAt: now,
+													},
+												],
+											},
+											'$$v',
+										],
+									},
+								},
+							},
+							[
+								{
+									version: currentVersionNumber + 1,
+									rent,
+									depositAmount,
+									contractSignDate,
+									contractEndDate,
+									contractTerm,
+									customerConfirmed: true,
+									status,
+									createdAt: now,
+									updatedAt: now,
+									contractCode,
+									fees,
+								},
+							],
+						],
+					},
+
+					version: {
+						$add: ['$version', 1],
+					},
+				},
+			},
+		],
+		{
+			new: true,
+			updatePipeline: true,
+		},
+	);
+	if (!result) {
+		throw new NotFoundError('Hợp đồng không tồn tại !');
+	}
+
+	return result;
 };

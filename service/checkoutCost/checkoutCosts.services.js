@@ -113,7 +113,6 @@ const updateCheckoutCostPaymentStatusByReceiptId = async (receiptId, newStatus, 
 			$set: { status: newStatus },
 			$inc: { version: 1 },
 		},
-		{ session },
 	);
 	if (result.matchedCount === 0) throw new NotFoundError('Dữ liệu phí trả phòng không tồn tại !');
 	return result;

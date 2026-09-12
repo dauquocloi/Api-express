@@ -4,7 +4,7 @@ const { AppError, BadRequestError, InternalError } = require('../AppError');
 const { errorCodes } = require('../constants/errorCodes');
 const Services = require('../service');
 const { receiptStatus, receiptTypes: RECEIPT_TYPES } = require('../constants/receipt');
-const { calculateReceiptStatusAfterModified } = require('../service/receipts.helper');
+const { getInvoiceStatus } = require('../service/invoices.helper');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const { invoiceStatus } = require('../constants/invoices');
 const ROLES = require('../constants/userRoles');
@@ -114,7 +114,7 @@ exports.webhookPayment = async (sepayData) => {
 				});
 
 				const newPaidAmount = paidAmount + sepayData.transferAmount;
-				const getNewInvoiceStatus = calculateReceiptStatusAfterModified(newPaidAmount, total);
+				const getNewInvoiceStatus = getInvoiceStatus(newPaidAmount, total);
 				const invoiceStatusUpdates = await Services.invoices.updateInvoicePaidStatus(
 					{
 						invoiceId: _id,
@@ -217,7 +217,7 @@ exports.webhookPayment = async (sepayData) => {
 				});
 
 				const newPaidAmount = paidAmount + sepayData.transferAmount;
-				const getNewReceiptStatus = calculateReceiptStatusAfterModified(newPaidAmount, amount);
+				const getNewReceiptStatus = getInvoiceStatus(newPaidAmount, amount);
 
 				await Services.receipts.updateReceiptPaidAmount(
 					{

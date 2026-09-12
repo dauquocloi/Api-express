@@ -1,27 +1,35 @@
 const Queue = require('bull');
 const { redisDb } = require('../config');
-const { handleGenerateContractJob } = require('../jobs/contract/contract.process');
-const { GENERATE_CONTRACT_QUEUE } = require('../jobs/constant/jobNames');
+const { handleGenerateContractJob, handleModifyContractJob } = require('../jobs/contract/contract.process');
+const { CONTRACT_QUEUE, GENERATE_CONTRACT, MODIFY_CONTRACT } = require('../jobs/constant/jobNames');
 const Sentry = require('@sentry/node');
 
-const generateContractQueue = new Queue(GENERATE_CONTRACT_QUEUE, redisDb.opts);
+const contractQueue = new Queue(CONTRACT_QUEUE, redisDb.opts);
 
-generateContractQueue.process(5, async (job) => {
+contractQueue.process(5, async (job) => {
 	const { data } = job;
-	return await handleGenerateContractJob(data);
+	const { type } = data;
+	switch (type) {
+		case GENERATE_CONTRACT: {
+			return handleGenerateContractJob(data);
+		}
+		case MODIFY_CONTRACT: {
+			return handleModifyContractJob(data);
+		}
+	}
 });
 
-generateContractQueue.on('completed', (job, result) => {
+contractQueue.on('completed', (job, result) => {
 	console.log(` Job completed: ${job.id}, Result:`, result);
 });
 
-generateContractQueue.on('failed', (job, error) => {
+contractQueue.on('failed', (job, error) => {
 	console.error(` Job failed: ${job.id}, Error:`, error);
 
 	Sentry.captureException(error, {
 		level: 'error',
 		tags: {
-			job: GENERATE_CONTRACT_QUEUE,
+			job: job.data.type,
 			jobId: job.id,
 			component: 'background-job',
 			status: 'failed',

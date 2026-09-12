@@ -21,4 +21,9 @@ const transformInvoiceStatus = {
 	[invoiceStatus.PENDING]: 'Hóa đơn hóa',
 };
 
-module.exports = { invoiceStatus, invoiceType, transformInvoiceStatus };
+const DETUCTED_TYPE = {
+	DEPOSIT_REFUND: 'depositRefund',
+	TERMINATE_CONTRACT_EARLY: 'terminateContractEarly',
+};
+
+module.exports = { invoiceStatus, invoiceType, transformInvoiceStatus, DETUCTED_TYPE };

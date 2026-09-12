@@ -28,6 +28,7 @@ module.exports = {
 	}),
 	modifyRent: Joi.object().keys({
 		newRent: Joi.number().required(),
+		shouldRequestCustomerVerification: Joi.boolean().required(),
 	}),
 	generateCheckoutCost: Joi.object().keys({
 		buildingId: JoiObjectId().required(),

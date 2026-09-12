@@ -42,6 +42,7 @@ router.post(
 	'/:depositRefundId/confirm',
 	authorization(ROLES['OWNER']),
 	validator(schema.id, ValidateSource.PARAM),
+	validator(schema.confirmDepositRefund, ValidateSource.BODY),
 	checkResourceAccess(RESOURCES['depositRefunds']),
 	checkIdempotency,
 	DepositRefunds.confirmDepositRefund,

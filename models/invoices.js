@@ -1,7 +1,6 @@
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-const { invoiceStatus } = require('../constants/invoices');
-const { feeUnit } = require('../constants/fees');
+const { invoiceStatus, feeUnit, DETUCTED_TYPE, invoiceType } = require('../constants');
 
 const FeeInvoiceSchema = new Schema({
 	feeName: String,
@@ -14,19 +13,19 @@ const FeeInvoiceSchema = new Schema({
 	quantity: {
 		type: Number,
 		required: function () {
-			return this.type === 'person' || this.type === 'vehicle';
+			return this.type === feeUnit['PERSON'] || this.type === feeUnit['VEHICLE'];
 		},
 	},
 	firstIndex: {
 		type: Number,
 		required: function () {
-			return this.type === 'index';
+			return this.type === feeUnit['INDEX'];
 		},
 	},
 	lastIndex: {
 		type: Number,
 		required: function () {
-			return this.type === 'index';
+			return this.type === feeUnit['INDEX'];
 		},
 	},
 	feeAmount: {
@@ -82,13 +81,13 @@ const InvoicesSchema = new Schema(
 			default: 0,
 		},
 		status: { type: String, enum: Object.values(invoiceStatus), default: invoiceStatus['UNPAID'] },
-		invoiceType: { type: String, enum: ['firstInvoice', 'rental'], default: 'rental' },
+		invoiceType: { type: String, enum: Object.values(invoiceType), default: invoiceType['RENTAL'] },
 		// Dành cho hoàn cọc => Khách không thể lấy tt thanh toán trên hệ thống web-view
-		isDepositing: { type: Boolean, default: false },
+		// isDepositing: { type: Boolean, default: false },
 		// Nd: Số tiền chưa thanh toán, còn thiếu, đã được trừ vào tiền hoàn cọc.
 		isDepositDeducted: { type: Boolean, default: false },
 		detuctedInfo: {
-			detuctedType: { type: String, enum: ['depositRefund', 'terminateContractEarly'] },
+			detuctedType: { type: String, enum: Object.values(DETUCTED_TYPE) },
 			detuctedId: { type: Schema.Types.ObjectId },
 		},
 		fee: [FeeInvoiceSchema],

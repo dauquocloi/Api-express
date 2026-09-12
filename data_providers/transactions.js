@@ -6,11 +6,9 @@ const { notificationJob } = require('../jobs/notification/notification.job');
 const { NOTI_TRANSACTION_DECLINED } = require('../jobs/constant/jobNames');
 const { client: redis } = require('../config').redisDb;
 const { CREATED_BY, OWNER_CONFIRMED_STATUS, paymentConfirmationMode, PAYMENT_METHOD } = require('../constants');
-const { billType: BILL_TYPE } = require('../constants/bills');
 const { calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
-const { calculateReceiptStatusAfterModified } = require('../service/receipts.helper');
 const { calculateCheckoutCostStatus } = require('../service/checkoutCost/checkoutCosts.helper');
-const { receiptTypes, depositStatus, checkoutCostStatus } = require('../constants');
+const { receiptTypes, depositStatus, checkoutCostStatus, billType } = require('../constants');
 const { calculateDepositStatus } = require('../service/deposits.helper');
 
 exports.confirmTransaction = async (transactionId) => {
@@ -36,110 +34,109 @@ exports.confirmTransaction = async (transactionId) => {
 	}
 };
 
-exports.denyTransaction = async (transactionId, reason, buildingId, version) => {
-	let session;
+exports.denyTransaction = async (transactionId, reason, buildingId, version, userId) => {
 	let result;
-	try {
-		session = await mongoose.startSession();
-		await session.withTransaction(async () => {
-			const building = await Services.buildings.findById(buildingId).session(session).lean().exec();
-			if (!building) throw new BadRequestError('Tòa nhà không tồn tại !');
-			if (building.paymentConfirmationMode === paymentConfirmationMode['AUTO']) throw new BadRequestError('Chức năng không khả dụng');
 
-			const currentTransaction = await Services.transactions.findById(transactionId).populate('invoice receipt').session(session).lean().exec();
-			if (!currentTransaction) throw new NotFoundError('Giao dịch không tồn tại !');
-			if (currentTransaction.version !== version) throw new ConflictError('Dữ liệu đã bị thay đổi vui lòng tải lại trang !');
+	const building = await Services.buildings.findById(buildingId).lean().exec();
+	if (!building) throw new BadRequestError('Tòa nhà không tồn tại !');
+	// if (building.paymentConfirmationMode === paymentConfirmationMode['AUTO']) throw new BadRequestError('Chức năng không khả dụng');
 
-			if (currentTransaction.createdBy === CREATED_BY['SEPAY']) throw new BadRequestError('Giao dịch này không thể được chỉnh sửa !');
+	const currentTransaction = await Services.transactions.findById(transactionId).populate('invoice receipt').lean().exec();
+	if (!currentTransaction) throw new NotFoundError('Giao dịch không tồn tại !');
+	if (currentTransaction.version !== version) throw new ConflictError('Dữ liệu đã bị thay đổi vui lòng tải lại trang !');
 
-			if (currentTransaction.createdBy === CREATED_BY['OWNER']) throw new BadRequestError('Lệnh không hợp lệ !');
+	if (currentTransaction.createdBy === CREATED_BY['SEPAY']) throw new BadRequestError('Giao dịch này không thể được chỉnh sửa !');
 
-			if (currentTransaction.ownerConfirmed === OWNER_CONFIRMED_STATUS['CONFIRMED']) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ');
+	if (currentTransaction.createdBy === CREATED_BY['OWNER']) throw new BadRequestError('Lệnh không hợp lệ !');
 
-			if (!currentTransaction.isTransactionDetected) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ !');
+	if (currentTransaction.ownerConfirmed === OWNER_CONFIRMED_STATUS['CONFIRMED']) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ');
 
-			if (!currentTransaction.invoice && !currentTransaction.receipt) throw new NoDataError('Giao dịch không đi kèm với bất kỳ hóa đơn nào !');
+	if (!currentTransaction.isTransactionDetected) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ !');
 
-			if (currentTransaction.invoice) {
-				const { invoice, amount, collector } = currentTransaction;
-				if (invoice.locked === true) throw new BadRequestError('Giao dịch không thể xóa vì hóa đơn đã đóng !');
+	if (!currentTransaction.invoice && !currentTransaction.receipt) {
+		throw new NoDataError('Giao dịch không đi kèm với bất kỳ hóa đơn nào !');
+	} else {
+		const { receipt, invoice } = currentTransaction;
+		const roomId = invoice?.room || receipt?.room;
+		await Services.rooms.assertRoomWritable({ roomId, userId });
+	}
 
-				const calculateInvoiceUnpaid = calculateInvoiceUnpaidAmount(invoice.paidAmount, currentTransaction.amount);
-				const newInvoiceStatus = getInvoiceStatus(calculateInvoiceUnpaid, invoice.total);
-				await Services.invoices.updateInvoicePaidStatus(
-					{ invoiceId: invoice._id, paidAmount: calculateInvoiceUnpaid, invoiceStatus: newInvoiceStatus },
-					session,
-				);
+	if (currentTransaction.invoice) {
+		const { invoice, amount, collector } = currentTransaction;
+		if (invoice.locked === true) throw new ConflictError('Giao dịch không thể xóa vì hóa đơn đã đóng !');
 
-				await notificationJob({
-					billType: BILL_TYPE['INVOICE'],
-					id: invoice._id,
-					reason: reason.trim() ?? '',
-					receiverId: collector,
-					transactionAmount: amount,
-					notiType: NOTI_TRANSACTION_DECLINED,
-				});
-
-				result = {
-					type: BILL_TYPE['INVOICE'],
-					invoiceId: invoice._id.toString(),
-				};
-			}
-
-			if (currentTransaction.receipt) {
-				const { receipt } = currentTransaction;
-				if (receipt.locked === true) throw new BadRequestError('Giao dịch không thể xóa vì hóa đơn đã đóng !');
-				const newReceiptPaidAmount = calculateInvoiceUnpaidAmount(receipt.paidAmount, currentTransaction.amount);
-				const newReceiptStatus = calculateReceiptStatusAfterModified(newReceiptPaidAmount, receipt.amount);
-				await Services.receipts.updateReceiptPaidAmount(
-					{ receiptId: receipt._id, paidAmount: newReceiptPaidAmount, receiptStatus: newReceiptStatus, version: receipt.version },
-					session,
-				);
-
-				if (receipt.receiptType === receiptTypes['DEPOSIT']) {
-					const currentDeposit = await Services.deposits.findByReceiptId(receipt._id).session(session).lean().exec();
-					if (!currentDeposit) throw new NotFoundError('Khoản đặt cọc không tồn tại !');
-					if ([depositStatus['PARTIAL'], depositStatus['PAID']].includes(currentDeposit.status)) {
-						await Services.deposits.updateActualDepositAmountByReceiptId(
-							{
-								receiptId: receipt._id,
-								actualDepositAmount: newReceiptPaidAmount,
-								status: calculateDepositStatus(receipt.amount, newReceiptPaidAmount),
-							},
-							session,
-						);
-					}
-				}
-				if (receipt.receiptType === receiptTypes['CHECKOUT']) {
-					const currentCheckoutCost = await Services.checkoutCosts.findByReceiptId(receipt._id).session(session).lean().exec();
-					if (!currentCheckoutCost) throw new NotFoundError('Khoản chi phí thanh toán khi trả phòng không tồn tại !');
-					if (![checkoutCostStatus['TERMINATED']].includes(currentCheckoutCost.status)) {
-						const newCheckoutCostStatus = calculateCheckoutCostStatus(currentCheckoutCost.total, newReceiptPaidAmount);
-						await Services.checkoutCosts.updateCheckoutCostPaymentStatusByReceiptId(receipt._id, newCheckoutCostStatus, session);
-					}
-				}
-
-				result = {
-					type: BILL_TYPE['RECEIPT'],
-					invoiceId: receipt._id.toString(),
-				};
-			}
-
-			await Services.transactions.updateOwnerConfirmationStatus(
-				{ transactionId, ownerConfirmationStatus: OWNER_CONFIRMED_STATUS['DECLINED'], ownerDeclinedReason: reason, version: version },
-				session,
-			);
+		const calculateInvoiceUnpaid = calculateInvoiceUnpaidAmount(invoice.paidAmount, currentTransaction.amount);
+		const newInvoiceStatus = getInvoiceStatus(calculateInvoiceUnpaid, invoice.total);
+		await Services.invoices.updateInvoicePaidStatus({
+			invoiceId: invoice._id,
+			paidAmount: calculateInvoiceUnpaid,
+			invoiceStatus: newInvoiceStatus,
 		});
 
-		return result;
-	} finally {
-		if (session) session.endSession();
+		await notificationJob({
+			billType: billType['INVOICE'],
+			id: invoice._id,
+			reason: reason.trim() ?? '',
+			receiverId: collector,
+			transactionAmount: amount,
+			notiType: NOTI_TRANSACTION_DECLINED,
+		});
+
+		result = {
+			type: billType['INVOICE'],
+			invoiceId: invoice._id.toString(),
+		};
 	}
+
+	if (currentTransaction.receipt) {
+		const { receipt } = currentTransaction;
+		if (receipt.locked === true) throw new BadRequestError('Giao dịch không thể xóa vì hóa đơn đã đóng !');
+
+		const newReceiptPaidAmount = calculateInvoiceUnpaidAmount(receipt.paidAmount, currentTransaction.amount);
+		const newReceiptStatus = getInvoiceStatus(newReceiptPaidAmount, receipt.amount);
+		await Services.receipts.updateReceiptPaidAmount({
+			receiptId: receipt._id,
+			paidAmount: newReceiptPaidAmount,
+			receiptStatus: newReceiptStatus,
+			version: receipt.version,
+		});
+
+		if (receipt.receiptType === receiptTypes['DEPOSIT']) {
+			const currentDeposit = await Services.deposits.findByReceiptId(receipt._id).lean().exec();
+			if (!currentDeposit) throw new NotFoundError('Khoản đặt cọc không tồn tại !');
+			if ([depositStatus['PARTIAL'], depositStatus['PAID']].includes(currentDeposit.status)) {
+				await Services.deposits.updateActualDepositAmountByReceiptId({
+					receiptId: receipt._id,
+					actualDepositAmount: newReceiptPaidAmount,
+					status: calculateDepositStatus(receipt.amount, newReceiptPaidAmount),
+				});
+			}
+		}
+		if (receipt.receiptType === receiptTypes['CHECKOUT']) {
+			const currentCheckoutCost = await Services.checkoutCosts.findByReceiptId(receipt._id).lean().exec();
+			if (!currentCheckoutCost) throw new NotFoundError('Khoản chi phí thanh toán khi trả phòng không tồn tại !');
+			if (![checkoutCostStatus['TERMINATED']].includes(currentCheckoutCost.status)) {
+				const newCheckoutCostStatus = calculateCheckoutCostStatus(currentCheckoutCost.total, newReceiptPaidAmount);
+				await Services.checkoutCosts.updateCheckoutCostPaymentStatusByReceiptId(receipt._id, newCheckoutCostStatus);
+			}
+		}
+
+		result = {
+			type: billType['RECEIPT'],
+			invoiceId: receipt._id.toString(),
+		};
+	}
+
+	await Services.transactions.updateOwnerConfirmationStatus({
+		transactionId,
+		ownerConfirmationStatus: OWNER_CONFIRMED_STATUS['DECLINED'],
+		ownerDeclinedReason: reason,
+	});
+
+	return result;
 };
 
-// exports.modifyTransaction = async (transactionId, amount, date) => {};
-
-exports.receiveCashFromManager = async (transactionId, redisKey) => {
+exports.receiveCashFromManager = async (transactionId) => {
 	const transaction = await Services.transactions.findById(transactionId).populate('invoice').populate('receipt').lean().exec();
 	if (!transaction) throw new NotFoundError('Giao dịch không tồn tại !');
 	if (!transaction.invoice && !transaction.receipt) throw new NoDataError('Giao dịch không đi kèm với bất kỳ hóa đơn nào !');
@@ -151,79 +148,64 @@ exports.receiveCashFromManager = async (transactionId, redisKey) => {
 	await Services.transactions.confirmTransaction(transactionId);
 	if (transaction.invoice) {
 		const result = {
-			type: 'invoice',
+			type: billType['INVOICE'],
 			invoiceId: transaction.invoice._id.toString(),
 		};
-		await redis.set(redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
+		// await redis.set(redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 		return result;
 	} else if (transaction.receipt) {
 		const result = {
-			type: 'receipt',
+			type: billType['RECEIPT'],
 			receiptId: transaction.receipt._id.toString(),
 		};
-		await redis.set(redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
+		// await redis.set(redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 		return result;
 	}
 };
 
-// exports.removeTransaction = async ({ transactionId, buildingId, userId }) => {
+// exports.receiveCashFromManagerV2 = async (transactionId) => {
 // 	let session;
 // 	try {
 // 		session = await mongoose.startSession();
-// 		return await session.withTransaction(async () => {
-// 			const building = await Services.buildings.findById(buildingId).session(session).lean().exec();
-// 			if (!building) throw new NotFoundError('Tòa nhà không tồn tại !');
-// 			if (building.paymentConfirmationMode !== paymentConfirmationMode['MANUAL'])
-// 				throw new BadRequestError('Chức năng này chỉ khả dụng khi tòa nhà đang ở chế độ xác nhận thanh toán thủ công !');
+// 		session.startTransaction();
+// 		const transaction = await Services.transactions
+// 			.findById(transactionId)
+// 			.session(session)
+// 			.populate('invoice')
+// 			.populate('receipt')
+// 			.lean()
+// 			.exec();
 
-// 			const transaction = await Services.transactions.findById(transactionId).populate('invoice receipt').session(session).lean().exec();
-// 			if (!transaction) throw new NotFoundError('Giao dịch không tồn tại !');
-// 			if (transaction.receipt) {
-// 				const { receipt } = transaction;
-// 				if (receipt.locked === true) throw new BadRequestError('Giao dịch không thể xóa vì hóa đơn đã đóng !');
-// 				const newReceiptPaidAmount = calculateInvoiceUnpaidAmount(receipt.paidAmount, transaction.amount);
-// 				const newReceiptStatus = calculateReceiptStatusAfterModified(newReceiptPaidAmount, receipt.amount);
-// 				await Services.receipts.updateReceiptPaidAmount(
-// 					{ receiptId: receipt._id, paidAmount: newReceiptPaidAmount, receiptStatus: newReceiptStatus, version: receipt.version },
-// 					session,
-// 				);
+// 		if (!transaction) throw new NotFoundError('Giao dịch không tồn tại !');
+// 		if (!transaction.invoice && !transaction.receipt) throw new NoDataError('Giao dịch không đi kèm với bất kỳ hóa đơn nào !');
+// 		if (!transaction.isTransactionDetected) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ !');
+// 		if (transaction.createdBy === CREATED_BY['OWNER']) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ !');
+// 		if (transaction.ownerConfirmed === OWNER_CONFIRMED_STATUS['CONFIRMED']) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ !');
+// 		if (transaction.paymentMethod !== PAYMENT_METHOD['CASH']) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ !');
 
-// 				if (receipt.receiptType === receiptTypes['DEPOSIT']) {
-// 					const currentDeposit = await Services.deposits.findByReceiptId(receipt._id).session(session).lean().exec();
-// 					if (!currentDeposit) throw new NotFoundError('Khoản đặt cọc không tồn tại !');
-// 					if ([depositStatus['PARTIAL'], depositStatus['PAID']].includes(currentDeposit.status)) {
-// 						await Services.deposits.updateActualDepositAmountByReceiptId(
-// 							{
-// 								receiptId: receipt._id,
-// 								actualDepositAmount: newReceiptPaidAmount,
-// 								status: calculateDepositStatus(receipt.amount, newReceiptPaidAmount),
-// 							},
-// 							session,
-// 						);
-// 					}
-// 				}
-// 				if (receipt.receiptType === receiptTypes['CHECKOUT']) {
-// 					const currentCheckoutCost = await Services.checkoutCosts.findByReceiptId(receipt._id).session(session).lean().exec();
-// 					if (!currentCheckoutCost) throw new NotFoundError('Khoản chi phí thanh toán khi trả phòng không tồn tại !');
-// 					if (![checkoutCostStatus['TERMINATED']].includes(currentCheckoutCost.status)) {
-// 						const newCheckoutCostStatus = calculateCheckoutCostStatus(currentCheckoutCost.total, newReceiptPaidAmount);
-// 						await Services.checkoutCosts.updateCheckoutCostPaymentStatusByReceiptId(receipt._id, newCheckoutCostStatus, session);
-// 					}
-// 				}
-// 			} else if (transaction.invoice) {
-// 				const { invoice } = transaction;
-// 				if (invoice.locked === true) throw new BadRequestError('Giao dịch không thể xóa vì hóa đơn đã đóng !');
-// 				const calculateInvoiceUnpaid = calculateInvoiceUnpaidAmount(invoice.paidAmount, transaction.amount);
-// 				const newInvoiceStatus = getInvoiceStatus(calculateInvoiceUnpaid, invoice.total);
-// 				await Services.invoices.updateInvoicePaidStatus(
-// 					{ invoiceId: invoice._id, paidAmount: calculateInvoiceUnpaid, invoiceStatus: newInvoiceStatus },
-// 					session,
-// 				);
-// 			}
-// 			await Services.transactions.removeTransaction(transactionId, session);
+// 		await Services.transactions.confirmTransaction(transactionId, session);
+// 		let result;
+// 		if (transaction.invoice) {
+// 			result = {
+// 				type: billType['INVOICE'],
+// 				invoiceId: transaction.invoice._id.toString(),
+// 			};
+// 		} else if (transaction.receipt) {
+// 			result = {
+// 				type: billType['RECEIPT'],
+// 				receiptId: transaction.receipt._id.toString(),
+// 			};
+// 		}
 
-// 			throw new InternalError('Stop for testing');
-// 		});
+// 		console.log(`declineTransaction: ${(performance.now() - start).toFixed(2)}ms`);
+
+// 		throw new InternalError('StopForTesting');
+
+// 		await session.commitTransaction();
+// 		return result;
+// 	} catch (error) {
+// 		if (session) await session.abortTransaction();
+// 		throw error;
 // 	} finally {
 // 		if (session) session.endSession();
 // 	}

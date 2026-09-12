@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { invoiceStatus, receiptStatus, receiptTypes, debtStatus } = require('../../../constants');
+const { invoiceStatus, receiptStatus, receiptTypes, debtStatus, OWNER_CONFIRMED_STATUS } = require('../../../constants');
 
 exports.getDebtsAndReceiptsUnpaid = (contractId) => {
 	return [
@@ -53,6 +53,33 @@ exports.getDebtsAndReceiptsUnpaid = (contractId) => {
 							},
 						},
 					},
+					{
+						$lookup: {
+							from: 'transactions',
+							localField: '_id',
+							foreignField: 'invoice',
+							pipeline: [
+								{
+									$match: {
+										ownerConfirmed: OWNER_CONFIRMED_STATUS['PENDING'],
+										isTransactionDetected: true,
+									},
+								},
+								{
+									$project: {
+										_id: 1,
+										ownerConfirmed: 1,
+										invoice: 1,
+										receipt: 1,
+										amount: 1,
+										createdBy: 1,
+										paymentMethod: 1,
+									},
+								},
+							],
+							as: 'transactionsUnconfirmed',
+						},
+					},
 				],
 				as: 'invoicesUnpaid',
 			},
@@ -68,16 +95,43 @@ exports.getDebtsAndReceiptsUnpaid = (contractId) => {
 							$expr: {
 								$and: [
 									{
-										$in: ['status', [receiptStatus['UNPAID'], receiptStatus['PARTIAL']]],
+										$in: ['$status', [receiptStatus['UNPAID'], receiptStatus['PARTIAL']]],
 									},
 									{
-										$eq: ['locked', false],
+										$eq: ['$locked', false],
 									},
 									{
 										$in: ['$receiptType', [receiptTypes['INCIDENTAL'], receiptTypes['DEBTS']]],
 									},
 								],
 							},
+						},
+					},
+					{
+						$lookup: {
+							from: 'transactions',
+							localField: '_id',
+							foreignField: 'receipt',
+							pipeline: [
+								{
+									$match: {
+										ownerConfirmed: OWNER_CONFIRMED_STATUS['PENDING'],
+										isTransactionDetected: true,
+									},
+								},
+								{
+									$project: {
+										_id: 1,
+										ownerConfirmed: 1,
+										invoice: 1,
+										receipt: 1,
+										amount: 1,
+										createdBy: 1,
+										paymentMethod: 1,
+									},
+								},
+							],
+							as: 'transactionsUnconfirmed',
 						},
 					},
 				],

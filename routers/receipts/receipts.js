@@ -31,7 +31,6 @@ exports.createDepositReceipt = asyncHandler(async (req, res) => {
 exports.getReceiptDetail = asyncHandler(async (req, res) => {
 	const data = req.params;
 	console.log('log of getReceiptDetail', data);
-	// await new Promise((resolve, reject) => setTimeout(() => reject(new NotFoundError()), 5000));
 	const result = await UseCase.getReceiptDetail(data.receiptId, req.buildingId);
 	return new SuccessResponse('Success', result).send(res);
 });
@@ -43,12 +42,12 @@ exports.getDepositReceiptDetail = asyncHandler(async (req) => {
 	return new SuccessResponse('Success', result).send(res);
 });
 
-exports.collectCashMoney = asyncHandler(async (req, res) => {
-	const data = { ...req.params, ...req.body, ...req.user, redisKey: req.redisKey };
-	console.log('log of collectCashMoney', data);
-	await UseCase.collectCashMoney(data.receiptId, data.buildingId, data.amount, data.date, data._id, data.version, data.redisKey);
-	return new SuccessMsgResponse('Success').send(res);
-});
+// exports.collectCashMoney = asyncHandler(async (req, res) => {
+// 	const data = { ...req.params, ...req.body, ...req.user, redisKey: req.redisKey };
+// 	console.log('log of collectCashMoney', data);
+// 	await UseCase.collectCashMoney(data.receiptId, data.buildingId, data.amount, data.date, data._id, data.version, data.redisKey);
+// 	return new SuccessMsgResponse('Success').send(res);
+// });
 
 exports.checkout = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.body, redisKey: req.redisKey };

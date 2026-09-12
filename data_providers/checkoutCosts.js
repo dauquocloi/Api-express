@@ -1,19 +1,16 @@
 const mongoose = require('mongoose');
 const Services = require('../service');
-const { NotFoundError, ConflictError, BadRequestError } = require('../AppError');
+const { NotFoundError, ConflictError, BadRequestError, InternalError } = require('../AppError');
 const { formatDebts } = require('../service/debts.helper');
 const { generateInvoiceFees } = require('../service/invoices.helper');
-const { feeUnit } = require('../constants/fees');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
-const { receiptStatus, receiptTypes } = require('../constants/receipt');
-const { sourceType } = require('../constants/debts');
-const { invoiceType } = require('../constants/invoices');
-const { CHECKOUT_TYPES } = require('../constants/rooms');
+const { sourceType, CHECKOUT_TYPES, DETUCTED_TYPE, receiptStatus, receiptTypes, feeUnit } = require('../constants');
 // const { LockInvoiceJob } = require('../jobs/Invoices');
 const { lockInvoiceJob } = require('../jobs/invoice/invoice.job');
 const { lockReceiptJob } = require('../jobs/receipt/receipt.job');
 const { calculateTotalCheckoutCostAmount } = require('../service/checkoutCost/checkoutCosts.helper');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
+const { checkExistPendingTransactions } = require('./depositRefunds.util');
 
 exports.getCheckoutCostDetail = async (checkoutCostId, buildingId) => {
 	const checkoutCostObjectId = new mongoose.Types.ObjectId(checkoutCostId);
@@ -84,8 +81,9 @@ exports.finishModifyCheckoutCost = async (checkoutCostId) => {
 			const currentCheckoutCost = await Services.checkoutCosts.findById(checkoutCostId).session(session).lean().exec();
 			if (!currentCheckoutCost) throw new NotFoundError('Phiếu trả phòng không tồn tại !');
 
-			if (currentCheckoutCost.invoiceUnpaid) {
-				await Services.invoices.lockInvoice(currentCheckoutCost.invoiceUnpaid, session);
+			if (currentCheckoutCost.invoicesUnpaid?.length > 0) {
+				// await Services.invoices.lockInvoice(currentCheckoutCost.invoiceUnpaid, session);
+				await Services.invoices.lockInvoiceByIds(currentCheckoutCost.invoicesUnpaid, session);
 			}
 			if (currentCheckoutCost.receiptsUnpaid?.length > 0) {
 				await Services.receipts.lockReceipts(currentCheckoutCost.receiptsUnpaid, session);
@@ -126,66 +124,6 @@ exports.removeDebtsFromCheckoutCost = async (checkoutCostId) => {
 	}
 };
 
-// Chưa check nợ
-// exports.modifyCheckoutCost = async (checkoutCostId, version, feeIndexValues, stayDays, feesOther, userId) => {
-// 	let session;
-// 	try {
-// 		session = await mongoose.startSession();
-// 		await session.withTransaction(async () => {
-// 			const currentCheckoutCost = await Services.checkoutCosts.findById(checkoutCostId).session(session).populate('checkoutCostReceipt');
-// 			if (version !== currentCheckoutCost.version) throw new ConflictError(`Dữ liệu này đã bị thay đổi`);
-
-// 			const { fees, feesOther: oldFeesOther, invoicesUnpaid, total, checkoutCostReceipt } = currentCheckoutCost;
-// 			let currentFeeIndexIds = fees.map((f) => (f.unit === feeUnit['INDEX'] ? f._id.toString() : null)).filter(Boolean);
-// 			if (currentFeeIndexIds.length > 0) validateFeeIndexMatch(currentFeeIndexIds, feeIndexValues);
-
-// 			let totalCurrentRoomFees = calculateTotalFeeAmount(fees);
-// 			let totalCurrentOtherFees = calculateTotalFeesOther(oldFeesOther);
-
-// 			let formatRoomFees;
-// 			if (!invoicesUnpaid || invoicesUnpaid.length === 0) {
-// 				formatRoomFees = generateInvoiceFees(fees, 0, stayDays, feeIndexValues, true, 'modify');
-// 			} else {
-// 				formatRoomFees = generateInvoiceFees(fees, 0, 0, feeIndexValues, false, 'modify');
-// 			}
-// 			const totalRoomFees = calculateTotalFeeAmount(formatRoomFees);
-// 			const totalOtherFees = calculateTotalFeesOther(feesOther);
-
-// 			const currentCheckoutCostTotalWithoutRoomFeesAndDebts = total - (totalCurrentRoomFees + totalCurrentOtherFees);
-// 			const newCheckoutCostTotal = currentCheckoutCostTotalWithoutRoomFeesAndDebts + totalRoomFees + totalOtherFees;
-// 			console.log('log of newCheckoutCostTotal: ', newCheckoutCostTotal);
-
-// 			await Services.receipts.modifyReceipt(
-// 				{
-// 					receiptObjectId: checkoutCostReceipt._id,
-// 					receiptAmount: newCheckoutCostTotal,
-// 					receiptContent: checkoutCostReceipt.receiptContent,
-// 					receiptVersion: checkoutCostReceipt.version,
-// 				},
-// 				session,
-// 			);
-// 			await Services.checkoutCosts.modifyCheckoutCost(
-// 				{ checkoutCostId, version, fees: formatRoomFees, feesOther, newTotal: newCheckoutCostTotal },
-// 				session,
-// 			);
-
-// 			let currentFeeIndexKeys = fees.map((f) => (f.unit == feeUnit['INDEX'] ? f.feeKey : null)).filter(Boolean);
-// 			let modifyFeeIndex = formatRoomFees.map((f) => (f.unit === feeUnit['INDEX'] ? f : null)).filter(Boolean);
-// 			console.log('log of modifyFeeIndex: ', modifyFeeIndex);
-// 			console.log('log of currentFeeIndexKeys: ', currentFeeIndexKeys);
-// 			await Services.fees.updateFeeIndexValuesByFeeKey(currentFeeIndexKeys, currentCheckoutCost.roomId, modifyFeeIndex, session);
-
-// 			return 'Success';
-// 		});
-// 		return 'Success';
-// 	} catch (error) {
-// 		throw error;
-// 	} finally {
-// 		if (session) session.endSession();
-// 	}
-// };
-
-// modify checkout 0.2
 exports.modifyCheckoutCost = async (checkoutCostId, version, feeIndexValues, stayDays, feesOther, userId) => {
 	let session;
 	try {
@@ -297,12 +235,12 @@ exports.terminateCheckoutCost = async (checkoutCostId, version) => {
 			console.log('isRoomDeposited: ', isRoomDeposited);
 			if (isRoomDeposited === true) throw new BadRequestError('Phòng đã được đặt cọc, không thể hủy phiếu trả phòng');
 
-			const { checkoutCostReceipt, receiptsUnpaid, invoiceUnpaid, fees } = currentCheckoutCost;
+			const { checkoutCostReceipt, receiptsUnpaid, invoicesUnpaid, fees } = currentCheckoutCost;
 			if (checkoutCostReceipt.status === receiptStatus['PAID'] || checkoutCostReceipt.status === receiptStatus['PARTIAL']) {
 				throw new BadRequestError('Không thể xóa phiếu đã thanh toán');
 			}
-			if (invoiceUnpaid) {
-				await Services.invoices.rollBackInvoiceAtCheckoutCost(invoiceUnpaid._id, session);
+			if (Array.isArray(invoicesUnpaid) && invoicesUnpaid.length > 0) {
+				await Services.invoices.rollBackInvoicesAtCheckoutCost(invoicesUnpaid, session);
 			}
 			if (Array.isArray(receiptsUnpaid) && receiptsUnpaid.length > 0) {
 				await Services.receipts.rollBackManyDetuctedReceipts(receiptsUnpaid, session);
@@ -341,6 +279,7 @@ exports.generateCheckoutCost = async ({ roomId, contractId, creatorId, feeIndexV
 
 			const debtsAndReceiptUnpaid = await Services.contracts.getDebtsAndReceiptsUnpaid(contractId, session);
 			const { fees, depositReceipt, invoicesUnpaid = [], receiptsUnpaid = [], debts = [], contract } = debtsAndReceiptUnpaid;
+			checkExistPendingTransactions(receiptsUnpaid, invoicesUnpaid);
 
 			const roomFeeIndex = fees.filter((f) => f.unit === feeUnit['INDEX']);
 			const roomFeeIndexIds = roomFeeIndex.map((fee) => fee._id.toString()) || [];
@@ -353,7 +292,6 @@ exports.generateCheckoutCost = async ({ roomId, contractId, creatorId, feeIndexV
 			} else {
 				formatRoomFees = generateInvoiceFees(fees, contract.rent, stayDays, feeIndexValues, true);
 			}
-
 			console.log('log of formatRoomFees: ', formatRoomFees);
 			const totalCost = calculateTotalCheckoutCostAmount(formatRoomFees, debts, receiptsUnpaid, invoicesUnpaid, feesOther);
 			console.log('log of totalCost: ', totalCost);
@@ -411,14 +349,19 @@ exports.generateCheckoutCost = async ({ roomId, contractId, creatorId, feeIndexV
 				await Services.invoices.closeAndSetDetucedInvoice(
 					{
 						invoiceIds: newCheckoutCost.invoicesUnpaid,
-						detuctedType: 'terminateContractEarly',
+						detuctedType: DETUCTED_TYPE['TERMINATE_CONTRACT_EARLY'],
 						detuctedId: newCheckoutCost._id,
 					},
 					session,
 				);
 			}
 			if (newCheckoutCost.receiptsUnpaid?.length > 0) {
-				await Services.receipts.closeAndSetDetucted(newCheckoutCost.receiptsUnpaid, 'terminateContractEarly', newCheckoutCost._id, session);
+				await Services.receipts.closeAndSetDetucted(
+					newCheckoutCost.receiptsUnpaid,
+					DETUCTED_TYPE['TERMINATE_CONTRACT_EARLY'],
+					newCheckoutCost._id,
+					session,
+				);
 			}
 
 			if (roomFeeIndexIds.length > 0) {

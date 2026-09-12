@@ -1,7 +1,7 @@
-const { NotFoundError } = require('../AppError');
+const { NotFoundError, ConflictError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
-const { PAYMENT_METHOD, CREATED_BY, OWNER_CONFIRMED_STATUS } = require('../constants');
+const { PAYMENT_METHOD, CREATED_BY, OWNER_CONFIRMED_STATUS, billType } = require('../constants');
 
 exports.findById = (transactionId) => Entity.TransactionsEntity.findById(transactionId);
 
@@ -18,8 +18,8 @@ exports.createCashTransaction = async ({ amount, date, type, collectorId, create
 				transactionDate: date,
 				amount: amount,
 				paymentMethod: PAYMENT_METHOD['CASH'],
-				receipt: type === 'receipt' ? id : null,
-				invoice: type === 'invoice' ? id : null,
+				receipt: type === billType['RECEIPT'] ? id : null,
+				invoice: type === billType['INVOICE'] ? id : null,
 				collector: collectorId,
 				createdBy: createdBy,
 				transferType: 'credit',
@@ -108,14 +108,13 @@ exports.generateTransferTransactionByManagement = async (
 	return result.toObject();
 };
 
-exports.confirmTransaction = async (transactionId) => {
+exports.confirmTransaction = async (transactionId, session) => {
 	const result = await Entity.TransactionsEntity.updateOne(
 		{ _id: transactionId },
 		{ $set: { ownerConfirmed: OWNER_CONFIRMED_STATUS['CONFIRMED'], confirmedDate: new Date() } },
+		{ session },
 	);
 	if (result.matchedCount === 0) throw new NotFoundError('Không tìm thấy bản ghi!');
-
-	return true;
 };
 
 exports.generateUnDetectedTransaction = async (
@@ -194,10 +193,9 @@ exports.updateOwnerConfirmationStatus = async ({ transactionId, ownerConfirmatio
 	const result = await Entity.TransactionsEntity.updateOne(
 		{ _id: transactionId, version: version },
 		{ $set: { ownerConfirmed: ownerConfirmationStatus, ownerDeclinedReason }, $inc: { version: 1 } },
-		{ session },
 	);
 
-	if (!result) throw new ConFlictError('Giao dịch đã bị thay đổi, vui lòng tải lại trang !');
+	if (!result) throw new ConflictError('Giao dịch đã bị thay đổi, vui lòng tải lại trang !');
 
 	return true;
 };

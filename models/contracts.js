@@ -83,22 +83,17 @@ const ContractsSchema = new Schema(
 		depositId: { type: Schema.Types.ObjectId, ref: 'DepositsEntity' },
 		user: { type: Schema.Types.ObjectId, ref: 'UsersEntity' }, //owner A
 		customer: { type: Schema.Types.ObjectId, ref: 'CustomersEntity' }, // owner B
-		// fees: [FeeSchema],
 
 		rent: { type: Number, required: true },
-		// depositAmount: { type: Number },
-		// contractSignDate: { type: Date, required: true },
-		// contractEndDate: { type: Date, required: true },
+
 		status: {
 			type: String,
 			enum: Object.values(contractStatus),
 			default: contractStatus['PENDING'],
 			required: true,
 		},
-		// contractTerm: { type: String, required: true },
+
 		isCustomerConfirmed: { type: Boolean, default: false },
-		// contractPdfUrl: { type: String, default: '' },
-		// contractPdfFile: { type: ContractsPdfFileSchema },
 
 		expectedMoveOutDate: { type: Date },
 		isEarlyTermination: { type: Boolean, default: false },

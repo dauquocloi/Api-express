@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 const Entity = require('../models');
 const listFeeInitial = require('../utils/getListFeeInital');
 const { NotFoundError, BadRequestError, InternalError, ConflictError } = require('../AppError');
-const { generateContractJob } = require('../jobs/contract/contract.job');
+const { contractJob } = require('../jobs/contract/contract.job');
+const { GENERATE_CONTRACT } = require('../jobs/constant/jobNames');
 const Services = require('../service');
 const { calculateTotalFeeAmount } = require('../utils/calculateFeeTotal');
 const { generateInvoiceFeesFromReq } = require('../service/invoices.helper');
@@ -301,7 +302,7 @@ exports.generateContract = async (contractDraftId, userId, redisKey) => {
 				interiors: contractDraft.interiors ?? [],
 			};
 
-			await generateContractJob({ contractId: contractCreated._id, buildingId: currentRoom.building });
+			await contractJob({ contractId: contractCreated._id, buildingId: currentRoom.building, type: GENERATE_CONTRACT });
 			return result;
 		});
 

@@ -3,6 +3,8 @@ const asyncHandler = require('../../utils/asyncHandler');
 const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
 const { NotFoundError } = require('../../AppError');
 const delay = require('../../utils/delay');
+const { executeIdempotent } = require('../../utils/idempotent');
+const generateRequestHash = require('../../utils/generateRequestHash');
 
 exports.getRoom = asyncHandler(async (req, res) => {
 	let data = req.params;
@@ -28,7 +30,7 @@ exports.editInterior = asyncHandler(async (req, res) => {
 
 exports.removeInterior = asyncHandler(async (req, res) => {
 	const interiorId = req.params.interiorId;
-	await UseCase.removeInterior(interiorId);
+	await UseCase.removeInterior(interiorId, req.params.roomId);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
@@ -51,7 +53,19 @@ exports.generateDepositReceiptAndFirstInvoice = asyncHandler(async (req, res) =>
 exports.modifyRent = asyncHandler(async (req, res) => {
 	const data = { ...req.body, ...req.params };
 	console.log('log of data from modifyRent: ', data);
-	await UseCase.modifyRent(data.roomId, data.newRent, req.user._id);
+	await executeIdempotent({
+		userId: req.user._id,
+		requestHas: generateRequestHash({
+			roomId: data.roomId,
+			newRent: data.newRent,
+			shouldRequestCustomerVerification: data.shouldRequestCustomerVerification,
+		}),
+		key: req.get('Idempotency-Key'),
+		endPoint: `${req.method}:${req.route.path}`,
+		resourceId: data.roomId,
+		execute: () => UseCase.modifyRent(data.roomId, Number(data.newRent), req.user._id, data.shouldRequestCustomerVerification),
+	});
+
 	return new SuccessMsgResponse('Success').send(res);
 });
 

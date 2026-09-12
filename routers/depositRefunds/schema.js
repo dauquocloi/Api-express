@@ -37,4 +37,7 @@ module.exports = {
 			}),
 		),
 	}),
+	confirmDepositRefund: Joi.object().keys({
+		version: Joi.number().integer().min(1).required(),
+	}),
 };

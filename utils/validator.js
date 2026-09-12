@@ -13,15 +13,21 @@ const ValidateSource = {
 
 const validator = (schema, source) => (req, res, next) => {
 	try {
-		const { error } = schema.validate(req[source]);
+		const { error, value } = schema.validate(req[source]);
 
-		if (!error) return next();
+		if (error) {
+			const { details } = error;
 
-		const { details } = error;
-		console.log('detail error:', details);
-		const message = details.map((i) => i.message.replace(/['"]+/g, '')).join(',');
+			console.log('detail error:', details);
 
-		next(new InvalidInputError(message));
+			const message = details.map((i) => i.message.replace(/['"]+/g, '')).join(',');
+
+			return next(new InvalidInputError(message));
+		}
+
+		req[source] = value;
+
+		return next();
 	} catch (error) {
 		next(error);
 	}

@@ -11,7 +11,7 @@ const { formatDebts } = require('../service/debts.helper');
 const { calculateTotalFeeAmount, calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
 const { generateInvoiceFees } = require('../service/invoices.helper');
 const { getInvoiceStatus } = require('../service/invoices.helper');
-const { billType, invoiceStatus, invoiceType, feeUnit, PAYMENT_METHOD } = require('../constants');
+const { billType, invoiceStatus, invoiceType, feeUnit, PAYMENT_METHOD, DETUCTED_TYPE } = require('../constants');
 const { client: redis } = require('../config').redisDb;
 const { NotiManagerCollectCashInvoiceJob } = require('../jobs/Notifications');
 const { znsNewInvoiceNotiJob } = require('../jobs/ZNS/zns.job');
@@ -253,7 +253,7 @@ exports.collectCashMoney = async (invoiceId, buildingId, date, amount, collector
 
 		if (currentInvoice?.detuctedInfo) {
 			const { detuctedType } = currentInvoice.detuctedInfo;
-			if (detuctedType === 'depositRefund') {
+			if (detuctedType === DETUCTED_TYPE['DEPOSIT_REFUND']) {
 				const depositRefundInfo = await Services.depositRefunds.findByInvoiceUnpaidId(invoiceObjectId).session(session);
 				if (!depositRefundInfo) throw new NotFoundError('Phiếu hoàn cọc không tồn tại');
 
@@ -265,7 +265,7 @@ exports.collectCashMoney = async (invoiceId, buildingId, date, amount, collector
 				depositRefundInfo.version += 1;
 				await depositRefundInfo.save({ session });
 			}
-			if (detuctedType === 'terminateContractEarly') {
+			if (detuctedType === DETUCTED_TYPE['TERMINATE_CONTRACT_EARLY']) {
 				const checkoutCost = await Services.checkoutCosts.findByInvoiceId(invoiceObjectId).session(session);
 				if (!checkoutCost) throw new NotFoundError('Phiếu trả phòng không tồn tại');
 
@@ -324,6 +324,8 @@ exports.checkout = async (invoiceId, buildingId, date, amount, collectorInfo, ve
 		if (currentInvoice.status === invoiceStatus['PAID']) throw new BadRequestError('Hóa đơn này đã được thanh toán, vui lòng tải lại trang');
 		if (currentInvoice.version !== version) throw new ConflictError('Hóa đơn này được bị thay đổi, vui lòng tải lại trang');
 
+		await Services.rooms.assertRoomWritable({ roomId: currentInvoice.room, userId: collectorInfo._id, session });
+
 		const currentPeriod = await getCurrentPeriod(buildingId);
 
 		let createTransaction;
@@ -332,7 +334,7 @@ exports.checkout = async (invoiceId, buildingId, date, amount, collectorInfo, ve
 				{
 					amount: amount,
 					date: date,
-					type: 'invoice',
+					type: billType['INVOICE'],
 					collectorId: collectorObjectId,
 					id: invoiceObjectId,
 					currentPeriod,
@@ -379,7 +381,7 @@ exports.checkout = async (invoiceId, buildingId, date, amount, collectorInfo, ve
 
 		if (currentInvoice?.detuctedInfo) {
 			const { detuctedType } = currentInvoice.detuctedInfo;
-			if (detuctedType === 'depositRefund') {
+			if (detuctedType === DETUCTED_TYPE['DEPOSIT_REFUND']) {
 				const depositRefundInfo = await Services.depositRefunds.findByInvoiceUnpaidId(invoiceObjectId).session(session);
 				if (!depositRefundInfo) throw new NotFoundError('Phiếu hoàn cọc không tồn tại');
 
@@ -391,13 +393,13 @@ exports.checkout = async (invoiceId, buildingId, date, amount, collectorInfo, ve
 				depositRefundInfo.version += 1;
 				await depositRefundInfo.save({ session });
 			}
-			if (detuctedType === 'terminateContractEarly') {
+			if (detuctedType === DETUCTED_TYPE['TERMINATE_CONTRACT_EARLY']) {
 				const checkoutCost = await Services.checkoutCosts.findByInvoiceId(invoiceObjectId).session(session);
 				if (!checkoutCost) throw new NotFoundError('Phiếu trả phòng không tồn tại');
 
 				checkoutCost.total -= appliedAmount;
 				if (newInvoiceStatus === invoiceStatus['PAID']) {
-					checkoutCost.invoiceUnpaid = null;
+					checkoutCost.invoicesUnpaid = null;
 					await Services.invoices.removeDetuctedInfo(invoiceObjectId, session);
 				}
 				checkoutCost.version += 1;

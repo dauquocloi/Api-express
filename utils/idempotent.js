@@ -63,8 +63,6 @@ exports.executeIdempotent = async ({ key, userId, endPoint, requestHash, resourc
 				responseBody: result.body ?? result,
 			});
 
-			throw new InternalError('Stop for testing');
-
 			return result;
 		});
 	} catch (error) {

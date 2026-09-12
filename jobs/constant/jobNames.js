@@ -1,5 +1,8 @@
 module.exports = {
 	GENERATE_CONTRACT_QUEUE: 'generateContractQueue',
+	CONTRACT_QUEUE: 'contractQueue',
+	MODIFY_CONTRACT: 'modifyContract',
+	GENERATE_CONTRACT: 'generateContract',
 	NOTI_TASK_COMPLETED: 'notiTaskCompleted',
 	NOTI_MANAGER_COLLECT_CASH_INVOICE: 'notiManagerCollectCashInvoice',
 	NOTI_MANAGER_COLLECT_CASH_RECEIPT: 'notiManagerCollectCashReceipt',

@@ -144,7 +144,6 @@ exports.modifyDeposit = async (data, redisKey) => {
 		const depositObjectId = new mongoose.Types.ObjectId(data.depositId);
 
 		const { room, customer, version } = data;
-		// Khởi tạo transaction
 		session = await mongoose.startSession();
 		session.startTransaction();
 

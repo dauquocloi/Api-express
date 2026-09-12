@@ -23,7 +23,7 @@ const getRoom = async (roomId) => {
 
 const addInterior = async (roomId, interior) => {
 	const newInterior = await Entity.RoomsEntity.findByIdAndUpdate(roomId, { $push: { interior: interior } }, { new: true });
-	if (!newInterior) throw new NotFoundError('Phòng cần thêm không tồn tại');
+	if (!newInterior) throw new NotFoundError('Phòng không tồn tại');
 	return newInterior;
 };
 
@@ -37,7 +37,7 @@ const modifyInterior = async (roomId, inteiorId, interior) => {
 			$set: {
 				'interior.$.interiorName': interior.interiorName,
 				'interior.$.quantity': interior.interiorQuantity,
-				'interior.$.interiorRentalDate': interior.interiorRentalDate,
+				'interior.$.interiorRentalDate': interior.interiorRentalDate || new Date(),
 			},
 		},
 		{ new: true },
@@ -45,8 +45,19 @@ const modifyInterior = async (roomId, inteiorId, interior) => {
 	if (modifyInterior != null) {
 		return interior;
 	} else {
-		throw new NotFoundError('Nội thất không tồn tại');
+		throw new NotFoundError('Dữ liệu không tồn tại');
 	}
+};
+
+const removeInterior = async ({ interiorId, roomId }) => {
+	const result = await Entity.RoomsEntity.findOneAndUpdate(
+		{ 'interior._id': interiorId, _id: roomId },
+		{ $pull: { interior: { _id: interiorId } } },
+		{ new: true, runValidators: true },
+	);
+
+	if (!result) throw new NotFoundError('Dữ liệu không tồn tại');
+	return result;
 };
 
 const getRoomInfo = async (roomId, session) => {
@@ -137,9 +148,9 @@ const unLockedRoom = async (roomId, session) => {
 	return 'Success';
 };
 
-const assertRoomWritable = async ({ roomId, userId, session = null }) => {
+const assertRoomWritable = async ({ roomId, userId }) => {
 	const now = new Date();
-	const room = await Entity.RoomsEntity.findById(roomId).session(session).lean().exec();
+	const room = await Entity.RoomsEntity.findById(roomId).lean().exec();
 
 	if (!room || !room._id) throw new NotFoundError('Phòng không tồn tại');
 
@@ -162,13 +173,17 @@ const checkRoomDeposited = async (roomId, session) => {
 };
 
 const updateRoomState = async ({ roomId, roomState }, session = null) => {
-	const result = await Entity.RoomsEntity.updateOne({ _id: roomId }, { $set: { state: roomState }, $inc: { version: 1 } }, { session });
+	const result = await Entity.RoomsEntity.findOneAndUpdate(
+		{ _id: roomId },
+		{ $set: { roomState: roomState }, $inc: { version: 1 } },
+		{ session, new: true },
+	);
 
-	if (result.matchedCount === 0) {
+	if (!result) {
 		throw new NotFoundError('Phòng không tồn tại');
 	}
 
-	return 'Success';
+	return result;
 };
 
 const setRoomDeposited = async ({ roomId, isDeposited, session }) => {
@@ -298,10 +313,9 @@ const writeNote = async (roomId, note, session) => {
 	return 'success';
 };
 
-const updateRoomRental = async ({ roomId, newRent }, session) => {
-	const result = await Entity.RoomsEntity.updateOne({ _id: roomId }, { $set: { rent: newRent }, $inc: { version: 1 } }, { session });
+const updateRoomRental = async ({ roomId, newRent }) => {
+	const result = await Entity.RoomsEntity.updateOne({ _id: roomId }, { $set: { rent: newRent }, $inc: { version: 1 } });
 	if (result.matchedCount === 0) throw new NotFoundError('Phòng không tồn tại !');
-	return 'success';
 };
 
 module.exports = {
@@ -329,4 +343,5 @@ module.exports = {
 	importRoomImages,
 	writeNote,
 	updateRoomRental,
+	removeInterior,
 };

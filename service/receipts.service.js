@@ -1,14 +1,11 @@
 const { InternalError, NotFoundError, ConflictError, BadRequestError } = require('../AppError');
 const Entity = require('../models');
 const generatePaymentContent = require('../utils/generatePaymentContent');
-const { calculateReceiptStatusAfterModified } = require('./receipts.helper');
 const Pipelines = require('./aggregates');
 const { receiptStatus, receiptTypes } = require('../constants/receipt');
 const { getInvoiceStatus } = require('./invoices.helper');
 
-exports.findById = (receiptId) => {
-	return Entity.ReceiptsEntity.findById(receiptId);
-};
+exports.findById = (receiptId) => Entity.ReceiptsEntity.findById(receiptId);
 
 exports.findReceipts = (receiptIds) => Entity.ReceiptsEntity.find({ _id: { $in: receiptIds } });
 
@@ -33,11 +30,14 @@ exports.closeAndSetDetucted = async (receiptIds, detuctedType, detuctedId, sessi
 };
 
 exports.lockReceipts = async (receiptIds, session) => {
-	await Entity.ReceiptsEntity.updateMany(
+	const result = await Entity.ReceiptsEntity.updateMany(
 		{ _id: { $in: receiptIds }, locked: false },
 		{ $set: { locked: true }, $inc: { version: 1 } },
 		{ session },
 	);
+
+	if (result.matchedCount === 0 || result.matchedCount !== receiptIds.length) throw new NotFoundError('Không tìm thấy bản ghi!');
+	return true;
 };
 
 exports.createReceipt = async (
@@ -152,7 +152,7 @@ exports.modifyReceipt = async ({ receiptObjectId, receiptVersion, receiptAmount,
 	return result.toObject();
 };
 
-exports.updateReceiptPaidAmount = async ({ receiptId, paidAmount, receiptStatus, version }, session) => {
+exports.updateReceiptPaidAmount = async ({ receiptId, paidAmount, receiptStatus, version }) => {
 	const result = await Entity.ReceiptsEntity.updateOne(
 		{
 			_id: receiptId,
@@ -165,12 +165,8 @@ exports.updateReceiptPaidAmount = async ({ receiptId, paidAmount, receiptStatus,
 			},
 			$inc: { version: 1 },
 		},
-		{
-			session,
-		},
 	);
 	if (result.matchedCount === 0) throw new ConflictError('Hóa đơn đã bị thay đổi hoặc dữ liệu không hợp lệ');
-	return result;
 };
 
 exports.modifyDepositReceipt = async ({ receiptObjectId, receiptAmount }, session) => {
@@ -181,7 +177,7 @@ exports.modifyDepositReceipt = async ({ receiptObjectId, receiptAmount }, sessio
 	if (!currentReceipt) throw new NotFoundError('Hóa đơn không tồn tại');
 	if (currentReceipt.amount === receiptAmount) return currentReceipt._id;
 
-	const receiptStatus = calculateReceiptStatusAfterModified(currentReceipt.paidAmount, receiptAmount);
+	const receiptStatus = getInvoiceStatus(currentReceipt.paidAmount, receiptAmount);
 	const result = await Entity.ReceiptsEntity.findOneAndUpdate(
 		{
 			_id: receiptObjectId,

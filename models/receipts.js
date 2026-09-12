@@ -1,6 +1,6 @@
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-const { receiptTypes, receiptStatus } = require('../constants/receipt');
+const { receiptTypes, receiptStatus, DETUCTED_TYPE } = require('../constants');
 
 const ReceiptsSchema = new Schema(
 	{
@@ -69,7 +69,7 @@ const ReceiptsSchema = new Schema(
 			type: Date,
 			default: Date.now,
 		},
-		isDepositing: { type: Boolean, default: false },
+		// isDepositing: { type: Boolean, default: false },
 		payer: {
 			type: String,
 			trim: true,
@@ -91,7 +91,7 @@ const ReceiptsSchema = new Schema(
 		// Nd: Số tiền chưa thanh toán, còn thiếu, đã được trừ vào tiền hoàn cọc.
 		isDepositDeducted: { type: Boolean, default: false },
 		detuctedInfo: {
-			detuctedType: { type: String, enum: ['depositRefund', 'terminateContractEarly'] },
+			detuctedType: { type: String, enum: Object.values(DETUCTED_TYPE) },
 			detuctedId: { type: Schema.Types.ObjectId },
 		},
 		contract: {

@@ -1,11 +1,10 @@
 const Services = require('../../service');
-const { invoiceStatus } = require('../../constants/invoices');
-const { receiptStatus } = require('../../constants/receipt');
-const { NoDataError, NotFoundError, BadRequestError } = require('../../AppError');
+
+const { receiptStatus, invoiceStatus, contractStatus, billType } = require('../../constants');
+const { NoDataError, NotFoundError, BadRequestError, ConflictError } = require('../../AppError');
 const getFieldUrl = require('../../utils/getFileUrl');
 const { targetType, purpose } = require('../../constants/otps');
 const { generate6Digits, hashOtp, verifyOtp } = require('../../utils/otp.util');
-const { contractStatus } = require('../../constants/contracts');
 
 exports.getInvoiceInfoByInvoiceCode = async (billCode) => {
 	const invoiceInfo = await Services.invoices.getInvoiceInfoByInvoiceCode(billCode);
@@ -13,14 +12,26 @@ exports.getInvoiceInfoByInvoiceCode = async (billCode) => {
 		if (invoiceInfo.status === invoiceStatus['TERMINATED']) {
 			throw new NoDataError(`Hóa đơn ${billCode} đã bị hủy`);
 		}
-		return { ...invoiceInfo, type: 'invoice' };
+		const roomInfo = await Services.rooms.findById(invoiceInfo.room).lean().exec();
+		if (!roomInfo) throw new NotFoundError('Dữ liệu không tồn tại !');
+		const { writeLock } = roomInfo;
+		if (writeLock.locked === true && writeLock.expAt < new Date())
+			throw new ConflictError('Phòng hiện đang được cập nhật, vui lòng thử lại sau !');
+		return { ...invoiceInfo, type: billType['INVOICE'] };
 	}
 
 	const receiptInfo = await Services.receipts.getReceiptInfoByReceiptCode(billCode);
 
 	if (receiptInfo) {
 		if (receiptInfo.status !== receiptStatus['CANCELLED'] || receiptInfo.status !== receiptStatus['TERMINATED']) {
-			return { ...receiptInfo, type: 'receipt' };
+			const roomInfo = await Services.rooms.findById(receiptInfo.room).lean().exec();
+			if (!roomInfo) throw new NotFoundError('Dữ liệu không tồn tại !');
+
+			const { writeLock } = roomInfo;
+			if (writeLock.locked === true && writeLock.expAt < new Date())
+				throw new ConflictError('Phòng hiện đang được cập nhật, vui lòng thử lại sau !');
+
+			return { ...receiptInfo, type: billType['RECEIPT'] };
 		} else throw new NoDataError(`Hóa đơn ${billCode} đã bị hủy`);
 	}
 

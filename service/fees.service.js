@@ -5,6 +5,8 @@ const { feeUnit: FEE_UNIT } = require('../constants/fees');
 
 exports.findById = (feeId) => Entity.FeesEntity.findById(feeId);
 
+exports.findByRoomId = (roomId) => Entity.FeesEntity.find({ room: roomId });
+
 exports.getRoomFeesAndDebts = async (roomObjectId, session) => {
 	const checkRoomState = await Entity.RoomsEntity.findById(roomObjectId).session(session).lean().exec();
 	if (!checkRoomState) throw new NotFoundError('Phòng không tồn tại');

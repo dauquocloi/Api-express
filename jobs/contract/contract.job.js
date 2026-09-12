@@ -1,7 +1,7 @@
-const { generateContractQueue } = require('./contract.queue');
+const { contractQueue } = require('./contract.queue');
 
-const generateContractJob = async (data) => {
-	return generateContractQueue.enqueue(data);
+const contractJob = async (data) => {
+	return contractQueue.enqueue(data);
 };
 
-module.exports = { generateContractJob };
+module.exports = { contractJob };

@@ -3,6 +3,7 @@ const moment = require('moment');
 const Services = require('../../service');
 const generateContract = require('../../utils/generateContract');
 const { FEE_UNIT_TYPE } = require('../../constants/fees');
+const { contractStatus } = require('../../constants/contracts');
 
 const handleGenerateContractJob = async (payload) => {
 	try {
@@ -13,7 +14,7 @@ const handleGenerateContractJob = async (payload) => {
 
 		const { room, versions } = contract;
 
-		const latestContractVersion = versions.reduce((sum, v) => (v.version > sum.version ? v : sum));
+		const latestContractVersion = versions.find((version) => version.status === contractStatus['ACTIVE']) || versions[0];
 		const { contractSignDate, contractEndDate, contractTerm, rent, depositAmount, fees } = latestContractVersion;
 
 		// Validate ObjectId
@@ -80,4 +81,39 @@ const handleGenerateContractJob = async (payload) => {
 	}
 };
 
-module.exports = { handleGenerateContractJob };
+const handleModifyContractJob = async (payload) => {
+	try {
+		const { contractId, rent, depositAmount, contractSignDate, contractEndDate, contractTerm } = payload;
+		if (rent <= 0) throw new Error('Giá thuê không hợp lệ');
+		if (depositAmount <= 0) throw new Error('Số tiền cọc không hợp lệ');
+
+		const contract = await Services.contracts.findById(contractId).lean().exec();
+		if (!contract) throw new Error('Hợp đồng không tồn tại');
+
+		const roomFees = await Services.fees.findByRoomId(contract.room).lean().exec();
+		const formatFees = roomFees.map((fee) => ({
+			feeName: fee.feeName,
+			feeAmount: fee.feeAmount,
+			unit: fee.unit,
+			feeKey: fee.feeKey,
+			iconPath: fee.iconPath,
+		}));
+
+		const result = await Services.contracts.modifyContractVersion({
+			contractId: contractId,
+			rent,
+			depositAmount,
+			contractSignDate,
+			contractEndDate,
+			contractTerm,
+			fees: formatFees,
+		});
+
+		return result;
+	} catch (error) {
+		console.error(' Worker error:', error);
+		throw error; // Bull will mark the job as failed
+	}
+};
+
+module.exports = { handleGenerateContractJob, handleModifyContractJob };

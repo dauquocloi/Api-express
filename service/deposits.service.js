@@ -84,7 +84,7 @@ exports.generateDeposit = async (
 	return result;
 };
 
-exports.updateActualDepositAmountByReceiptId = async ({ receiptId, actualDepositAmount, status, version }, session) => {
+exports.updateActualDepositAmountByReceiptId = async ({ receiptId, actualDepositAmount, status, version }) => {
 	const result = await Entity.DepositsEntity.updateOne(
 		{
 			receipt: receiptId,
@@ -94,7 +94,6 @@ exports.updateActualDepositAmountByReceiptId = async ({ receiptId, actualDeposit
 			$set: { actualDepositAmount, status },
 			$inc: { version: 1 },
 		},
-		{ session },
 	);
 
 	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu đặt cọc đã bị thay đổi!');

@@ -38,7 +38,7 @@ exports.closeAndSetDetucedInvoice = async ({ invoiceIds, detuctedType, detuctedI
 		},
 		{ session },
 	);
-	if (result.matchedCount === 0) throw new NotFoundError('Không tìm thấy bản ghi!');
+	if (result.matchedCount === 0 || result.matchedCount !== invoiceIds.length) throw new NotFoundError('Không tìm thấy bản ghi!');
 
 	return result;
 };
@@ -46,6 +46,16 @@ exports.closeAndSetDetucedInvoice = async ({ invoiceIds, detuctedType, detuctedI
 exports.lockInvoice = async (invoiceId, session) => {
 	const result = await Entity.InvoicesEntity.updateOne({ _id: invoiceId }, { $set: { locked: true }, $inc: { version: 1 } }, { session });
 	if (result.matchedCount === 0) throw new NotFoundError('Không tìm thấy bản ghi!');
+	return true;
+};
+
+exports.lockInvoiceByIds = async (invoiceIds, session) => {
+	const result = await Entity.InvoicesEntity.updateMany(
+		{ _id: { $in: invoiceIds } },
+		{ $set: { locked: true }, $inc: { version: 1 } },
+		{ session },
+	);
+	if (result.matchedCount === 0 || result.matchedCount !== invoiceIds.length) throw new NotFoundError('Không tìm thấy bản ghi!');
 	return true;
 };
 
@@ -149,10 +159,10 @@ exports.unLockInvoice = async (invoiceId, session, userId) => {
 	return result;
 };
 
-exports.rollBackInvoiceAtCheckoutCost = async (invoiceId, session) => {
-	const result = await Entity.InvoicesEntity.updateOne(
+exports.rollBackInvoicesAtCheckoutCost = async (invoiceIds, session) => {
+	const result = await Entity.InvoicesEntity.updateMany(
 		{
-			_id: invoiceId,
+			_id: { $in: invoiceIds },
 		},
 		{
 			$set: {
@@ -163,8 +173,8 @@ exports.rollBackInvoiceAtCheckoutCost = async (invoiceId, session) => {
 		},
 		{ session },
 	);
-	if (result.matchedCount === 0) throw new NotFoundError('Hóa đơn không tồn tại !');
-	return result;
+	if (result.matchedCount === 0 || result.modifiedCount === 0) throw new NotFoundError('Hóa đơn không tồn tại !');
+	return true;
 };
 
 exports.findInvoiceInfoByPaymentContent = async (paymentContent) => {
@@ -174,14 +184,13 @@ exports.findInvoiceInfoByPaymentContent = async (paymentContent) => {
 	return result;
 };
 
-exports.updateInvoicePaidStatus = async ({ invoiceId, paidAmount, invoiceStatus }, session) => {
+exports.updateInvoicePaidStatus = async ({ invoiceId, paidAmount, invoiceStatus }) => {
 	const result = await Entity.InvoicesEntity.findOneAndUpdate(
 		{ _id: invoiceId },
 		{
 			$set: { paidAmount, status: invoiceStatus },
 			$inc: { version: 1 },
 		},
-		{ session },
 	);
 	if (!result) return null;
 	return result;

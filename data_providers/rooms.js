@@ -1,20 +1,12 @@
 const mongoose = require('mongoose');
 var Entity = require('../models');
 const uploadFile = require('../utils/uploadFile');
-const { NotFoundError, NoDataError, InvalidInputError, ConflictError } = require('../AppError');
+const { NotFoundError, NoDataError, InvalidInputError, ConflictError, InternalError } = require('../AppError');
 const Services = require('../service');
-const getCurrentPeriod = require('../utils/getCurrentPeriod');
-const { generateInvoiceFees } = require('../service/invoices.helper');
-const { calculateTotalFeeAmount } = require('../utils/calculateFeeTotal');
-const { calculateTotalCheckoutCostAmount } = require('../service/checkoutCost/checkoutCosts.helper');
-const { receiptStatus, receiptTypes } = require('../constants/receipt');
-const { debtStatus } = require('../constants/debts');
-const { feeUnit } = require('../constants/fees');
-const { validateFeeIndexMatch } = require('../service/fees.helper');
-const { sourceType } = require('../constants/debts');
 const getFileUrl = require('../utils/getFileUrl');
 const deepMutate = require('../utils/deepMutate');
 const { client: redis } = require('../config').redisDb;
+const { roomState, contractStatus } = require('../constants');
 
 exports.getRoom = async (roomId) => {
 	const roomObjectId = new mongoose.Types.ObjectId(roomId);
@@ -31,197 +23,57 @@ exports.addInterior = async (roomId, interior) => {
 		quantity: interior.interiorQuantity,
 		interiorRentalDate: interior.interiorRentalDate,
 	};
-	const newInterior = await Services.rooms.addInterior(roomId, newInteriorInfo);
+	await Services.rooms.addInterior(roomId, newInteriorInfo);
 };
 
 exports.editInterior = async (interiorId, roomId, interior) => {
-	const modifyInterior = await Services.rooms.modifyInterior(roomId, interiorId, interior);
-	return 'Success';
+	await Services.rooms.modifyInterior(roomId, interiorId, interior);
 };
 
-exports.removeInterior = async (interiorId) => {
-	const interiorObjectId = new mongoose.Types.ObjectId(interiorId);
-
-	const interiorRemoved = await Entity.RoomsEntity.findOneAndUpdate(
-		{ 'interior._id': interiorObjectId },
-		{ $pull: { interior: { _id: interiorObjectId } } },
-		{ new: true, runValidators: true },
-	);
-	if (interiorRemoved != null) {
-		return interiorRemoved;
-	} else {
-		throw new NotFoundError('Nội thất không tồn tại');
-	}
+exports.removeInterior = async (interiorId, roomId) => {
+	await Services.rooms.removeInterior({ interiorId, roomId });
 };
 
-exports.modifyRent = async (roomId, rentModify, userId) => {
-	let session;
+exports.modifyRent = async (roomId, rentModify, userId, shouldRequestCustomerVerification) => {
+	await Services.rooms.assertRoomWritable({ roomId, userId });
 
-	try {
-		session = await mongoose.startSession();
-		session.startTransaction();
+	const room = await Services.rooms.findById(roomId).lean().exec();
+	if (!room) throw new NotFoundError('Phòng không tồn tại');
 
-		await Services.rooms.assertRoomWritable({ roomId, userId, session });
+	await Services.rooms.updateRoomRental({ roomId, newRent: rentModify });
+	if (room.roomState === roomState['UN_HIRED']) return;
 
-		const room = await Services.rooms.findById(roomId).session(session).lean().exec();
-		if (!room) throw new NotFoundError('Phòng không tồn tại');
+	const contract = await Services.contracts.findByRoomId(roomId).lean().exec();
+	if (!contract) throw new NotFoundError('Hợp đồng không tồn tại');
+	const currentVersion = contract.versions.find((v) => v.status === contractStatus.ACTIVE) || null;
+	console.log('currentVersion', currentVersion);
+	if (!currentVersion) throw new NotFoundError('Hợp đồng chưa được khách hàng xác nhận !');
 
-		await Services.rooms.updateRoomRental({ roomId, newRent: rentModify }, session);
-		// Nếu phòng đang có hợp đồng thì sửa tt hợp đồng.
-		// cần làm thêm tính năng thông báo tới khách hàng về việc thay đổi giá thuê phòng.
+	const roomFees = await Services.fees.findByRoomId(contract.room).lean().exec();
+	const formatFees = roomFees.map((fee) => ({
+		feeName: fee.feeName,
+		feeAmount: fee.feeAmount,
+		unit: fee.unit,
+		feeKey: fee.feeKey,
+		iconPath: fee.iconPath,
+	}));
 
-		return 'Success';
-	} catch (error) {
-		if (session) await session.abortTransaction();
-		throw error;
-	} finally {
-		if (session) session.endSession();
-	}
+	const result = await Services.contracts.modifyContractVersion({
+		contractId: contract._id,
+		rent: rentModify,
+		depositAmount: currentVersion.depositAmount,
+		contractSignDate: currentVersion.contractSignDate,
+		contractEndDate: currentVersion.contractEndDate,
+		contractTerm: currentVersion.contractTerm,
+		fees: formatFees,
+		contractStatus: contractStatus.ACTIVE,
+		currentVersionNumber: currentVersion.version,
+	});
+
+	throw new InternalError('Error');
+
+	return result;
 };
-
-// exports.generateCheckoutCost = async (roomId, buildingId, creatorId, feeIndexValues, feesOther, stayDays, roomVersion) => {
-// 	let session;
-// 	let newCheckoutCost;
-// 	try {
-// 		session = await mongoose.startSession();
-// 		await session.withTransaction(async () => {
-// 			const roomObjectId = new mongoose.Types.ObjectId(roomId);
-// 			const currentRoom = await Services.rooms.assertRoomWritable({ roomId, userId: creatorId, session });
-
-// 			const currentPeriod = await getCurrentPeriod(buildingId);
-// 			const contractOwner = await Services.customers
-// 				.findIsContractOwnerByRoomId(roomObjectId)
-// 				.session(session)
-// 				.populate('contract')
-// 				.lean()
-// 				.exec();
-// 			if (!contractOwner) throw new NotFoundError(`Phòng không tồn tại chủ hợp đồng !`);
-// 			if (!contractOwner.contract._id) throw new NotFoundError('Phòng không tồn tại hợp động !');
-
-// 			const debtsAndReceiptUnpaid = await Services.debts.getDebtsAndReceiptUnpaid(
-// 				roomObjectId,
-// 				currentPeriod.currentMonth,
-// 				currentPeriod.currentYear,
-// 				session,
-// 			);
-// 			const { fees, receiptDeposit } = debtsAndReceiptUnpaid;
-
-// 			const roomFeeIndex = fees.filter((f) => f.unit === feeUnit['INDEX']);
-// 			const roomFeeIndexIds = roomFeeIndex.map((fee) => fee._id.toString()) || [];
-
-// 			if (roomFeeIndexIds.length > 0) validateFeeIndexMatch(roomFeeIndexIds, feeIndexValues);
-
-// 			let formatRoomFees;
-// 			if (debtsAndReceiptUnpaid.invoiceUnpaid !== null) {
-// 				formatRoomFees = generateInvoiceFees(roomFeeIndex, 0, stayDays, feeIndexValues, false);
-// 			} else {
-// 				formatRoomFees = generateInvoiceFees(fees, contractOwner.contract.rent, stayDays, feeIndexValues, true);
-// 			}
-
-// 			console.log('log of formatRoomFees: ', formatRoomFees);
-// 			const totalCost = calculateTotalCheckoutCostAmount(
-// 				formatRoomFees,
-// 				debtsAndReceiptUnpaid.debts,
-// 				debtsAndReceiptUnpaid.receiptsUnpaid,
-// 				debtsAndReceiptUnpaid.invoiceUnpaid,
-// 				feesOther,
-// 			);
-// 			console.log('log of totalCost: ', totalCost);
-
-// 			let checkoutCostReceipt;
-// 			if (totalCost > 0) {
-// 				checkoutCostReceipt = await Services.receipts.createReceipt(
-// 					{
-// 						roomObjectId: roomObjectId,
-// 						receiptAmount: totalCost,
-// 						payer: contractOwner.fullName,
-// 						currentPeriod: currentPeriod,
-// 						receiptContent: 'Chi phí trả phòng',
-
-// 						receiptType: receiptTypes['CHECKOUT'],
-// 						initialStatus: receiptStatus['UNPAID'],
-// 						contract: contractOwner.contract._id,
-// 					},
-
-// 					session,
-// 				);
-// 			} else {
-// 				checkoutCostReceipt = null;
-// 			}
-
-// 			await Services.receipts.closeReceiptDeposit({ receiptId: receiptDeposit }, session);
-
-// 			newCheckoutCost = await Services.checkoutCosts.generateCheckoutCost(
-// 				{
-// 					roomId: roomId,
-// 					contractId: contractOwner.contract._id,
-// 					buildingId: buildingId,
-// 					creatorId: creatorId,
-
-// 					customerName: contractOwner.fullName,
-// 					debtsAndReceiptUnpaid: debtsAndReceiptUnpaid,
-// 					roomFees: formatRoomFees,
-// 					currentPeriod: currentPeriod,
-// 					checkoutCostReceipt: checkoutCostReceipt,
-// 					totalCost: totalCost,
-// 					feesOther: feesOther,
-// 					stayDays: stayDays,
-// 				},
-// 				session,
-// 			);
-
-// 			if (Array.isArray(newCheckoutCost.debts) && newCheckoutCost.debts?.length > 0) {
-// 				await Services.debts.closeAndSetSourceInfo(
-// 					{ roomId: roomId, sourceId: newCheckoutCost._id, sourceType: sourceType['CHECKOUT_COST'] },
-// 					session,
-// 				);
-// 			}
-// 			if (newCheckoutCost.invoiceUnpaid !== null) {
-// 				await Services.invoices.closeAndSetDetucedInvoice(
-// 					newCheckoutCost.invoiceUnpaid,
-// 					'terminateContractEarly',
-// 					newCheckoutCost._id,
-// 					session,
-// 				);
-// 			}
-// 			if (newCheckoutCost.receiptsUnpaid?.length > 0) {
-// 				await Services.receipts.closeAndSetDetucted(newCheckoutCost.receiptsUnpaid, 'terminateContractEarly', newCheckoutCost._id, session);
-// 			}
-
-// 			if (roomFeeIndexIds.length > 0) {
-// 				await Services.fees.updateFeeIndexValues(roomFeeIndexIds, feeIndexValues, session);
-// 			}
-// 			await Services.rooms.generateRoomHistory(
-// 				{
-// 					roomId: roomId,
-// 					contractId: contractOwner.contract._id,
-// 					contractCode: contractOwner.contract.contractCode,
-// 					contractSignDate: contractOwner.contract.contractSignDate,
-// 					contractEndDate: contractOwner.contract.contractEndDate,
-// 					depositAmount: receiptDeposit.paidAmount,
-// 					checkoutDate: Date.now(),
-// 					checkoutType: 'checkoutEarly',
-// 					checkoutCostId: newCheckoutCost._id,
-// 					depositRefundId: null,
-// 					interiors: currentRoom.interior,
-// 					fees: fees,
-// 					rent: contractOwner.contract.rent,
-// 				},
-// 				session,
-// 			);
-// 			// await Services.rooms.bumpRoomVersion(roomObjectId, roomVersion, session);
-// 			// await Services.rooms.unLockedRoom(roomObjectId, session);
-// 			await Services.rooms.completeChangeRoomState({ roomId, roomVersion }, session);
-// 			await Services.customers.expiredCustomers({ roomId: roomObjectId, contractId: contractOwner.contract._id }, session);
-// 			await Services.contracts.expiredContract(contractOwner.contract._id, session);
-
-// 			return 'Success';
-// 		});
-// 		return newCheckoutCost;
-// 	} finally {
-// 		if (session) session.endSession();
-// 	}
-// };
 
 exports.getRoomFeesAndDebts = async (roomId, userId) => {
 	let session;
