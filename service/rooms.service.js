@@ -69,9 +69,9 @@ const getRoomInfo = async (roomId, session) => {
 	return roomInfo;
 };
 
-const bumpRoomVersion = async (roomId, version, session) => {
-	const bumpRoomVersion = await Entity.RoomsEntity.updateOne({ _id: roomId, version: version }, { $inc: { version: 1 } }, { new: true, session });
-	if (bumpRoomVersion.n === 0) throw new ConflictError('Dữ liệu đã bị thay đổi, vui lòng reload trang');
+const bumpRoomVersion = async (roomId, version) => {
+	const bumpRoomVersion = await Entity.RoomsEntity.updateOne({ _id: roomId, version: version }, { $inc: { version: 1 } }, { new: true });
+	if (bumpRoomVersion.matchedCount === 0) throw new ConflictError('Dữ liệu đã bị thay đổi, vui lòng reload trang');
 	return bumpRoomVersion;
 };
 
@@ -95,7 +95,7 @@ const getRoomLockInfo = async (roomId, session) => {
 	return room.writeLock;
 };
 
-const setWriteLockedRoom = async (roomId, session, lockReason, lockOwner) => {
+const setWriteLockedRoom = async (roomId, lockReason, lockOwner) => {
 	const now = new Date();
 	const expireAt = new Date(now.getTime() + ROOM_LOCK_TTL_MS);
 	const lockResult = await Entity.RoomsEntity.updateOne(
@@ -116,9 +116,8 @@ const setWriteLockedRoom = async (roomId, session, lockReason, lockOwner) => {
 				'writeLock.reason': lockReason || LOCK_REASON['GET_FEES_AND_DEBTS'],
 			},
 		},
-		{ session },
 	);
-	if (lockResult.n === 0) {
+	if (lockResult.matchedCount === 0) {
 		throw new ConflictError('Phòng hiện đang được cập nhật, vui lòng thử lại sau !');
 	}
 
@@ -128,7 +127,7 @@ const setWriteLockedRoom = async (roomId, session, lockReason, lockOwner) => {
 	};
 };
 
-const unLockedRoom = async (roomId, session) => {
+const unLockedRoom = async (roomId) => {
 	const now = new Date();
 	const unlockResult = await Entity.RoomsEntity.updateOne(
 		{ _id: roomId },
@@ -139,10 +138,9 @@ const unLockedRoom = async (roomId, session) => {
 				'writeLock.reason': '',
 			},
 		},
-		{ session },
 	);
 
-	if (unlockResult.n === 0) {
+	if (unlockResult.matchedCount === 0) {
 		throw new ConflictError('Phòng đang được xử lý công nợ');
 	}
 	return 'Success';

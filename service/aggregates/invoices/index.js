@@ -10,7 +10,7 @@ const getInvoicePaymentStatus = (buildingId, month, year) => {
 	return [
 		{
 			$match: {
-				_id: buildingId,
+				_id: new mongoose.Types.ObjectId(buildingId),
 			},
 		},
 		{

@@ -1,3 +1,4 @@
+const { feeUnit } = require('../constants/');
 /**
  * @param {Array} feeIndexIds - Array of fee IDs
  * @param {Object} feeIndexValues - Object with fee IDs as keys
@@ -43,3 +44,15 @@ exports.validateFeeIndexMatch = (feeIndexIds, feeIndexValues) => {
 
 	return true;
 };
+
+exports.formatFeeIndexRecords = (listFees) =>
+	listFees
+		.map((fee) =>
+			fee.unit === feeUnit['INDEX']
+				? {
+						feeKey: fee.feeKey,
+						lastIndex: fee.lastIndex,
+				  }
+				: null,
+		)
+		.filter((fee) => fee !== null);

@@ -1,4 +1,4 @@
-const { NotFoundError, ConflictError } = require('../AppError');
+const { NotFoundError, ConflictError, InternalError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
 const { PAYMENT_METHOD, CREATED_BY, OWNER_CONFIRMED_STATUS, billType } = require('../constants');
@@ -11,28 +11,24 @@ exports.getTransactionsByUserId = async (userObjectId) => {
 	return result;
 };
 
-exports.createCashTransaction = async ({ amount, date, type, collectorId, createdBy, id, currentPeriod, idempotencyKey }, session) => {
-	const [command] = await Entity.TransactionsEntity.create(
-		[
-			{
-				transactionDate: date,
-				amount: amount,
-				paymentMethod: PAYMENT_METHOD['CASH'],
-				receipt: type === billType['RECEIPT'] ? id : null,
-				invoice: type === billType['INVOICE'] ? id : null,
-				collector: collectorId,
-				createdBy: createdBy,
-				transferType: 'credit',
-				month: currentPeriod.currentMonth,
-				year: currentPeriod.currentYear,
-				idempotencyKey: idempotencyKey,
-				ownerConfirmed: createdBy === CREATED_BY['MANAGER'] ? OWNER_CONFIRMED_STATUS['PENDING'] : OWNER_CONFIRMED_STATUS['CONFIRMED'],
-				isTransactionDetected: true,
-			},
-		],
-		{ session },
-	);
-	return command;
+exports.createCashTransaction = async ({ amount, date, type, collectorId, createdBy, id, currentPeriod, idempotencyKey }) => {
+	const result = await Entity.TransactionsEntity.create({
+		transactionDate: date,
+		amount: amount,
+		paymentMethod: PAYMENT_METHOD['CASH'],
+		receipt: type === billType['RECEIPT'] ? id : null,
+		invoice: type === billType['INVOICE'] ? id : null,
+		collector: collectorId,
+		createdBy: createdBy,
+		transferType: 'credit',
+		month: currentPeriod.currentMonth,
+		year: currentPeriod.currentYear,
+		idempotencyKey: idempotencyKey,
+		ownerConfirmed: createdBy === CREATED_BY['MANAGER'] ? OWNER_CONFIRMED_STATUS['PENDING'] : OWNER_CONFIRMED_STATUS['CONFIRMED'],
+		isTransactionDetected: true,
+	});
+	if (!result) throw new InternalError('Create cash transaction fail');
+	return result;
 };
 
 exports.generateTransferTransactionBySepay = async (
@@ -80,31 +76,34 @@ exports.generateTransferTransactionBySepay = async (
 	return result.toObject();
 };
 
-exports.generateTransferTransactionByManagement = async (
-	{ amount, idempotencyKey, collector, createdBy, date, invoice = null, receipt = null, month, year },
-	session,
-) => {
-	const [result] = await Entity.TransactionsEntity.create(
-		[
-			{
-				amount,
-				paymentMethod: PAYMENT_METHOD['TRANSFER'],
-				transferType: 'credit',
-				collector,
-				createdBy,
-				ownerConfirmed: createdBy === CREATED_BY['MANAGER'] ? OWNER_CONFIRMED_STATUS['PENDING'] : OWNER_CONFIRMED_STATUS['CONFIRMED'],
-				idempotencyKey,
-				transactionDate: date,
-				invoice: invoice,
-				receipt: receipt,
-				isTransactionDetected: true,
-				confirmedDate: new Date(),
-				month: month,
-				year: year,
-			},
-		],
-		{ session },
-	);
+exports.generateTransferTransactionByManagement = async ({
+	amount,
+	idempotencyKey,
+	collector,
+	createdBy,
+	date,
+	invoice = null,
+	receipt = null,
+	month,
+	year,
+}) => {
+	const result = await Entity.TransactionsEntity.create({
+		amount,
+		paymentMethod: PAYMENT_METHOD['TRANSFER'],
+		transferType: 'credit',
+		collector,
+		createdBy,
+		ownerConfirmed: createdBy === CREATED_BY['MANAGER'] ? OWNER_CONFIRMED_STATUS['PENDING'] : OWNER_CONFIRMED_STATUS['CONFIRMED'],
+		idempotencyKey,
+		transactionDate: date,
+		invoice: invoice,
+		receipt: receipt,
+		isTransactionDetected: true,
+		confirmedDate: new Date(),
+		month: month,
+		year: year,
+	});
+	if (!result) throw new InternalError('Create transfer transaction fail');
 	return result.toObject();
 };
 

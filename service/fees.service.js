@@ -1,4 +1,4 @@
-const { NotFoundError, ConflictError, BadRequestError } = require('../AppError');
+const { NotFoundError, ConflictError, BadRequestError, InternalError } = require('../AppError');
 const Entity = require('../models');
 const pipelines = require('./aggregates');
 const { feeUnit: FEE_UNIT } = require('../constants/fees');
@@ -7,24 +7,20 @@ exports.findById = (feeId) => Entity.FeesEntity.findById(feeId);
 
 exports.findByRoomId = (roomId) => Entity.FeesEntity.find({ room: roomId });
 
-exports.getRoomFeesAndDebts = async (roomObjectId, session) => {
-	const checkRoomState = await Entity.RoomsEntity.findById(roomObjectId).session(session).lean().exec();
-	if (!checkRoomState) throw new NotFoundError('Phòng không tồn tại');
-	if (checkRoomState.roomState === 0) throw new BadRequestError('Trạng thái phòng đang trống');
-
-	const [roomFees] = await Entity.RoomsEntity.aggregate(pipelines.fees.getRoomFeesAndDebts(roomObjectId)).session(session);
+exports.getRoomFeesAndDebts = async (roomObjectId) => {
+	const [roomFees] = await Entity.RoomsEntity.aggregate(pipelines.fees.getRoomFeesAndDebts(roomObjectId));
 	if (!roomFees) throw new NotFoundError('Dữ liệu không tồn tại');
 
 	return roomFees;
 };
 
-exports.getFeeUnitIndexByRoomId = async ({ roomId }, session = null) => {
-	const result = await Entity.FeesEntity.find({ room: roomId, unit: FEE_UNIT['INDEX'] }).session(session).lean().exec();
+exports.getFeeUnitIndexByRoomId = async ({ roomId }) => {
+	const result = await Entity.FeesEntity.find({ room: roomId, unit: FEE_UNIT['INDEX'] }).lean().exec();
 
 	return result ?? [];
 };
 
-exports.updateFeeIndexValues = async (feeIndexIds, feeIndexValues, session) => {
+exports.updateFeeIndexValues = async (feeIndexIds, feeIndexValues) => {
 	const operations = feeIndexIds.map((feeId) => {
 		const key = feeId.toString();
 		const indexValue = feeIndexValues[key];
@@ -44,7 +40,7 @@ exports.updateFeeIndexValues = async (feeIndexIds, feeIndexValues, session) => {
 		};
 	});
 
-	const result = await Entity.FeesEntity.bulkWrite(operations, { session });
+	const result = await Entity.FeesEntity.bulkWrite(operations);
 	if (result.matchedCount !== operations.length) {
 		throw new ConflictError('Some fees were modified by another transaction');
 	}
@@ -90,7 +86,7 @@ exports.modifyFeeAmount = async (feeId, feeAmount, version) => {
 	return result;
 };
 
-exports.modifyFeeUnitIndex = async (feeId, lastIndex, feeAmount, version, session) => {
+exports.modifyFeeUnitIndex = async (feeId, lastIndex, feeAmount, version) => {
 	const result = await Entity.FeesEntity.updateOne(
 		{ _id: feeId, version: version },
 		{
@@ -102,7 +98,6 @@ exports.modifyFeeUnitIndex = async (feeId, lastIndex, feeAmount, version, sessio
 				version: 1,
 			},
 		},
-		{ session },
 	);
 	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 	return result;
@@ -116,11 +111,12 @@ exports.removeFee = async (feeId, session) => {
 };
 
 // use for modify checkout, refund deposit, modify invoice.
-exports.updateFeeIndexValuesByFeeKey = async (feeKeys, roomId, modifyFees, session) => {
+exports.updateFeeIndexValuesByFeeKey = async (feeKeys, roomId, modifyFees) => {
+	const modifyFeeMap = new Map(modifyFees.map((fee) => [fee.feeKey, fee]));
 	const operations = [];
 
 	for (const feeKey of feeKeys) {
-		const indexValue = modifyFees.find((item) => item.feeKey === feeKey);
+		const indexValue = modifyFeeMap.get(feeKey);
 
 		if (!indexValue) {
 			throw new ConflictError(`Missing index value for fee ${feeKey}`);
@@ -144,14 +140,13 @@ exports.updateFeeIndexValuesByFeeKey = async (feeKeys, roomId, modifyFees, sessi
 		});
 	}
 
-	const result = await Entity.FeesEntity.bulkWrite(operations, { session });
-	console.log('result: ', result);
+	if (operations.length === 0) return;
+
+	const result = await Entity.FeesEntity.bulkWrite(operations);
 
 	if (result.matchedCount !== operations.length) {
 		throw new ConflictError('Some fees were modified or not found during update');
 	}
-
-	return 'Success';
 };
 
 exports.rollbackFeeIndexValuesByFeeKey = async (fees, roomId, session) => {
@@ -218,7 +213,7 @@ exports.updateFeeIndexHistory = async ({ feeId, lastIndex, editorId }, session) 
 	return result;
 };
 
-exports.updateFeeIndexHistoryMany = async ({ payloads = [], editorId }, session) => {
+exports.updateFeeIndexHistoryMany = async ({ payloads = [], editorId }) => {
 	if (!payloads.length) return [];
 
 	const ops = payloads.map(({ feeId, lastIndex, prevIndex }) => ({
@@ -253,7 +248,7 @@ exports.updateFeeIndexHistoryMany = async ({ payloads = [], editorId }, session)
 		},
 	}));
 
-	const result = await Entity.FeeIndexHistoryEntity.bulkWrite(ops, { session });
+	const result = await Entity.FeeIndexHistoryEntity.bulkWrite(ops);
 
 	if (result.matchedCount !== payloads.length) {
 		throw new NotFoundError('Some fee index histories not found');
@@ -294,4 +289,28 @@ exports.getFeeIndexHistoryByFeeId = (feeId) => {
 exports.importFees = async (feesData, session) => {
 	const result = await Entity.FeesEntity.insertMany(feesData, { session });
 	return result;
+};
+
+exports.generateFeeIndexRecords = async (records) => {
+	const documents = records.map(({ feeId, fromIndex, toIndex, editorId, roomId, fromSource }) => ({
+		fee: feeId,
+		fromIndex,
+		toIndex,
+		editorId,
+		room: roomId,
+		fromSource,
+	}));
+
+	const result = await Entity.FeeIndexRecordsEntity.insertMany(documents);
+
+	if (!result?.length) {
+		throw new InternalError('Cannot create fee index records');
+	}
+
+	return result;
+};
+
+exports.getFeeIndexRecords = async ({ roomId, feeId }) => {
+	const result = await Entity.FeeIndexRecordsEntity.find({ room: roomId, fee: feeId }).lean().exec();
+	return result || [];
 };

@@ -1,6 +1,8 @@
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const { invoiceStatus, feeUnit, DETUCTED_TYPE, invoiceType } = require('../constants');
+const initialFees = require('../utils/getListFeeInital');
+const FEE_KEYS = initialFees.map((item) => item.feeKey);
 
 const FeeInvoiceSchema = new Schema({
 	feeName: String,
@@ -34,6 +36,7 @@ const FeeInvoiceSchema = new Schema({
 	},
 	feeKey: {
 		type: String,
+		enum: FEE_KEYS,
 	},
 });
 
@@ -126,10 +129,33 @@ const InvoicesSchema = new Schema(
 			type: String,
 			trim: true,
 		},
-		contract: { type: Schema.Types.ObjectId, ref: 'ContractsEntity' },
+		contract: {
+			type: Schema.Types.ObjectId,
+			ref: 'ContractsEntity',
+			required: function () {
+				return this.invoiceType === invoiceType['RENTAL'];
+			},
+		},
 		version: {
 			type: Number,
 			default: 1,
+		},
+		// For delete index => revert feeIndex
+		feeIndexSnapshot: {
+			type: [
+				{
+					feeKey: {
+						type: String,
+						enum: FEE_KEYS,
+						required: true,
+					},
+					lastIndex: {
+						type: Number,
+						required: true,
+					},
+				},
+			],
+			required: true,
 		},
 	},
 	{

@@ -59,54 +59,47 @@ exports.lockInvoiceByIds = async (invoiceIds, session) => {
 	return true;
 };
 
-exports.createInvoice = async (
-	{
-		roomId,
-		listFees,
-		totalInvoiceAmount,
+exports.createInvoice = async ({
+	roomId,
+	listFees,
+	totalInvoiceAmount,
 
-		stayDays,
-		debtInfo,
-		currentPeriod,
-		payerName,
-		creater,
-		initialStatus = invoiceStatus['UNPAID'],
-		invoiceType = TYPES['RENTAL'],
-		contract,
-	},
-
-	session,
-) => {
+	stayDays,
+	debtInfo,
+	currentPeriod,
+	payerName,
+	creater,
+	initialStatus = invoiceStatus['UNPAID'],
+	invoiceType = TYPES['RENTAL'],
+	contract,
+	feeIndexSnapshot,
+}) => {
 	if (invoiceType !== TYPES['FIRST_INVOICE'] && !contract) throw new InternalError('Contract is required for this invoice type');
 	const paymentContent = await generatePaymentContent(process.env.PAYMENT_CONTENT_LENGTH);
 	const invoiceCode = await generatePaymentContent(process.env.INVOICE_CODE_LENGTH);
 
 	if (!paymentContent || !invoiceCode) throw new InternalError('Can not generate payment content');
 
-	const [newInvoice] = await Entity.InvoicesEntity.create(
-		[
-			{
-				stayDays: stayDays,
-				month: currentPeriod.currentMonth,
-				year: currentPeriod.currentYear,
-				room: roomId,
-				status: initialStatus,
-				fee: listFees,
-				total: totalInvoiceAmount,
-				paidAmount: 0,
-				debts: debtInfo ?? null,
-				paymentContent,
-				invoiceCode,
-				invoiceContent: `Hóa đơn tiền nhà kỳ ${currentPeriod.currentMonth}, ${currentPeriod.currentYear}`,
-				payer: payerName,
-				creater: creater,
-				locked: false,
-				invoiceType,
-				contract: contract,
-			},
-		],
-		{ session },
-	);
+	const newInvoice = await Entity.InvoicesEntity.create({
+		stayDays: stayDays,
+		month: currentPeriod.currentMonth,
+		year: currentPeriod.currentYear,
+		room: roomId,
+		status: initialStatus,
+		fee: listFees,
+		total: totalInvoiceAmount,
+		paidAmount: 0,
+		debts: debtInfo ?? null,
+		paymentContent,
+		invoiceCode,
+		invoiceContent: `Hóa đơn tiền nhà kỳ ${currentPeriod.currentMonth}, ${currentPeriod.currentYear}`,
+		payer: payerName,
+		creater: creater,
+		locked: false,
+		invoiceType,
+		contract: contract,
+		feeIndexSnapshot,
+	});
 
 	if (!newInvoice) throw new InternalError('Can not create invoice');
 
@@ -119,16 +112,8 @@ exports.getInvoiceDetail = async (invoiceObjectId) => {
 	return invoiceDetail;
 };
 
-exports.getInvoiceInfo = async (invoiceId, session) => {
-	const query = Entity.InvoicesEntity.findById(invoiceId);
-	if (session) query.session(session);
-	const invoiceInfo = await query.lean().exec();
-	if (!invoiceInfo) throw new NotFoundError('Hóa đơn không tồn tại');
-	return invoiceInfo;
-};
-
-exports.modifyInvoice = async ({ total, fee, status, stayDays, invoiceId, version }, session) => {
-	const result = await Entity.InvoicesEntity.updateOne(
+exports.modifyInvoice = async ({ total, fee, status, stayDays, invoiceId, version }) => {
+	const result = await Entity.InvoicesEntity.findOneAndUpdate(
 		{ _id: invoiceId, version: version },
 		{
 			$set: {
@@ -141,7 +126,9 @@ exports.modifyInvoice = async ({ total, fee, status, stayDays, invoiceId, versio
 				version: 1,
 			},
 		},
-		{ session },
+		{
+			new: true,
+		},
 	);
 	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 	return result;
@@ -196,14 +183,16 @@ exports.updateInvoicePaidStatus = async ({ invoiceId, paidAmount, invoiceStatus 
 	return result;
 };
 
-exports.updateInvoicePaidStatusWithVersion = async ({ invoiceId, paidAmount, invoiceStatus, version }, session) => {
+exports.updateInvoicePaidStatusWithVersion = async ({ invoiceId, paidAmount, invoiceStatus, version }) => {
 	const result = await Entity.InvoicesEntity.findOneAndUpdate(
 		{ _id: invoiceId, version: version },
 		{
 			$set: { paidAmount, status: invoiceStatus },
 			$inc: { version: 1 },
 		},
-		{ session },
+		{
+			new: true,
+		},
 	);
 	if (!result) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 	return result;
@@ -214,10 +203,9 @@ exports.closeAllInvoices = async (invoiceIds, session) => {
 	return true;
 };
 
-exports.removeDetuctedInfo = async (invoiceId, session) => {
-	const result = await Entity.InvoicesEntity.updateOne({ _id: invoiceId }, { $set: { detuctedInfo: null }, $inc: { version: 1 } }, { session });
+exports.removeDetuctedInfo = async (invoiceId) => {
+	const result = await Entity.InvoicesEntity.updateOne({ _id: invoiceId }, { $set: { detuctedInfo: null }, $inc: { version: 1 } });
 	if (result.matchedCount === 0) throw new NotFoundError('Hóa đơn không tồn tại !');
-	return result;
 };
 
 exports.getCashCollectorInfo = async (invoiceObjectId) => {
@@ -228,5 +216,44 @@ exports.getCashCollectorInfo = async (invoiceObjectId) => {
 exports.setContractId = async ({ invoiceId, contractId }, session) => {
 	const result = await Entity.InvoicesEntity.updateOne({ _id: invoiceId }, { $set: { contract: contractId }, $inc: { version: 1 } }, { session });
 	if (result.matchedCount === 0) throw new NotFoundError('Hóa đơn không tồn tại !');
+	return result;
+};
+
+exports.getInvoicesPaymentStatus = async ({ buildingId, month, year }) => {
+	const [result] = await Entity.BuildingsEntity.aggregate(Pipelines.invoices.getInvoicePaymentStatus(buildingId, month, year));
+	if (!result) throw new NotFoundError('Dữ liệu không tồn tại !');
+	return result;
+};
+
+exports.getInvoicesSendingStatus = async ({ buildingId, month, year }) => {
+	const [result] = await Entity.BuildingsEntity.aggregate(Pipelines.invoices.getInvoicesSendingStatus(buildingId, month, year));
+	if (!result) throw new NotFoundError('Dữ liệu không tồn tại !');
+	return result;
+};
+
+exports.removeDebtsFromInvoice = async ({ invoiceId, version, invoiceStatus, invoiceTotal }) => {
+	const result = await Entity.InvoicesEntity.findOneAndUpdate(
+		{
+			_id: invoiceId,
+			version: version,
+		},
+		{
+			$set: {
+				debts: null,
+				status: invoiceStatus,
+				total: invoiceTotal,
+			},
+			$inc: {
+				version: 1,
+			},
+		},
+		{
+			new: true,
+		},
+	);
+
+	if (!result) {
+		throw new ConflictError('Hóa đơn đã bị thay đổi');
+	}
 	return result;
 };

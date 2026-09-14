@@ -1,7 +1,6 @@
 const UseCase = require('../../data_providers/rooms');
 const asyncHandler = require('../../utils/asyncHandler');
 const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
-const { NotFoundError } = require('../../AppError');
 const delay = require('../../utils/delay');
 const { executeIdempotent } = require('../../utils/idempotent');
 const generateRequestHash = require('../../utils/generateRequestHash');
@@ -128,74 +127,3 @@ exports.getRoomImages = asyncHandler(async (req, res) => {
 	const result = await UseCase.getRoomImages(req.params.roomId);
 	return new SuccessResponse('Success', result).send(res);
 });
-
-//============================ UN REFACTED =====================================//
-
-exports.create = (req, res) => {
-	var data = req.body;
-	console.log(data);
-
-	UseCase.create(data, (err, result) => {
-		if (err) {
-			return res.status(204).send({
-				errorCode: 0,
-				data: {},
-				message: 'created fail',
-				errors: [],
-			});
-		} else {
-			return res.status(201).send({
-				errorCode: 0,
-				data: result,
-				message: 'succesfull created',
-				errors: [],
-			});
-		}
-	});
-};
-
-//not used
-exports.update = (req, res) => {
-	var data = req.body;
-	console.log('This is log of room update req.body', req.body);
-	UseCase.update(data, (err, result) => {
-		if (err) {
-			return res.status(204).send({
-				errorCode: 0,
-				data: {},
-				message: 'err',
-				errors: [],
-			});
-		} else {
-			return res.status(200).send({
-				errorCode: 0,
-				data: result,
-				message: 'succesfull',
-				errors: [],
-			});
-		}
-	});
-};
-
-//not used
-exports.finance = (req, res) => {
-	var data = req.query;
-	console.log('this is log of finance param', data);
-	UseCase.finance(data, (err, result) => {
-		if (err) {
-			return res.status(204).send({
-				errorCode: 0,
-				data: {},
-				message: 'err',
-				errors: [],
-			});
-		} else {
-			return res.status(200).send({
-				errorCode: 0,
-				data: result,
-				message: 'succesfull',
-				errors: [],
-			});
-		}
-	});
-};

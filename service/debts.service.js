@@ -33,11 +33,10 @@ exports.closeDebts = async (roomId, session) => {
 	return result;
 };
 
-exports.closeAndSetSourceInfo = async ({ contractId, sourceId, sourceType }, session) => {
+exports.closeAndSetSourceInfo = async ({ contractId, sourceId, sourceType }) => {
 	const result = await Entity.DebtsEntity.updateMany(
 		{ contract: contractId, status: debtStatus['PENDING'] },
 		{ status: debtStatus['CLOSED'], sourceId, sourceType },
-		{ session },
 	);
 
 	if (result.matchedCount === 0) {

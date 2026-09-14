@@ -20,4 +20,13 @@ const FEE_UNIT_TYPE = {
 	room: '/Phòng',
 };
 
-module.exports = { feeUnit, unitPriority, FEE_UNIT_TYPE };
+const UPDATE_FEE_INDEX_SOURCE = {
+	LIST_FEES: 'listFees',
+	MODIFY_INVOICE: 'modifyInvoice',
+	CREATE_INVOICE: 'createInvoice',
+	UPDATE_INVOICE: 'updateInvoice',
+	CHECKOUT_COST: 'checkoutCost',
+	depositRefund: 'depositRefund',
+};
+
+module.exports = { feeUnit, unitPriority, FEE_UNIT_TYPE, UPDATE_FEE_INDEX_SOURCE };

@@ -70,30 +70,19 @@ exports.modifyRent = async (roomId, rentModify, userId, shouldRequestCustomerVer
 		currentVersionNumber: currentVersion.version,
 	});
 
-	throw new InternalError('Error');
+	// throw new InternalError('Error');
 
 	return result;
 };
 
 exports.getRoomFeesAndDebts = async (roomId, userId) => {
-	let session;
-	let feesDebts;
+	const roomObjectId = new mongoose.Types.ObjectId(roomId);
 
-	try {
-		session = await mongoose.startSession();
+	const feesDebts = await Services.fees.getRoomFeesAndDebts(roomObjectId);
 
-		await session.withTransaction(async () => {
-			const roomObjectId = new mongoose.Types.ObjectId(roomId);
+	await Services.rooms.setWriteLockedRoom(roomId, null, userId);
 
-			feesDebts = await Services.fees.getRoomFeesAndDebts(roomObjectId, session);
-
-			await Services.rooms.setWriteLockedRoom(roomId, session, null, userId);
-		});
-
-		return feesDebts;
-	} finally {
-		if (session) session.endSession();
-	}
+	return feesDebts;
 };
 
 exports.getRoomHistories = async (roomId) => {
@@ -109,23 +98,17 @@ exports.getRoomHistoryDetail = async (roomHistoryId) => {
 	return result;
 };
 
-exports.importImage = async (roomId, images, redisKey) => {
-	try {
-		const currentRoom = await Services.rooms.findById(roomId);
-		if (!currentRoom) throw new NotFoundError('Phòng không tồn tại !');
+exports.importImage = async (roomId, images) => {
+	const currentRoom = await Services.rooms.findById(roomId).lean().exec();
+	if (!currentRoom) throw new NotFoundError('Phòng không tồn tại !');
 
-		const roomImageKeys = [];
-		for (const image of images) {
-			const handleuploadFile = await uploadFile(image);
-			roomImageKeys.push(handleuploadFile.Key);
-		}
-		await Services.rooms.importRoomImages(roomId, roomImageKeys);
-		await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
-		return 'success';
-	} catch (error) {
-		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
-		throw error;
+	const roomImageKeys = [];
+	for (const image of images) {
+		const handleuploadFile = await uploadFile(image);
+		roomImageKeys.push(handleuploadFile.Key);
 	}
+	await Services.rooms.importRoomImages(roomId, roomImageKeys);
+	return 'success';
 };
 
 exports.updateNoteRoom = async (roomId, note) => {

@@ -3,6 +3,8 @@ const asyncHandler = require('../../utils/asyncHandler');
 const { generateQrCode } = require('../../utils/generateQrCode');
 const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
 const { NotFoundError } = require('../../AppError');
+const { executeIdempotent } = require('../../utils/idempotent');
+const generateRequestHash = require('../../utils/generateRequestHash');
 
 exports.getInvoicesPaymentStatus = asyncHandler(async (req, res) => {
 	const data = { ...req.params, ...req.query };
@@ -29,8 +31,20 @@ exports.getInvoiceDetail = asyncHandler(async (req, res) => {
 exports.modifyInvoice = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('log of data from modifyInvoice: ', data);
-	await UseCase.modifyInvoice(data.invoiceId, data.feeIndexValues, data.stayDays, data.version, req.user._id, req.redisKey);
-	return new SuccessMsgResponse('Success').send(res);
+	const result = await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			invoiceId: data.invoiceId,
+			feeIndexValues: data.feeIndexValues,
+			stayDays: data.stayDays,
+			version: data.version,
+		}),
+		resourceId: data.invoiceId,
+		execute: () => UseCase.modifyInvoice(data.invoiceId, data.feeIndexValues, data.stayDays, data.version, req.user._id),
+	});
+	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.deleteInvoice = asyncHandler(async (req, res) => {
@@ -47,17 +61,53 @@ exports.collectCashMoney = asyncHandler(async (req, res) => {
 });
 
 exports.checkout = asyncHandler(async (req, res) => {
-	const data = { ...req.params, ...req.body, redisKey: req.redisKey };
+	const data = { ...req.params, ...req.body };
 	console.log('log of data from checkout Invoice: ', data);
 	const collectorInfo = { _id: req.user._id, role: req.user.role };
-	await UseCase.checkout(data.invoiceId, data.buildingId, data.date, data.amount, collectorInfo, data.version, data.redisKey, data.paymentMethod);
+	await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			invoiceId: data.invoiceId,
+			buildingId: data.buildingId,
+			date: data.date,
+			amount: data.amount,
+			version: data.version,
+		}),
+		resourceId: data.invoiceId,
+		execute: () =>
+			UseCase.checkout(
+				data.invoiceId,
+				data.buildingId,
+				data.date,
+				Number(data.amount),
+				collectorInfo,
+				data.version,
+				req.get('Idempotency-Key'),
+				data.paymentMethod,
+			),
+	});
 	return new SuccessMsgResponse('Success').send(res);
 });
 
 exports.createInvoice = asyncHandler(async (req, res) => {
-	const data = { ...req.params, ...req.body, ...req.user };
+	const data = { ...req.params, ...req.body };
 	console.log('log of data from createInvoice: ', data);
-	await UseCase.createInvoice(data.roomId, data.buildingId, data.stayDays, data.feeIndexValues, req.user._id, data.roomVersion);
+	await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			roomId: data.roomId,
+			buildingId: data.buildingId,
+			stayDays: data.stayDays,
+			feeIndexValues: data.feeIndexValues,
+			version: data.roomVersion,
+		}),
+		resourceId: data.roomId,
+		execute: () => UseCase.createInvoice(data.roomId, data.buildingId, data.stayDays, data.feeIndexValues, req.user._id, data.roomVersion),
+	});
 	return new SuccessMsgResponse('Success').send(res);
 });
 
