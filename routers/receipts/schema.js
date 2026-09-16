@@ -29,7 +29,7 @@ module.exports = {
 		amount: Joi.number().required(),
 		receiptContent: Joi.string().required(),
 		version: Joi.number().integer().min(1).required(),
-		date: Joi.date().required(),
+		date: Joi.date().optional(),
 	}),
 	collectCash: Joi.object().keys({
 		amount: Joi.number().min(0).required(),

@@ -155,7 +155,7 @@ const assertRoomWritable = async ({ roomId, userId }) => {
 	const { locked, expAt, ownerId } = room.writeLock || {};
 
 	if (locked === true && expAt > now && String(ownerId) !== String(userId)) {
-		throw new ConflictError('Phòng hiện đang được quản lý cập nhật !');
+		throw new ConflictError('Hiện tại phòng đang được cập nhật, vui lòng thử lại sau !');
 	}
 
 	return room;
@@ -170,11 +170,11 @@ const checkRoomDeposited = async (roomId, session) => {
 	return false;
 };
 
-const updateRoomState = async ({ roomId, roomState }, session = null) => {
+const updateRoomState = async ({ roomId, roomState }) => {
 	const result = await Entity.RoomsEntity.findOneAndUpdate(
 		{ _id: roomId },
 		{ $set: { roomState: roomState }, $inc: { version: 1 } },
-		{ session, new: true },
+		{ new: true },
 	);
 
 	if (!result) {
@@ -190,52 +190,44 @@ const setRoomDeposited = async ({ roomId, isDeposited, session }) => {
 	return 'Success';
 };
 
-const generateRoomHistory = async (
-	{
-		roomId,
-		contractId,
-		contractCode,
-		contractSignDate,
-		contractEndDate,
-		depositAmount,
-		checkoutDate,
-		checkoutType,
-		checkoutCostId,
-		depositRefundId,
-		interiors,
-		fees,
-		rent,
-	},
-	session,
-) => {
-	const [result] = await Entity.RoomHistoriesEntity.create(
-		[
-			{
-				contract: {
-					contractId,
-					contractCode,
-					depositAmount,
-					contractSignDate,
-					contractEndDate,
-				},
-				room: roomId,
-				checkoutDate: checkoutDate,
-				customerFrom: CUSTOMER_FROM['UNKNOWN'],
-				checkoutType: checkoutType,
-				checkoutCost: checkoutCostId,
-				depositRefund: depositRefundId,
-				interiors: interiors,
-				fees: fees,
-				rent: rent,
-			},
-		],
-		{ session },
-	);
+const generateRoomHistory = async ({
+	roomId,
+	contractId,
+	contractCode,
+	contractSignDate,
+	contractEndDate,
+	depositAmount,
+	checkoutDate,
+	checkoutType,
+	checkoutCostId,
+	depositRefundId,
+	interiors,
+	fees,
+	rent,
+}) => {
+	const result = await Entity.RoomHistoriesEntity.create({
+		contract: {
+			contractId,
+			contractCode,
+			depositAmount,
+			contractSignDate,
+			contractEndDate,
+		},
+		room: roomId,
+		checkoutDate: checkoutDate,
+		customerFrom: CUSTOMER_FROM['UNKNOWN'],
+		checkoutType: checkoutType,
+		checkoutCost: checkoutCostId,
+		depositRefund: depositRefundId,
+		interiors: interiors,
+		fees: fees,
+		rent: rent,
+	});
 
 	return result.toObject();
 };
 
-const completeChangeRoomState = async ({ roomId, roomVersion }, session) => {
+const completeChangeRoomState = async ({ roomId, roomVersion }) => {
 	const result = await Entity.RoomsEntity.updateOne(
 		{ _id: roomId, version: roomVersion },
 		{
@@ -247,7 +239,6 @@ const completeChangeRoomState = async ({ roomId, roomVersion }, session) => {
 			},
 			$inc: { version: 1 },
 		},
-		{ session },
 	);
 
 	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu của phòng đã bị ai đó thay đổi !');

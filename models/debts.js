@@ -40,7 +40,7 @@ const DebtsSchema = new Schema(
 		},
 	},
 	{
-		versionKey: false,
+		// versionKey: false,
 		collation: { locale: 'vi' },
 		timestamps: true,
 	},

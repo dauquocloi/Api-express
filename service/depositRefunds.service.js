@@ -9,47 +9,39 @@ const findByInvoiceUnpaidId = (invoiceUnpaidId) => Entity.DepositRefundsEntity.f
 
 const findByReceiptsUnpaid = (receiptId) => Entity.DepositRefundsEntity.findOne({ receiptsUnapid: receiptId });
 
-const createDepositRefund = async (
-	{
-		roomId,
-		fees,
-		feesOther,
-		depositRefundAmount,
-		invoiceUnpaid,
-		buildingId,
-		contractId,
-		depositReceiptId,
-		contractOwnerId,
-		debtIds,
-		receiptIds,
-		currentPeriod,
-		creatorId,
-	},
-	session,
-) => {
-	const [newDepositRefund] = await Entity.DepositRefundsEntity.create(
-		[
-			{
-				room: roomId,
-				feesIndex: fees,
-				feesOther: feesOther,
-				depositRefundAmount: Number(depositRefundAmount),
-				invoiceUnpaid: invoiceUnpaid ?? null,
-				receiptsUnpaid: receiptIds ?? null,
-				isRefundedDeposited: false,
-				customerApproved: false,
-				creator: creatorId,
-				building: buildingId,
-				contract: contractId,
-				depositReceipt: depositReceiptId,
-				contractOwner: contractOwnerId,
-				month: currentPeriod.currentMonth,
-				year: currentPeriod.currentYear,
-				debts: debtIds,
-			},
-		],
-		{ session },
-	);
+const createDepositRefund = async ({
+	roomId,
+	fees,
+	feesOther,
+	depositRefundAmount,
+	invoiceUnpaid,
+	buildingId,
+	contractId,
+	depositReceiptId,
+	contractOwnerId,
+	debtIds,
+	receiptIds,
+	currentPeriod,
+	creatorId,
+}) => {
+	const newDepositRefund = await Entity.DepositRefundsEntity.create({
+		room: roomId,
+		feesIndex: fees,
+		feesOther: feesOther,
+		depositRefundAmount: Number(depositRefundAmount),
+		invoiceUnpaid: invoiceUnpaid ?? null,
+		receiptsUnpaid: receiptIds ?? null,
+		isRefundedDeposited: false,
+		customerApproved: false,
+		creator: creatorId,
+		building: buildingId,
+		contract: contractId,
+		depositReceipt: depositReceiptId,
+		contractOwner: contractOwnerId,
+		month: currentPeriod.currentMonth,
+		year: currentPeriod.currentYear,
+		debts: debtIds,
+	});
 	newDepositRefund.toObject();
 
 	return newDepositRefund;
@@ -91,6 +83,24 @@ const getDepositRefunds = async (buildingId, mode, session) => {
 	return result;
 };
 
+const confirmDepositRefund = async ({ depositRefundId, version, month, year, status }) => {
+	const result = await Entity.DepositRefundsEntity.updateOne(
+		{
+			depositRefundId,
+			version,
+		},
+		{
+			$set: {
+				month,
+				year,
+				status,
+			},
+		},
+	);
+
+	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu đã bị thay đổi, vui lòng tải lại trang !');
+};
+
 module.exports = {
 	createDepositRefund,
 	getDepositRefundByContractId,
@@ -100,4 +110,5 @@ module.exports = {
 	findByInvoiceUnpaidId,
 	findByReceiptsUnpaid,
 	getDepositRefunds,
+	confirmDepositRefund,
 };

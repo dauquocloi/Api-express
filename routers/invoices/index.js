@@ -72,16 +72,6 @@ router.delete(
 );
 
 router.post(
-	'/:invoiceId/collect-cash',
-	authorization(ROLES['OWNER'], ROLES['MANAGER']),
-	validator(schema.id, ValidateSource.PARAM),
-	validator(schema.collectCash, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['invoices']),
-	checkIdempotency,
-	Invoices.collectCashMoney,
-);
-
-router.post(
 	'/:invoiceId/checkout',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),

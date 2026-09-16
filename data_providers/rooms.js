@@ -6,7 +6,7 @@ const Services = require('../service');
 const getFileUrl = require('../utils/getFileUrl');
 const deepMutate = require('../utils/deepMutate');
 const { client: redis } = require('../config').redisDb;
-const { roomState, contractStatus } = require('../constants');
+const { roomState, contractStatus, debtStatus } = require('../constants');
 
 exports.getRoom = async (roomId) => {
 	const roomObjectId = new mongoose.Types.ObjectId(roomId);
@@ -121,7 +121,10 @@ exports.deleteDebts = async (roomId) => {
 	const findDebts = await Services.debts.findPendingDebts(roomId).lean().exec();
 	if (!findDebts || findDebts.length === 0) throw new NotFoundError('Nợ không tồn tại');
 
-	await Services.debts.terminateDebts(findDebts.map((item) => item._id));
+	await Services.debts.setDebtsStatus(
+		findDebts.map((item) => item._id),
+		debtStatus['TERMINATED'],
+	);
 
 	return 'Success';
 };

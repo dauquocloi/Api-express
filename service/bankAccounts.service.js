@@ -27,9 +27,9 @@ exports.importBankAccount = async ({ accountNumber, accountName, bankId, ownerId
 	return result.toObject();
 };
 
-exports.checkExistBankAccount = async ({ buildingId }, session = null) => {
-	const result = await Entity.BankAccountsEntity.findOne({ buildings: buildingId }).session(session);
+exports.checkExistBankAccount = async ({ buildingId }) => {
+	const result = await Entity.BankAccountsEntity.findOne({ buildings: buildingId }).lean().exec();
 	if (!result)
 		throw new NotFoundError('Tòa nhà chưa có thông tin thanh toán, vui lòng tạo thông tin thanh toán cho tòa nhà trước khi khởi tạo hóa đơn.');
-	return result.toObject();
+	return result;
 };

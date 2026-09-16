@@ -7,6 +7,8 @@ exports.findById = (feeId) => Entity.FeesEntity.findById(feeId);
 
 exports.findByRoomId = (roomId) => Entity.FeesEntity.find({ room: roomId });
 
+exports.findByRoomIdAndFeeKey = (roomId, feeKeys) => Entity.FeesEntity.find({ room: roomId, feeKey: { $in: feeKeys } });
+
 exports.getRoomFeesAndDebts = async (roomObjectId) => {
 	const [roomFees] = await Entity.RoomsEntity.aggregate(pipelines.fees.getRoomFeesAndDebts(roomObjectId));
 	if (!roomFees) throw new NotFoundError('Dữ liệu không tồn tại');
@@ -296,7 +298,7 @@ exports.generateFeeIndexRecords = async (records) => {
 		fee: feeId,
 		fromIndex,
 		toIndex,
-		editorId,
+		editor: editorId,
 		room: roomId,
 		fromSource,
 	}));
@@ -313,4 +315,33 @@ exports.generateFeeIndexRecords = async (records) => {
 exports.getFeeIndexRecords = async ({ roomId, feeId }) => {
 	const result = await Entity.FeeIndexRecordsEntity.find({ room: roomId, fee: feeId }).lean().exec();
 	return result || [];
+};
+
+exports.setFeesIndexValue = async (data) => {
+	const operations = data.map((item) => ({
+		updateOne: {
+			filter: {
+				room: item.roomId,
+				feeKey: item.feeKey,
+			},
+			update: {
+				$set: {
+					lastIndex: item.lastIndex,
+				},
+				$inc: {
+					version: 1,
+				},
+			},
+		},
+	}));
+
+	if (operations.length === 0) return;
+
+	const result = await Entity.FeesEntity.bulkWrite(operations);
+
+	if (result.matchedCount === 0 || result.matchedCount !== operations.length) {
+		throw new ConflictError('Some fees were modified or not found during update');
+	}
+
+	return result;
 };

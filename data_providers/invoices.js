@@ -1,7 +1,5 @@
 const mongoose = require('mongoose');
-const Entity = require('../models');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
-const generatePaymentContent = require('../utils/generatePaymentContent');
 const { AppError, NoEntryError, NotFoundError, BadRequestError, ConflictError, InternalError } = require('../AppError');
 const { errorCodes } = require('../constants/errorCodes');
 const zaloService = require('../service/zalo.service');
@@ -10,12 +8,28 @@ const { formatDebts } = require('../service/debts.helper');
 const { calculateTotalFeeAmount, calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
 const { generateInvoiceFees } = require('../service/invoices.helper');
 const { getInvoiceStatus } = require('../service/invoices.helper');
-const { billType, invoiceStatus, invoiceType, feeUnit, PAYMENT_METHOD, DETUCTED_TYPE, UPDATE_FEE_INDEX_SOURCE, sourceType } = require('../constants');
+const {
+	billType,
+	invoiceStatus,
+	invoiceType,
+	feeUnit,
+	PAYMENT_METHOD,
+	DETUCTED_TYPE,
+	UPDATE_FEE_INDEX_SOURCE,
+	sourceType,
+	debtStatus,
+} = require('../constants');
 const { znsNewInvoiceNotiJob } = require('../jobs/ZNS/zns.job');
 const Roles = require('../constants/userRoles');
 const { notificationJob } = require('../jobs/notification/notification.job');
 const { NOTI_MANAGER_COLLECT_CASH_INVOICE } = require('../jobs/constant/jobNames');
-const { formatFeeIndexRecords } = require('../service/fees.helper');
+const {
+	formatFeeIndexRecords,
+	getChangedFeeIndexes,
+	createFeeIndexRecordsFromChangedFees,
+	getFeeIndexesForRollback,
+} = require('../service/fees.helper');
+const { validateFeeIndexMatch } = require('../service/fees.helper');
 
 exports.getInvoicesPaymentStatus = async (buildingId, month, year) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -53,7 +67,9 @@ exports.getInvoiceSendingStatus = async (buildingId) => {
 	return { currentPeriod, listInvoiceInfo };
 };
 
-exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, userId) => {
+exports.modifyInvoice = async (data) => {
+	const { invoiceId, feeIndexValues, stayDays, version, userId } = data;
+
 	const currentInvoice = await Services.invoices.findById(invoiceId).lean().exec();
 	if (!currentInvoice) throw new NotFoundError('Hóa đơn không tồn tại');
 	if (currentInvoice.locked === true) throw new BadRequestError('Hóa đơn đã đóng');
@@ -62,7 +78,6 @@ exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, use
 	await Services.rooms.assertRoomWritable({ roomId: currentInvoice.room, userId });
 
 	const formatFees = generateInvoiceFees(currentInvoice.fee, 0, stayDays, feeIndexValues, false, 'modify');
-	// console.log('log of formatFees from modifyInvoice: ', formatFees);
 	const totalRoomfees = calculateTotalFeeAmount(formatFees);
 
 	const totalDebts = currentInvoice.debts?.reduce((sum, debt) => sum + debt.amount, 0) ?? 0;
@@ -70,22 +85,33 @@ exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, use
 	const newTotalInvoice = totalRoomfees + totalDebts;
 	const invoiceStatus = getInvoiceStatus(currentInvoice.paidAmount, newTotalInvoice);
 
-	const currentFeeUnitIndexes = currentInvoice.fee.filter((f) => f.unit === feeUnit['INDEX']);
-	// console.log('log of roomFeesUnitIndex: ', currentFeeUnitIndexes);
-	const changedFeeKeys = currentFeeUnitIndexes
-		.filter((currentFee) => {
-			const newFee = formatFees.find((fee) => fee.feeKey === currentFee.feeKey);
+	// =========================================================
+	// CHECK CHANGED FEE INDEX
+	// =========================================================
 
-			if (!newFee) {
-				throw new ConflictError(`Missing index value for fee ${currentFee.feeKey}`);
-			}
+	const changedFeeMap = getChangedFeeIndexes(currentInvoice.fee, formatFees);
 
-			return newFee.firstIndex !== currentFee.firstIndex || newFee.lastIndex !== currentFee.lastIndex;
-		})
-		.map((fee) => fee.feeKey);
+	if (changedFeeMap.size > 0) {
+		const changedFees = [];
 
-	if (changedFeeKeys.length > 0) {
-		await Services.fees.updateFeeIndexValuesByFeeKey(changedFeeKeys, currentInvoice.room, formatFees);
+		for (const [feeKey, { toIndex }] of changedFeeMap) {
+			changedFees.push({
+				feeKey,
+				roomId: currentInvoice.room,
+				lastIndex: toIndex,
+			});
+		}
+
+		await Services.fees.setFeesIndexValue(changedFees);
+
+		const feeIndexRecordsGenerated = await createFeeIndexRecordsFromChangedFees({
+			changedFeeMap,
+			editorId: userId,
+			roomId: currentInvoice.room,
+			fromSource: UPDATE_FEE_INDEX_SOURCE['MODIFY_INVOICE'],
+		});
+
+		console.log('feeIndexRecordsGenerated', feeIndexRecordsGenerated);
 	}
 
 	const modifedInvoice = await Services.invoices.modifyInvoice({
@@ -96,8 +122,6 @@ exports.modifyInvoice = async (invoiceId, feeIndexValues, stayDays, version, use
 		invoiceId: invoiceId,
 		version: version,
 	});
-
-	throw new InternalError('Stop for testing');
 
 	return modifedInvoice;
 };
@@ -121,76 +145,69 @@ exports.getInvoiceDetail = async (invoiceId, buildingId) => {
 	};
 };
 
-//owner only
 // Cần check case hóa đơn đang có transaction chưa được xác thực
 exports.deleteInvoice = async (invoiceId, userId, invoiceVersion) => {
-	let session;
-	try {
-		const invoiceObjectId = new mongoose.Types.ObjectId(invoiceId);
+	const invoiceObjectId = new mongoose.Types.ObjectId(invoiceId);
 
-		session = await mongoose.startSession();
-		await session.withTransaction(async () => {
-			const invoice = await Services.invoices.findById(invoiceObjectId).session(session).lean().exec();
-			if (!invoice) throw new NotFoundError('Hóa đơn không tồn tại');
-			if (invoice.invoiceType === invoiceType['FIRST_INVOICE']) throw new BadRequestError('Không thể xóa hóa đơn tháng đầu tiên !');
+	const invoice = await Services.invoices.findById(invoiceObjectId).lean().exec();
+	if (!invoice) throw new NotFoundError('Hóa đơn không tồn tại');
+	if (invoice.invoiceType === invoiceType['FIRST_INVOICE']) throw new BadRequestError('Không thể xóa hóa đơn tháng đầu tiên !');
 
-			await Services.rooms.assertRoomWritable({ roomId: invoice.room, userId, session });
+	await Services.rooms.assertRoomWritable({ roomId: invoice.room, userId });
+	await Services.invoices.terminateInvoice({ invoiceId: invoiceId, version: invoiceVersion });
 
-			const { fee } = invoice;
-			const feeIndexes = fee.filter((f) => f.unit === feeUnit['INDEX']);
+	const { fee } = invoice;
 
-			const invoiceTerminated = await Entity.InvoicesEntity.findOneAndUpdate(
-				{ _id: invoiceObjectId, version: invoiceVersion },
-				{ $set: { status: invoiceStatus['TERMINATED'] }, $inc: { version: 1 } },
-				{ session },
-			);
+	// =========================================================
+	// ROLLBACK FEE INDEX
+	// =========================================================
 
-			if (invoiceTerminated.matchedCount === 0) throw new ConflictError('Hóa đơn này đã bị thay đổi !');
+	const feeIndexes = (invoice.fee ?? []).filter((fee) => fee.unit === feeUnit['INDEX']);
 
-			if (invoice.status === invoiceStatus['UNPAID']) {
-				if (feeIndexes.length > 0) {
-					// const operations = feeIndexes.map((f) => ({
-					// 	updateOne: {
-					// 		filter: {
-					// 			feeKey: f.feeKey,
-					// 			room: invoice.room,
-					// 		},
-					// 		update: {
-					// 			$set: { lastIndex: Number(f.firstIndex) },
-					// 		},
-					// 	},
-					// }));
+	if (feeIndexes.length > 0) {
+		const feeKeys = feeIndexes.map((fee) => fee.feeKey);
 
-					// await Entity.FeesEntity.bulkWrite(operations, { session });
-					await Services.fees.rollbackFeeIndexValuesByFeeKey(feeIndexes, invoice.room, session);
-					await Services.fees.rollBackFeeIndexHistoryMany(
-						feeIndexes.map((f) => f.feeKey),
-						invoice.room,
-						session,
-					);
-				}
+		// Lấy Fee hiện tại trước khi rollback
+		const currentFees = await Services.fees.findByRoomIdAndFeeKey(invoice.room, feeKeys);
 
-				if (invoice.debts?.length > 0) {
-					await Entity.DebtsEntity.updateMany(
-						{ sourceId: invoiceObjectId },
-						{ $set: { sourceId: null, status: 'pending', sourceType: 'pending' } },
-						{ session },
-					);
-				}
+		const rollbackFeeMap = getFeeIndexesForRollback(invoice.feeIndexSnapshot, currentFees);
+
+		if (rollbackFeeMap.size > 0) {
+			const updateFeeIndexValueData = [];
+
+			for (const [feeKey, { toIndex }] of rollbackFeeMap) {
+				updateFeeIndexValueData.push({
+					feeKey,
+					roomId: invoice.room,
+					lastIndex: toIndex,
+				});
 			}
 
-			await Services.rooms.bumpRoomVersionBlind(invoice.room, session);
+			await Services.fees.setFeesIndexValue(updateFeeIndexValueData);
 
-			return 'Success';
-		});
-
-		return 'Success';
-	} finally {
-		if (session) session.endSession();
+			await createFeeIndexRecordsFromChangedFees({
+				changedFeeMap: rollbackFeeMap,
+				editorId: userId,
+				roomId: invoice.room,
+				fromSource: UPDATE_FEE_INDEX_SOURCE['TERMINATE_INVOICE'],
+			});
+		}
 	}
+
+	if (invoice.debts?.length > 0) {
+		await Services.debts.rollBackDebtsBySourceIds(invoiceObjectId, debtStatus['PENDING']);
+	}
+
+	await Services.rooms.bumpRoomVersionBlind(invoice.room);
+
+	throw new InternalError('Stop for testing ');
+
+	return 'Success';
 };
 
-exports.checkout = async (invoiceId, buildingId, date, amount, collectorInfo, version, idempotencyKey, paymentMethod) => {
+exports.checkout = async (data) => {
+	const { invoiceId, buildingId, date, amount, collectorInfo, version, idempotencyKey, paymentMethod } = data;
+
 	const invoiceObjectId = new mongoose.Types.ObjectId(invoiceId);
 	const collectorObjectId = new mongoose.Types.ObjectId(collectorInfo._id);
 
@@ -300,6 +317,7 @@ exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, cre
 	const totalRoomfees = calculateTotalFeeAmount(formatRoomFees);
 
 	const feeIndexSnapshot = formatFeeIndexRecords(formatRoomFees);
+	console.log('log of feeIndexSnapshot: ', feeIndexSnapshot);
 
 	let getDebts = await Services.debts.getDebts(roomObjectId);
 	if (getDebts.length > 0) getDebts = formatDebts(getDebts);
@@ -325,30 +343,30 @@ exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, cre
 		sourceType: sourceType['INVOICE'],
 	});
 
-	const roomFeeIndexes = roomFees.feeInfo.filter((fee) => fee.unit === feeUnit.INDEX);
-	const roomFeeIndexIds = roomFeeIndexes.map((fee) => fee._id.toString());
+	const changedFeeMap = getChangedFeeIndexes(roomFees.feeInfo, formatRoomFees);
+	if (changedFeeMap.size > 0) {
+		const changedFees = [];
 
-	//Should be removed
-	const updateFeeIndexHistoryPayload = roomFeeIndexes.map((fee) => ({
-		feeId: fee._id,
-		lastIndex: feeIndexValues[fee._id].secondIndex,
-		prevIndex: feeIndexValues[fee._id].firstIndex,
-	}));
+		for (const [feeKey, { toIndex }] of changedFeeMap) {
+			changedFees.push({
+				feeKey,
+				roomId: roomId,
+				lastIndex: toIndex,
+			});
+		}
 
-	const generateFeeIndexRecordsPayload = roomFeeIndexes.map((fee) => ({
-		feeId: fee._id,
-		roomId: roomId,
-		fromIndex: feeIndexValues[fee._id].secondIndex,
-		toIndex: feeIndexValues[fee._id].firstIndex,
-		editorId: createrId,
-		fromSource: UPDATE_FEE_INDEX_SOURCE['CREATE_INVOICE'],
-	}));
+		await Services.fees.setFeesIndexValue(changedFees);
 
-	//Should be removed
-	await Services.fees.updateFeeIndexHistoryMany({ payloads: updateFeeIndexHistoryPayload, editorId: createrId });
+		const feeIndexRecordsGenerated = await createFeeIndexRecordsFromChangedFees({
+			changedFeeMap,
+			editorId: createrId,
+			roomId: roomId,
+			fromSource: UPDATE_FEE_INDEX_SOURCE['CREATE_INVOICE'],
+		});
 
-	await Services.fees.updateFeeIndexValues(roomFeeIndexIds, feeIndexValues);
-	await Services.fees.generateFeeIndexRecords(generateFeeIndexRecordsPayload);
+		console.log('log of feeIndexRecordsGenerated: ', feeIndexRecordsGenerated);
+	}
+
 	await Services.rooms.unLockedRoom(roomId);
 	await Services.rooms.bumpRoomVersion(roomId, roomVersion);
 

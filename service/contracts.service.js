@@ -169,7 +169,7 @@ exports.getContractDraftById = async (contractDraftId, session) => {
 	return result;
 };
 
-exports.expiredContract = async (contractId, session) => {
+exports.expiredContract = async (contractId) => {
 	const result = await Entity.ContractsEntity.updateOne(
 		{ _id: contractId, 'versions.status': contractStatus['ACTIVE'] },
 		{
@@ -180,7 +180,6 @@ exports.expiredContract = async (contractId, session) => {
 			},
 			$inc: { version: 1 },
 		},
-		{ session },
 	);
 	if (result.matchedCount === 0) throw new NotFoundError('Hợp đồng không tồn tại');
 	return result;
@@ -294,8 +293,8 @@ exports.clientConfirmContract = async (contractId, session) => {
 	return true;
 };
 
-exports.getDebtsAndReceiptsUnpaid = async (contractId, session) => {
-	const [result] = await Entity.ContractsEntity.aggregate(Pipelines.contracts.getDebtsAndReceiptsUnpaid(contractId)).session(session);
+exports.getDebtsAndReceiptsUnpaid = async (contractId) => {
+	const [result] = await Entity.ContractsEntity.aggregate(Pipelines.contracts.getDebtsAndReceiptsUnpaid(contractId));
 	if (!result) throw new NotFoundError('Hợp đồng không tồn tại');
 	return result;
 };

@@ -1,4 +1,6 @@
 const { feeUnit } = require('../constants/');
+const Services = require('./index');
+const { ConflictError } = require('../AppError');
 /**
  * @param {Array} feeIndexIds - Array of fee IDs
  * @param {Object} feeIndexValues - Object with fee IDs as keys
@@ -51,8 +53,84 @@ exports.formatFeeIndexRecords = (listFees) =>
 			fee.unit === feeUnit['INDEX']
 				? {
 						feeKey: fee.feeKey,
-						lastIndex: fee.lastIndex,
+						lastIndex: fee.firstIndex,
 				  }
 				: null,
 		)
 		.filter((fee) => fee !== null);
+
+exports.getChangedFeeIndexes = (oldFees = [], newFees = []) => {
+	const oldFeeMap = new Map(oldFees.filter((fee) => fee.unit === feeUnit['INDEX']).map((fee) => [fee.feeKey, fee]));
+
+	const changedFeeMap = new Map();
+
+	for (const newFee of newFees) {
+		if (newFee.unit !== feeUnit['INDEX']) continue;
+
+		const oldFee = oldFeeMap.get(newFee.feeKey);
+
+		if (!oldFee) continue;
+
+		if (oldFee.lastIndex !== newFee.lastIndex) {
+			changedFeeMap.set(newFee.feeKey, {
+				fromIndex: oldFee.lastIndex,
+				toIndex: newFee.lastIndex,
+			});
+		}
+	}
+
+	return changedFeeMap;
+};
+
+exports.createFeeIndexRecordsFromChangedFees = async ({ changedFeeMap, editorId, roomId, fromSource }) => {
+	if (changedFeeMap.size === 0) {
+		return;
+	}
+
+	const feeKeys = [...changedFeeMap.keys()];
+
+	const fees = await Services.fees.findByRoomIdAndFeeKey(roomId, feeKeys);
+
+	const feeMap = new Map(fees.map((fee) => [fee.feeKey, fee]));
+
+	const records = [...changedFeeMap.entries()].map(([feeKey, { fromIndex, toIndex }]) => {
+		const fee = feeMap.get(feeKey);
+
+		if (!fee) {
+			throw new ConflictError(`Fee not found: ${feeKey}`);
+		}
+
+		return {
+			feeId: fee._id,
+			fromIndex,
+			toIndex,
+			editorId,
+			roomId,
+			fromSource,
+		};
+	});
+
+	const result = await Services.fees.generateFeeIndexRecords(records);
+	return result;
+};
+
+exports.getFeeIndexesForRollback = (feeIndexSnapshot = [], currentFees = []) => {
+	const snapshotMap = new Map(feeIndexSnapshot.map((fee) => [fee.feeKey, fee]));
+
+	const rollbackFeeMap = new Map();
+
+	for (const fee of currentFees) {
+		const snapshot = snapshotMap.get(fee.feeKey);
+
+		if (!snapshot) continue;
+
+		if (fee.lastIndex !== snapshot.lastIndex) {
+			rollbackFeeMap.set(fee.feeKey, {
+				fromIndex: fee.lastIndex,
+				toIndex: snapshot.lastIndex,
+			});
+		}
+	}
+
+	return rollbackFeeMap;
+};

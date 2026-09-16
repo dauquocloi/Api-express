@@ -22,11 +22,10 @@ exports.getVehicleDetail = async (vehicleObjectId) => {
 	return vehicleInfo;
 };
 
-exports.expiredVehicles = async ({ roomId, contractId }, session) => {
+exports.expiredVehicles = async ({ roomId, contractId }) => {
 	const result = await Entity.VehiclesEntity.updateMany(
 		{ room: roomId, contract: contractId },
 		{ $set: { status: vehicleStatus['TERMINATED'] }, $inc: { version: 1 } },
-		{ session },
 	);
 	if (result.matchedCount === 0) throw new NotFoundError('Không tìm thấy bản ghi');
 	return result;

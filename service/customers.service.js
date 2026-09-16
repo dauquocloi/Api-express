@@ -2,16 +2,25 @@ const { NotFoundError } = require('../AppError');
 const { errorCodes } = require('../constants/errorCodes');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
+const { CUSTOMER_STATUS } = require('../constants');
 
 exports.findById = (customerId) => Entity.CustomersEntity.findById(customerId);
 
 exports.findOwnerByContractId = (contractId) => Entity.CustomersEntity.findOne({ contract: contractId, isContractOwner: true });
 
-exports.getContractOwner = (roomId) => Entity.CustomersEntity.findOne({ room: roomId, isContractOwner: true, status: { $in: [1, 2] } });
+exports.getContractOwner = (roomId) =>
+	Entity.CustomersEntity.findOne({
+		room: roomId,
+		isContractOwner: true,
+		status: { $in: [CUSTOMER_STATUS['ACTIVE'], CUSTOMER_STATUS['SUSPENDED']] },
+	});
 
-exports.findIsContractOwnerByRoomId = (roomId) => {
-	return Entity.CustomersEntity.findOne({ room: roomId, status: { $in: [1, 2] }, isContractOwner: true });
-};
+exports.findIsContractOwnerByRoomId = (roomId) =>
+	Entity.CustomersEntity.findOne({
+		room: roomId,
+		status: { $in: [CUSTOMER_STATUS['ACTIVE'], CUSTOMER_STATUS['SUSPENDED']] },
+		isContractOwner: true,
+	});
 
 exports.findByPhone = (phone) => Entity.CustomersEntity.findOne({ phone: phone });
 
@@ -20,11 +29,10 @@ exports.getAllCustomers = async (buildingObjectId, status) => {
 	return customerInfo.data ?? [];
 };
 
-exports.expiredCustomers = async ({ roomId, contractId }, session) => {
+exports.expiredCustomers = async ({ roomId, contractId }) => {
 	const result = await Entity.CustomersEntity.updateMany(
 		{ room: roomId, contract: contractId },
-		{ $set: { status: 0 }, $inc: { version: 1 } },
-		{ session },
+		{ $set: { status: CUSTOMER_STATUS['TERMINATED'] }, $inc: { version: 1 } },
 	);
 	if (result.matchedCount === 0) throw new NotFoundError('Không tìm thấy bản ghi');
 	return result;
@@ -72,7 +80,7 @@ exports.addCustomer = async (
 				cccd: cccd,
 				cccdIssueDate: cccdIssueDate,
 				cccdIssueAt: cccdIssueAt,
-				status: 1,
+				status: CUSTOMER_STATUS['ACTIVE'],
 				temporaryResidence: false,
 				contract: contractId,
 			},
@@ -84,7 +92,11 @@ exports.addCustomer = async (
 };
 
 exports.setCustomerLeft = async (customerId, session) => {
-	const result = await Entity.CustomersEntity.findOneAndUpdate({ _id: customerId }, { $set: { status: 0 }, $inc: { version: 1 } }, { session });
+	const result = await Entity.CustomersEntity.findOneAndUpdate(
+		{ _id: customerId },
+		{ $set: { status: CUSTOMER_STATUS['TERMINATED'] }, $inc: { version: 1 } },
+		{ session },
+	);
 	if (!result) throw new NotFoundError('Dữ liệu không tồn tại');
 	return result;
 };

@@ -3,25 +3,22 @@ const Pipelines = require('../aggregates');
 const { NotFoundError, InternalError, ConflictError } = require('../../AppError');
 const { checkoutCostStatus } = require('../../constants/checkoutCosts');
 
-const generateCheckoutCost = async (
-	{
-		roomId,
-		contractId,
-		buildingId,
-		creatorId,
-		customerName,
-		debts,
-		receiptsUnpaid,
-		invoicesUnpaid,
-		roomFees,
-		currentPeriod,
-		checkoutCostReceipt,
-		totalCost,
-		feesOther,
-		stayDays,
-	},
-	session,
-) => {
+const generateCheckoutCost = async ({
+	roomId,
+	contractId,
+	buildingId,
+	creatorId,
+	customerName,
+	debts,
+	receiptsUnpaid,
+	invoicesUnpaid,
+	roomFees,
+	currentPeriod,
+	checkoutCostReceipt,
+	totalCost,
+	feesOther,
+	stayDays,
+}) => {
 	const checkoutCostData = {
 		roomId: roomId,
 		contractId: contractId,
@@ -40,15 +37,13 @@ const generateCheckoutCost = async (
 		total: totalCost,
 	};
 
-	const [newCheckoutCost] = await Entity.CheckoutCostsEntity.create([checkoutCostData], { session });
-	if (!newCheckoutCost) throw new InternalError('Can not create checkout cost');
+	const newCheckoutCost = await Entity.CheckoutCostsEntity.create(checkoutCostData);
+	if (!newCheckoutCost) throw new InternalError('Đã xảy ra lỗi trong quá trình tạo hóa đơn !');
 	return newCheckoutCost;
 };
 
-const getCheckoutCostDetail = async (checkoutCostObjectId, session) => {
-	const [result] = await Entity.CheckoutCostsEntity.aggregate(Pipelines.checkoutCosts.getCheckoutCostDetailPipeline(checkoutCostObjectId)).session(
-		session,
-	);
+const getCheckoutCostDetail = async (checkoutCostObjectId) => {
+	const [result] = await Entity.CheckoutCostsEntity.aggregate(Pipelines.checkoutCosts.getCheckoutCostDetailPipeline(checkoutCostObjectId));
 
 	if (!result) throw new NotFoundError('Dữ liệu không tồn tại');
 	return result;
@@ -69,7 +64,7 @@ const findById = (checkoutCostId) => {
 	return Entity.CheckoutCostsEntity.findById(checkoutCostId);
 };
 
-const modifyCheckoutCost = async ({ checkoutCostId, version, fees, feesOther, newTotal }, session) => {
+const modifyCheckoutCost = async ({ checkoutCostId, version, fees, feesOther, newTotal, stayDays }) => {
 	const result = await Entity.CheckoutCostsEntity.updateOne(
 		{ _id: checkoutCostId, version: version },
 		{
@@ -77,6 +72,7 @@ const modifyCheckoutCost = async ({ checkoutCostId, version, fees, feesOther, ne
 				fees: fees,
 				feesOther: feesOther,
 				total: newTotal,
+				stayDays,
 			},
 			$inc: { version: 1 },
 		},
@@ -85,8 +81,7 @@ const modifyCheckoutCost = async ({ checkoutCostId, version, fees, feesOther, ne
 		},
 	);
 
-	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu này đã bị thay đổi !');
-	return result;
+	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu này đã bị thay đổi, vui lòng tải lại trang.');
 };
 
 const terminateCheckoutCost = async (checkoutCostId, version, session) => {

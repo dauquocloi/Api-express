@@ -1,5 +1,13 @@
-const { contractStatus } = require('../../../constants/contracts');
-const { invoiceStatus, receiptStatus } = require('../../../constants');
+const {
+	invoiceStatus,
+	receiptStatus,
+	CUSTOMER_STATUS,
+	roomState,
+	depositStatus,
+	debtStatus,
+	vehicleStatus,
+	contractStatus,
+} = require('../../../constants');
 const mongoose = require('mongoose');
 
 const getAllByBuildingPipeline = (buildingId) => {
@@ -70,7 +78,7 @@ const listSelectingRoomPipeline = (buildingId) => {
 					{
 						$match: {
 							$expr: {
-								$and: [{ $eq: ['$building', '$$buildingId'] }, { $ne: ['$roomState', 0] }],
+								$and: [{ $eq: ['$building', '$$buildingId'] }, { $ne: ['$roomState', roomState['UN_HIRED']] }],
 							},
 						},
 					},
@@ -155,7 +163,7 @@ const getRoomByIdPipeline = (roomId) => {
 								{
 									$match: {
 										$expr: {
-											$in: ['$status', [1, 2]],
+											$in: ['$status', [CUSTOMER_STATUS['ACTIVE'], CUSTOMER_STATUS['SUSPENDED']]],
 										},
 									},
 								},
@@ -164,6 +172,15 @@ const getRoomByIdPipeline = (roomId) => {
 										from: 'vehicles',
 										localField: '_id',
 										foreignField: 'owner',
+										pipeline: [
+											{
+												$match: {
+													status: {
+														$ne: vehicleStatus['TERMINATED'],
+													},
+												},
+											},
+										],
 										as: 'vehicles',
 									},
 								},
@@ -180,7 +197,7 @@ const getRoomByIdPipeline = (roomId) => {
 									input: '$versions',
 									as: 'version',
 									cond: {
-										$eq: ['$status', 'active'],
+										$eq: ['$status', contractStatus['ACTIVE']],
 									},
 								},
 							},
@@ -213,66 +230,7 @@ const getRoomByIdPipeline = (roomId) => {
 				},
 			},
 		},
-		// {
-		// 	$lookup: {
-		// 		from: 'receipts',
-		// 		let: {
-		// 			receiptId: '$contractInfo.depositReceiptId',
-		// 		},
-		// 		pipeline: [
-		// 			{
-		// 				$match: {
-		// 					$expr: {
-		// 						$eq: ['$_id', '$$receiptId'],
-		// 					},
-		// 				},
-		// 			},
-		// 			{
-		// 				$project: {
-		// 					_id: 1,
-		// 					amount: 1,
-		// 					paidAmount: 1,
-		// 					status: 1,
-		// 				},
-		// 			},
-		// 		],
-		// 		as: 'depositReceipt',
-		// 	},
-		// },
-		// {
-		// 	$lookup: {
-		// 		from: 'customers',
-		// 		let: {
-		// 			contractId: {
-		// 				$ifNull: ['$contractInfo._id', null],
-		// 			},
-		// 		},
-		// 		pipeline: [
-		// 			{
-		// 				$match: {
-		// 					$expr: {
-		// 						$and: [
-		// 							{ $ne: ['$$contractId', null] },
-		// 							{
-		// 								$eq: ['$contract', '$$contractId'],
-		// 							},
-		// 							{ $in: ['$status', [1, 2]] },
-		// 						],
-		// 					},
-		// 				},
-		// 			},
-		// 		],
-		// 		as: 'customerInfo',
-		// 	},
-		// },
-		// {
-		// 	$lookup: {
-		// 		from: 'vehicles',
-		// 		localField: 'customerInfo._id',
-		// 		foreignField: 'owner',
-		// 		as: 'vehicleInfo',
-		// 	},
-		// },
+
 		{
 			$lookup: {
 				from: 'debts',
@@ -285,7 +243,7 @@ const getRoomByIdPipeline = (roomId) => {
 							$expr: {
 								$and: [
 									{
-										$eq: ['$status', 'pending'],
+										$eq: ['$status', debtStatus['PENDING']],
 									},
 									{
 										$eq: ['$room', '$$roomId'],
@@ -311,14 +269,14 @@ const getRoomByIdPipeline = (roomId) => {
 							$expr: {
 								$and: [
 									{
-										$ne: ['$$roomState', 1],
+										$ne: ['$$roomState', roomState['HIRED']],
 									},
 									{
 										$eq: ['$room', '$$roomId'],
 									},
 									{
 										$not: {
-											$in: ['$status', ['cancelled', 'close']],
+											$in: ['$status', [depositStatus['CANCELLED'], depositStatus['CLOSED']]],
 										},
 									},
 								],
@@ -336,40 +294,6 @@ const getRoomByIdPipeline = (roomId) => {
 				as: 'deposit',
 			},
 		},
-		// {
-		// 	$lookup: {
-		// 		from: 'depostiRefunds',
-		// 		let: {
-		// 			contractId: {
-		// 				$ifNull: ['$contractInfo._id', null],
-		// 			},
-		// 			roomState: '$roomState',
-		// 		},
-		// 		pipeline: [
-		// 			{
-		// 				$match: {
-		// 					$expr: {
-		// 						$and: [
-		// 							{ $ne: ['$$roomState', 0] },
-		// 							{
-		// 								$eq: ['$contract', '$$contractId'],
-		// 							},
-		// 							{ $eq: ['$status', 'pending'] },
-		// 						],
-		// 					},
-		// 				},
-		// 			},
-		// 			{
-		// 				$project: {
-		// 					_id: 1,
-		// 					contract: 1,
-		// 					room: 1,
-		// 				},
-		// 			},
-		// 		],
-		// 		as: 'depositRefundInfo',
-		// 	},
-		// },
 		{
 			$project: {
 				_id: 1,
@@ -388,9 +312,6 @@ const getRoomByIdPipeline = (roomId) => {
 				depositInfo: {
 					$ifNull: [{ $first: '$deposit' }, null],
 				},
-				// depositRefundInfo: {
-				// 	$ifNull: [{ $first: '$depositRefundInfo' }, null],
-				// },
 			},
 		},
 	];

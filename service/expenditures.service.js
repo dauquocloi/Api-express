@@ -1,6 +1,7 @@
 const { BadRequestError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
+const { expenditureType } = require('../constants');
 
 exports.findById = (expenditureId) => Entity.ExpendituresEntity.findById(expenditureId);
 
@@ -16,8 +17,21 @@ exports.getExpendituresStatusUnLocked = async (buildingId, month, year) => {
 	return result;
 };
 
-exports.generateExpenditures = async (data, session) => {
-	const result = await Entity.ExpendituresEntity.insertMany(data, { session });
+exports.generateExpenditures = async (data) => {
+	const result = await Entity.ExpendituresEntity.insertMany(data);
+	return result;
+};
+
+exports.generateExpenditure = async ({ month, year, content, amount, type, building, spender }) => {
+	const result = await Entity.ExpendituresEntity.create({
+		month,
+		year,
+		content,
+		amount,
+		type,
+		building,
+		spender, // Owner only
+	});
 	return result;
 };
 

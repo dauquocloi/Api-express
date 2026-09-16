@@ -11,7 +11,7 @@ exports.findReceipts = (receiptIds) => Entity.ReceiptsEntity.find({ _id: { $in: 
 
 // exports.findByRoomIds = (roomIds) => Entity.ReceiptsEntity.find({ room: { $in: roomIds } });
 
-exports.closeAndSetDetucted = async (receiptIds, detuctedType, detuctedId, session) => {
+exports.closeAndSetDetucted = async (receiptIds, detuctedType, detuctedId) => {
 	const result = await Entity.ReceiptsEntity.updateMany(
 		{ _id: { $in: receiptIds } },
 		{
@@ -21,7 +21,6 @@ exports.closeAndSetDetucted = async (receiptIds, detuctedType, detuctedId, sessi
 			},
 			$inc: { version: 1 },
 		},
-		{ session },
 	);
 
 	if (result.matchedCount === 0 || result.matchedCount !== receiptIds.length) throw new NotFoundError('Không tìm thấy bản ghi!');
@@ -40,50 +39,42 @@ exports.lockReceipts = async (receiptIds, session) => {
 	return true;
 };
 
-exports.createReceipt = async (
-	{
-		roomObjectId,
-		receiptAmount,
-		payer,
-		currentPeriod,
+exports.createReceipt = async ({
+	roomObjectId,
+	receiptAmount,
+	payer,
+	currentPeriod,
 
-		receiptContent,
-		receiptContentDetail = null,
-		receiptType,
-		initialStatus,
-		date,
-		contract = null,
-		creater,
-	},
-	session,
-) => {
+	receiptContent,
+	receiptContentDetail = null,
+	receiptType,
+	initialStatus,
+	date,
+	contract = null,
+	creater,
+}) => {
 	const receiptCode = await generatePaymentContent(process.env.PAYMENT_CONTENT_LENGTH);
 	const paymentContent = await generatePaymentContent(process.env.INVOICE_CODE_LENGTH);
-	const [result] = await Entity.ReceiptsEntity.create(
-		[
-			{
-				room: roomObjectId,
-				receiptContent: receiptContent,
-				receiptContentDetail: receiptContentDetail,
-				amount: Number(receiptAmount),
-				paidAmount: 0,
-				carriedOverPaidAmount: 0,
-				payer: payer,
-				receiptType: receiptType,
-				status: initialStatus,
-				isContractCreated: false,
-				month: currentPeriod.currentMonth,
-				year: currentPeriod.currentYear,
-				locked: false,
-				receiptCode,
-				paymentContent,
-				date: date ?? new Date(),
-				contract,
-				creater,
-			},
-		],
-		{ session },
-	);
+	const result = await Entity.ReceiptsEntity.create({
+		room: roomObjectId,
+		receiptContent: receiptContent,
+		receiptContentDetail: receiptContentDetail,
+		amount: Number(receiptAmount),
+		paidAmount: 0,
+		carriedOverPaidAmount: 0,
+		payer: payer,
+		receiptType: receiptType,
+		status: initialStatus,
+		isContractCreated: false,
+		month: currentPeriod.currentMonth || null,
+		year: currentPeriod.currentYear || null,
+		locked: false,
+		receiptCode,
+		paymentContent,
+		date: date ?? new Date(),
+		contract,
+		creater,
+	});
 	if (!result) throw new InternalError('Can not create receipt');
 	return result.toObject();
 };
@@ -121,10 +112,7 @@ exports.getCurrentReceiptAndTransaction = async (receiptObjectId, session) => {
 	return result;
 };
 
-exports.modifyReceipt = async ({ receiptObjectId, receiptVersion, receiptAmount, receiptContent, date }, session) => {
-	const currentReceipt = await this.findById(receiptObjectId).session(session).lean().exec();
-	if (!currentReceipt) throw new NotFoundError('Hóa đơn không tồn tại');
-	const newReceiptStatus = getInvoiceStatus(currentReceipt.paidAmount, receiptAmount);
+exports.modifyReceipt = async ({ receiptObjectId, receiptVersion, receiptAmount, receiptContent, date, status }) => {
 	const result = await Entity.ReceiptsEntity.findOneAndUpdate(
 		{
 			_id: receiptObjectId,
@@ -132,20 +120,19 @@ exports.modifyReceipt = async ({ receiptObjectId, receiptVersion, receiptAmount,
 		},
 		{
 			$set: {
-				receiptContent: receiptContent ?? currentReceipt.receiptContent,
+				receiptContent: receiptContent,
 				amount: Number(receiptAmount),
-				status: newReceiptStatus,
-				date: date ?? currentReceipt.date,
+				status: status,
+				date: date,
 			},
 			$inc: { version: 1 },
 		},
 		{
-			session,
 			new: true,
 		},
 	);
 
-	if (result.matchedCount === 0) {
+	if (!result) {
 		throw new ConflictError('Hóa đơn đã bị thay đổi hoặc dữ liệu không hợp lệ');
 	}
 
@@ -231,14 +218,13 @@ exports.rollBackManyDetuctedReceipts = async (receiptIds, session) => {
 	return result;
 };
 
-exports.terminateReceipt = async (receiptId, version, session) => {
+exports.terminateReceipt = async (receiptId, version) => {
 	const result = await Entity.ReceiptsEntity.updateOne(
 		{ _id: receiptId, version: version },
 		{
 			$set: { status: receiptStatus['TERMINATED'] },
 			$inc: { version: 1 },
 		},
-		{ session },
 	);
 	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 	return result;
@@ -327,7 +313,7 @@ exports.updateReceiptsCarriedOverPaidAmount = async (carriedOverMap, session) =>
 	return result;
 };
 
-exports.updateReceiptPaidStatusWithVersion = async ({ receiptId, paidAmount, version, receiptStatus }, session) => {
+exports.updateReceiptPaidStatusWithVersion = async ({ receiptId, paidAmount, version, receiptStatus }) => {
 	const result = await Entity.ReceiptsEntity.updateOne(
 		{
 			_id: receiptId,
@@ -340,13 +326,12 @@ exports.updateReceiptPaidStatusWithVersion = async ({ receiptId, paidAmount, ver
 			},
 			$inc: { version: 1 },
 		},
-		{ session },
 	);
 	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 	return result;
 };
 
-exports.removeDetuctedInfo = async (receiptId, session) => {
+exports.removeDetuctedInfo = async (receiptId) => {
 	const result = await Entity.ReceiptsEntity.updateOne(
 		{
 			_id: receiptId,
@@ -355,17 +340,15 @@ exports.removeDetuctedInfo = async (receiptId, session) => {
 			$set: { detuctedInfo: null },
 			$inc: { version: 1 },
 		},
-		{ session },
 	);
 	if (result.matchedCount === 0) throw new NotFoundError('Hóa đơn không tồn tại !');
 	return result;
 };
 
-exports.closeReceiptDeposit = async ({ receiptId }, session = null) => {
+exports.closeReceiptDeposit = async ({ receiptId }) => {
 	const result = await Entity.ReceiptsEntity.updateOne(
 		{ _id: receiptId, receiptType: receiptTypes.DEPOSIT },
 		{ $set: { locked: true, isActive: false } },
-		{ session },
 	);
 	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');
 	return result;

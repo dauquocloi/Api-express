@@ -20,7 +20,7 @@ exports.findById = (invoiceId) => {
 	return Entity.InvoicesEntity.findById(invoiceId);
 };
 
-exports.closeAndSetDetucedInvoice = async ({ invoiceIds, detuctedType, detuctedId }, session = null) => {
+exports.closeAndSetDetuctedInvoice = async ({ invoiceIds, detuctedType, detuctedId }) => {
 	const result = await Entity.InvoicesEntity.updateMany(
 		{ _id: { $in: invoiceIds } },
 		{
@@ -36,7 +36,6 @@ exports.closeAndSetDetucedInvoice = async ({ invoiceIds, detuctedType, detuctedI
 				version: 1,
 			},
 		},
-		{ session },
 	);
 	if (result.matchedCount === 0 || result.matchedCount !== invoiceIds.length) throw new NotFoundError('Không tìm thấy bản ghi!');
 
@@ -140,10 +139,17 @@ exports.getInvoiceInfoByInvoiceCode = async (invoiceCode) => {
 	return invoiceInfo;
 };
 
-exports.unLockInvoice = async (invoiceId, session, userId) => {
+exports.unLockInvoice = async (invoiceId) => {
 	const result = await Entity.InvoicesEntity.findOneAndUpdate({ _id: invoiceId }, { $set: { locked: false } }, { new: true, session });
 	if (!result) throw new NotFoundError('Hóa đơn không tồn tại');
 	return result;
+};
+
+exports.unlockInvoices = async (invoiceIds) => {
+	const result = await Entity.InvoicesEntity.updateMany({ _id: { $in: invoiceIds } }, { $set: { locked: false }, $inc: { version: 1 } });
+	if (result.matchedCount === 0 || result.modifiedCount === 0) throw new NotFoundError('Hóa đơn không tồn tại !');
+	if (result.modifiedCount !== invoiceIds.length) throw new NotFoundError('Missing invoices !');
+	return true;
 };
 
 exports.rollBackInvoicesAtCheckoutCost = async (invoiceIds, session) => {
@@ -256,4 +262,24 @@ exports.removeDebtsFromInvoice = async ({ invoiceId, version, invoiceStatus, inv
 		throw new ConflictError('Hóa đơn đã bị thay đổi');
 	}
 	return result;
+};
+
+exports.terminateInvoice = async ({ invoiceId, version }) => {
+	const result = await Entity.InvoicesEntity.updateOne(
+		{
+			_id: invoiceId,
+			version: version,
+		},
+		{
+			$set: {
+				status: invoiceStatus['TERMINATED'],
+				locked: true,
+			},
+			$inc: {
+				version: 1,
+			},
+		},
+	);
+
+	if (result.matchedCount === 0) throw new ConflictError('Hóa đơn này đã bị thay đổi, vui lòng tải lại trang');
 };

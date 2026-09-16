@@ -25,8 +25,9 @@ const UPDATE_FEE_INDEX_SOURCE = {
 	MODIFY_INVOICE: 'modifyInvoice',
 	CREATE_INVOICE: 'createInvoice',
 	UPDATE_INVOICE: 'updateInvoice',
+	TERMINATE_INVOICE: 'terminateInvoice',
 	CHECKOUT_COST: 'checkoutCost',
-	depositRefund: 'depositRefund',
+	DEPOSIT_REFUND: 'depositRefund',
 };
 
 module.exports = { feeUnit, unitPriority, FEE_UNIT_TYPE, UPDATE_FEE_INDEX_SOURCE };

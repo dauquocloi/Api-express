@@ -15,16 +15,10 @@ exports.getDebtsAndReceiptUnpaid = async (roomObjectId, currentMonth, currentYea
 	return result;
 };
 
-exports.getDebts = async (roomId, session) => {
-	return await Entity.DebtsEntity.find({ room: roomId, status: debtStatus.PENDING }).session(session);
-};
+exports.getDebts = (roomId) => Entity.DebtsEntity.find({ room: roomId, status: debtStatus.PENDING });
 
-exports.closeDebts = async (roomId, session) => {
-	const result = await Entity.DebtsEntity.updateMany(
-		{ room: roomId, status: debtStatus.PENDING },
-		{ $set: { status: debtStatus.CLOSED } },
-		{ session },
-	);
+exports.closeDebts = async (roomId) => {
+	const result = await Entity.DebtsEntity.updateMany({ room: roomId, status: debtStatus.PENDING }, { $set: { status: debtStatus.CLOSED } });
 
 	if (result.matchedCount === 0) {
 		throw new NotFoundError('Không tìm thấy bản ghi');
@@ -46,19 +40,19 @@ exports.closeAndSetSourceInfo = async ({ contractId, sourceId, sourceType }) => 
 	return true;
 };
 
-exports.terminateDebts = async (debtIds, session) => {
-	const result = await Entity.DebtsEntity.updateMany({ _id: { $in: debtIds } }, { $set: { status: debtStatus['TERMINATED'] } }, { session });
+exports.updateDebtsStatus = async (debtIds, status) => {
+	const result = await Entity.DebtsEntity.updateMany({ _id: { $in: debtIds } }, { $set: { status } });
 	if (result.matchedCount === 0 || result.matchedCount !== debtIds.length) throw new NotFoundError('Không tìm thấy bản ghi');
 	return true;
 };
 
-exports.getDebtsByIds = async (debtIds, session) => {
-	const query = Entity.DebtsEntity.find({ _id: { $in: debtIds } });
-	if (session) query.session(session);
-	const result = await query.lean().exec();
-	if (!result || result.length === 0) throw new NotFoundError('Dữ liệu không tồn tại');
-	return result;
+exports.rollBackDebtsBySourceIds = async (sourceIds, status) => {
+	const result = await Entity.DebtsEntity.updateMany({ sourceId: { $in: sourceIds } }, { $set: { status, sourceId: null } });
+	if (result.matchedCount === 0 || result.matchedCount !== debtIds.length) throw new NotFoundError('Không tìm thấy bản ghi');
+	return true;
 };
+
+exports.getDebtsByIds = async (debtIds) => Entity.DebtsEntity.find({ _id: { $in: debtIds } });
 
 exports.generateDebts = async (debtsPayload, session) => {
 	const result = await Entity.DebtsEntity.insertMany(debtsPayload, { session });

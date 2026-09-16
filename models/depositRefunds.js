@@ -1,6 +1,6 @@
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-const { depositRefundStatus } = require('../constants/deposits');
+const { depositRefundStatus } = require('../constants');
 
 const feesIndexSchema = new Schema({
 	feeName: { type: String, trim: true },

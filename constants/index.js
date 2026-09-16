@@ -14,6 +14,7 @@ const bills = require('./bills');
 const excels = require('./excel');
 const idempotencyRecords = require('./idempotencyRecords');
 const statistics = require('./statistics');
+const expenditures = require('./expenditures');
 module.exports = {
 	...invoices,
 	...receipt,
@@ -31,4 +32,5 @@ module.exports = {
 	...excels,
 	...idempotencyRecords,
 	...statistics,
+	...expenditures,
 };

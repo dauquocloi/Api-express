@@ -1,6 +1,7 @@
 const { date } = require('joi');
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { expenditureType } = require('../constants');
 
 // Create a Mongoose Schema
 const ExpendituresSchema = new Schema(
@@ -34,7 +35,7 @@ const ExpendituresSchema = new Schema(
 		amount: { type: Number, min: 0 }, // Tổng tiền đã chi trong tháng
 		type: {
 			type: String,
-			enum: ['periodic', 'incidental'],
+			enum: Object.values(expenditureType),
 			required: true,
 		},
 		date: {

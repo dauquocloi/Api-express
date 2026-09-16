@@ -21,7 +21,7 @@ const FeesSchema = new Schema(
 		lastIndex: {
 			type: Number,
 			required: function () {
-				return this.unit === 'index';
+				return this.unit === feeUnit['INDEX'];
 			},
 		},
 		description: {

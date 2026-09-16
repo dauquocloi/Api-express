@@ -29,7 +29,15 @@ exports.getInvoiceDetail = asyncHandler(async (req, res) => {
 });
 
 exports.modifyInvoice = asyncHandler(async (req, res) => {
-	let data = { ...req.params, ...req.body };
+	const { feeIndexValues, stayDays, version } = req.body;
+	const { invoiceId } = req.params;
+	const data = {
+		invoiceId,
+		feeIndexValues,
+		stayDays,
+		version,
+		userId: req.user._id,
+	};
 	console.log('log of data from modifyInvoice: ', data);
 	const result = await executeIdempotent({
 		key: req.get('Idempotency-Key'),
@@ -42,7 +50,7 @@ exports.modifyInvoice = asyncHandler(async (req, res) => {
 			version: data.version,
 		}),
 		resourceId: data.invoiceId,
-		execute: () => UseCase.modifyInvoice(data.invoiceId, data.feeIndexValues, data.stayDays, data.version, req.user._id),
+		execute: () => UseCase.modifyInvoice(data),
 	});
 	return new SuccessResponse('Success', result).send(res);
 });
@@ -50,20 +58,38 @@ exports.modifyInvoice = asyncHandler(async (req, res) => {
 exports.deleteInvoice = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('log of data from deleteInvoice: ', data);
-	await UseCase.deleteInvoice(data.invoiceId, req.user._id, data.version);
-	return new SuccessMsgResponse('Success').send(res);
-});
+	await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			invoiceId: data.invoiceId,
+			version: data.version,
+		}),
+		resourceId: data.invoiceId,
+		execute: () => UseCase.deleteInvoice(data.invoiceId, req.user._id, data.version),
+	});
 
-exports.collectCashMoney = asyncHandler(async (req, res) => {
-	const data = { ...req.params, ...req.body, ...req.user, redisKey: req.redisKey };
-	await UseCase.collectCashMoney(data.invoiceId, data.buildingId, data.date, data.amount, data._id, data.version, data.redisKey);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
 exports.checkout = asyncHandler(async (req, res) => {
-	const data = { ...req.params, ...req.body };
+	// const data = { ...req.params, ...req.body };
+	const { invoiceId } = req.params;
+	const { buildingId, date, amount, version, paymentMethod } = req.body;
+	const data = {
+		invoiceId,
+		buildingId,
+		date: date ? new Date(date) : new Date(),
+		amount: Number(amount),
+		version,
+		userId: req.user._id,
+		paymentMethod,
+		idempotencyKey: req.get('Idempotency-Key'),
+		collectorInfo: { _id: req.user._id, role: req.user.role },
+	};
 	console.log('log of data from checkout Invoice: ', data);
-	const collectorInfo = { _id: req.user._id, role: req.user.role };
+
 	await executeIdempotent({
 		key: req.get('Idempotency-Key'),
 		userId: req.user._id,
@@ -74,19 +100,10 @@ exports.checkout = asyncHandler(async (req, res) => {
 			date: data.date,
 			amount: data.amount,
 			version: data.version,
+			paymentMethod: data.paymentMethod,
 		}),
 		resourceId: data.invoiceId,
-		execute: () =>
-			UseCase.checkout(
-				data.invoiceId,
-				data.buildingId,
-				data.date,
-				Number(data.amount),
-				collectorInfo,
-				data.version,
-				req.get('Idempotency-Key'),
-				data.paymentMethod,
-			),
+		execute: () => UseCase.checkout(data),
 	});
 	return new SuccessMsgResponse('Success').send(res);
 });
@@ -115,160 +132,3 @@ exports.deleteDebts = asyncHandler(async (req, res) => {
 	await UseCase.deleteDebts(req.params.invoiceId);
 	return new SuccessMsgResponse('Success').send(res);
 });
-
-//========================UN REFACTED========================//
-exports.getAll = (req, res) => {
-	var data = req.params;
-	console.log('This is log of req.query', req.params);
-	UseCase.getAll(data, (err, result) => {
-		if (err) {
-			return res.status(204).send({
-				errorCode: 0,
-				data: {},
-				message: 'err',
-				errors: [],
-			});
-		} else {
-			return res.status(200).send({
-				errorCode: 0,
-				data: result,
-				message: 'succesfull',
-				errors: [],
-			});
-		}
-	});
-};
-
-exports.getFeeForGenerateInvoice = (req, res) => {
-	var data = req.params;
-	console.log('This is log of req.params from getFeeForGenerateInvoice', data);
-	UseCase.getFeeForGenerateInvoice(
-		data,
-		(err, result) => {
-			if (!err) {
-				return res.status(200).send({
-					errorCode: 0,
-					data: result,
-					message: 'succesfull',
-					errors: [],
-				});
-			}
-		},
-		next,
-	);
-};
-
-//not used
-// exports.update = (req, res) => {
-// 	var data = req.body;
-// 	console.log('This is log of invoice update req.body', req.body);
-// 	UseCase.update(data, (err, result) => {
-// 		if (err) {
-// 			return res.status(204).send({
-// 				errorCode: 0,
-// 				data: {},
-// 				message: 'err',
-// 				errors: [],
-// 			});
-// 		} else {
-// 			return res.status(200).send({
-// 				errorCode: 0,
-// 				data: result,
-// 				message: 'succesfull',
-// 				errors: [],
-// 			});
-// 		}
-// 	});
-// };
-
-// not used
-// exports.getInvoiceStatus = (req, res) => {
-// 	try {
-// 		const data = { ...req.params, ...req.query };
-
-// 		console.log('log of data from getInvoiceStatus: ', data);
-
-// 		UseCase.getInvoiceStatus(
-// 			data,
-// 			(err, result) => {
-// 				if (!err) {
-// 					return res.status(200).send({
-// 						errorCode: 0,
-// 						data: result,
-// 						message: 'succesfull',
-// 						errors: [],
-// 					});
-// 				}
-// 			},
-// 			next,
-// 		);
-// 	} catch (error) {
-// 		next(error);
-// 	}
-// };
-
-exports.generateFirstInvoice = (req, res) => {
-	try {
-		const data = req.body;
-		console.log('log of data from generateFirstInvoice: ', data);
-		UseCase.generateFirstInvoice(
-			data,
-			(err, result) => {
-				if (!err) {
-					res.status(201).send({
-						errorCode: 0,
-						data: result,
-						message: 'succesfull',
-						errors: [],
-					});
-				}
-			},
-			next,
-		);
-	} catch (error) {
-		next(error);
-	}
-};
-
-exports.getInvoiceInfoByInvoiceCode = (req, res) => {
-	try {
-		const data = req.params;
-		console.log('log of data from getInvoiceInfoByInvoiceCode: ', data);
-
-		UseCase.getInvoiceInfoByInvoiceCode(
-			data,
-			async (err, result) => {
-				if (result) {
-					const { bankId, shortName } = result.transferInfo ?? {};
-					const { paymentContent } = result;
-					const amount = result.type === 'receipt' ? result.amount : result.total;
-
-					const qrCode = await generateQrCode(bankId, shortName, amount, paymentContent);
-					let qrBase64;
-					if (!qrCode) {
-						qrBase64 = null;
-					} else {
-						const buffer = await qrCode.arrayBuffer();
-						const nodeBuffer = Buffer.from(buffer);
-						qrBase64 = `data:image/png;base64,${nodeBuffer.toString('base64')}`;
-					}
-
-					return res.status(200).send({
-						errorCode: 0,
-						data: { ...result, qrBase64 },
-						message: 'succesfull',
-						errors: [],
-					});
-				} else {
-					return res.status(err.status).send({
-						errorCode: err.status,
-						message: err.message,
-					});
-				}
-			},
-			next,
-		);
-	} catch (error) {
-		next(error);
-	}
-};

@@ -2,6 +2,8 @@ let UseCase = require('../../data_providers/depositRefunds');
 const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
 const { client: redis } = require('../../config').redisDb;
+const { executeIdempotent } = require('../../utils/idempotent');
+const generateRequestHash = require('../../utils/generateRequestHash');
 
 exports.getDepositRefunds = asyncHandler(async (req, res) => {
 	const data = req.query;
@@ -18,16 +20,29 @@ exports.getDepositRefundDetail = asyncHandler(async (req, res) => {
 });
 
 exports.generateDepositRefund = asyncHandler(async (req, res) => {
-	const data = { ...req.body, ...req.params };
-	console.log('log of data from generateDepositRefund: ', data);
-	const result = await UseCase.generateDepositRefund({
-		contractId: data.contractId,
-		roomVersion: data.roomVersion,
-		feeIndexValues: data.feeIndexValues,
-		feesOther: data.feesOther,
+	const { contractId, roomVersion, feeIndexValues, feesOther } = req.body;
+	const data = {
+		contractId,
+		roomVersion,
+		feeIndexValues,
+		feesOther,
 		userId: req.user._id,
+	};
+	console.log('log of data from generateDepositRefund: ', data);
+
+	const result = await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			contractId,
+			roomVersion,
+			feeIndexValues,
+			feesOther,
+		}),
+		resourceId: contractId,
+		execute: () => UseCase.generateDepositRefund(data),
 	});
-	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 	return new SuccessResponse('Success', result).send(res);
 });
 
@@ -39,9 +54,24 @@ exports.modifyDepositRefund = asyncHandler(async (req, res) => {
 });
 
 exports.confirmDepositRefund = asyncHandler(async (req, res) => {
-	let data = { ...req.params, ...req.user, ...req.body };
-	console.log('log of data from submitDepositRefund: ', data);
-	const result = await UseCase.confirmDepositRefund(data.depositRefundId, req.user._id, req.redisKey, data.version);
+	const data = {
+		spenderId: req.user._id,
+		version: req.body.version,
+		depositRefundId: req.params.depositRefundId,
+	};
+	console.log('Log of data from confirmDepositRefund: ', data);
+	await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			depositRefundId: data.depositRefundId,
+			version: data.version,
+		}),
+		resourceId: req.params.depositRefundId,
+		execute: () => UseCase.confirmDepositRefund(data),
+	});
+
 	return new SuccessMsgResponse('Success').send(res);
 });
 
