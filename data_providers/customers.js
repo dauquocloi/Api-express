@@ -57,22 +57,8 @@ exports.addCustomer = async (data, redisKey, userId) => {
 	return result;
 };
 
-exports.setCustomerStatus = async (customerId, status, redisKey, version) => {
-	try {
-		const currentCustomer = await Services.customers.findById(customerId);
-		if (!currentCustomer) throw new NotFoundError('Khách hàng không tồn tại !');
-		if (currentCustomer.version !== version) throw new ConflictError('Thông tin khách hàng đã bị cập nhật bởi người dùng khác !');
-
-		currentCustomer.status = status;
-		currentCustomer.version += 1;
-		await currentCustomer.save();
-
-		await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
-		return 'Success';
-	} catch (error) {
-		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
-		throw error;
-	}
+exports.setCustomerStatus = async (customerId, status, version) => {
+	await Services.customers.setCustomerStatus({ customerId, status, version });
 };
 
 exports.getListSelectingCustomer = async (roomId) => {
@@ -90,33 +76,18 @@ exports.getAllCustomers = async (buildingId, status) => {
 	return customers;
 };
 
-exports.changeContractOwner = async (customerId, version, redisKey) => {
-	let session;
-	try {
-		session = await mongoose.startSession();
-		await session.withTransaction(async () => {
-			const currentCustomer = await Services.customers.findById(customerId).session(session).lean().exec();
-			console.log('log of currentCustomer: ', currentCustomer);
-			if (!currentCustomer) throw new NotFoundError('Khách hàng không tồn tại !');
-			if (currentCustomer.version !== version) throw new ConflictError('Thông tin khách hàng đã bị cập nhật bởi người dùng khác !');
-			if (currentCustomer.isContractOwner) return;
+exports.changeContractOwner = async (customerId, version) => {
+	const currentCustomer = await Services.customers.findById(customerId).lean().exec();
+	console.log('log of currentCustomer: ', currentCustomer);
+	if (!currentCustomer) throw new NotFoundError('Khách hàng không tồn tại !');
+	if (currentCustomer.version !== version) throw new ConflictError('Thông tin khách hàng đã bị cập nhật bởi người dùng khác !');
+	if (currentCustomer.isContractOwner) return;
 
-			await Services.customers.resetContractOwner(currentCustomer.contract, session);
-			await Services.customers.setIsContractOwner(customerId, session);
-			await Services.contracts.setContractOwner({ currentCustomerId: currentCustomer._id, customerId }, session);
+	await Services.customers.resetContractOwner(currentCustomer.contract);
+	await Services.customers.setIsContractOwner(customerId);
+	await Services.contracts.setContractOwner({ currentCustomerId: currentCustomer._id, customerId });
 
-			return 'Success';
-		});
-
-		await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
-
-		return 'Success';
-	} catch (error) {
-		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
-		throw error;
-	} finally {
-		if (session) session.endSession();
-	}
+	return 'Success';
 };
 
 exports.deleteCustomer = async (customerId, version, userId) => {

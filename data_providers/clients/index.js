@@ -53,7 +53,7 @@ exports.getContractInfo = async (contractCode) => {
 		contractPdfUrl: contractUrl,
 		_id: contract._id,
 		status: lastestContractVersion.status,
-		isCustomerConfirmed: lastestContractVersion.isCustomerConfirmed,
+		isCustomerConfirmed: lastestContractVersion.customerConfirmed,
 		contractTerm: lastestContractVersion.contractTerm,
 		contractSignDate: lastestContractVersion.contractSignDate,
 		contractEndDate: lastestContractVersion.contractEndDate,

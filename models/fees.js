@@ -46,4 +46,6 @@ const FeesSchema = new Schema(
 	},
 );
 
+FeesSchema.index({ room: 1, feeKey: 1 }, { unique: true });
+
 exports.FeesEntity = mongoose.model('FeesEntity', FeesSchema, 'fees');

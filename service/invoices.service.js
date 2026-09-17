@@ -219,8 +219,8 @@ exports.getCashCollectorInfo = async (invoiceObjectId) => {
 	return cashCollectorInfo;
 };
 
-exports.setContractId = async ({ invoiceId, contractId }, session) => {
-	const result = await Entity.InvoicesEntity.updateOne({ _id: invoiceId }, { $set: { contract: contractId }, $inc: { version: 1 } }, { session });
+exports.setContractId = async ({ invoiceId, contractId }) => {
+	const result = await Entity.InvoicesEntity.updateOne({ _id: invoiceId }, { $set: { contract: contractId }, $inc: { version: 1 } });
 	if (result.matchedCount === 0) throw new NotFoundError('Hóa đơn không tồn tại !');
 	return result;
 };

@@ -38,27 +38,22 @@ exports.expiredCustomers = async ({ roomId, contractId }) => {
 	return result;
 };
 
-exports.importCustomers = async (customersData, session) => {
-	const result = await Entity.CustomersEntity.insertMany(customersData, { session });
+exports.importCustomers = async (customersData) => {
+	const result = await Entity.CustomersEntity.insertMany(customersData);
 	return result;
 };
 
-exports.resetContractOwner = async (contractId, session) => {
+exports.resetContractOwner = async (contractId) => {
 	const result = await Entity.CustomersEntity.findOneAndUpdate(
 		{ contract: contractId, isContractOwner: true },
 		{ $set: { isContractOwner: false }, $inc: { version: 1 } },
-		{ session },
 	);
 	if (!result) throw new NotFoundError('Dữ liệu không tồn tại');
 	return result;
 };
 
-exports.setIsContractOwner = async (customerId, session) => {
-	const result = await Entity.CustomersEntity.findOneAndUpdate(
-		{ _id: customerId },
-		{ $set: { isContractOwner: true }, $inc: { version: 1 } },
-		{ session },
-	);
+exports.setIsContractOwner = async (customerId) => {
+	const result = await Entity.CustomersEntity.findOneAndUpdate({ _id: customerId }, { $set: { isContractOwner: true }, $inc: { version: 1 } });
 	if (!result) throw new NotFoundError('Dữ liệu không tồn tại');
 	return result;
 };
@@ -99,4 +94,24 @@ exports.setCustomerLeft = async (customerId, session) => {
 	);
 	if (!result) throw new NotFoundError('Dữ liệu không tồn tại');
 	return result;
+};
+
+exports.setCustomerStatus = async ({ customerId, status, version }) => {
+	const result = await Entity.CustomersEntity.updateOne(
+		{
+			_id: customerId,
+			version,
+		},
+		{
+			$set: {
+				status,
+			},
+
+			$inc: {
+				version: 1,
+			},
+		},
+	);
+
+	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu đã bị thay đổi, vui lòng tải lại trang !');
 };

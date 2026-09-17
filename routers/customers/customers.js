@@ -2,6 +2,8 @@ const asyncHandler = require('../../utils/asyncHandler');
 const delay = require('../../utils/delay');
 const { SuccessResponse, SuccessMsgResponse, FileResponse } = require('../../utils/apiResponse');
 const UseCase = require('../../data_providers/customers');
+const { executeIdempotent } = require('../../utils/idempotent');
+const generateRequestHash = require('../../utils/generateRequestHash');
 
 exports.getAllCustomers = asyncHandler(async (req, res) => {
 	let data = req.query;
@@ -27,7 +29,7 @@ exports.addCustomer = asyncHandler(async (req, res) => {
 exports.setCustomerStatus = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('log of data from setStatusCustomer: ', data);
-	await UseCase.setCustomerStatus(data.customerId, data.status, req.redisKey);
+	await UseCase.setCustomerStatus(data.customerId, data.status, data.version);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
@@ -39,10 +41,17 @@ exports.getListSelectingCustomer = asyncHandler(async (req, res) => {
 });
 
 exports.changeContractOwner = asyncHandler(async (req, res) => {
-	const data = { ...req.params, ...req.body };
-	console.log('log of data from changeContractOwner: ', data);
-	const result = await UseCase.changeContractOwner(data.customerId, data.version, req.redisKey);
-	console.log('log of result from changeContractOwner: ', result);
+	await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			customerId: req.params.customerId,
+		}),
+		resourceId: req.params.customerId,
+		execute: () => UseCase.changeContractOwner(req.params.customerId, req.body.version),
+	});
+
 	return new SuccessMsgResponse('Success').send(res);
 });
 

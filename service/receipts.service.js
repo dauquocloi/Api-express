@@ -156,9 +156,9 @@ exports.updateReceiptPaidAmount = async ({ receiptId, paidAmount, receiptStatus,
 	if (result.matchedCount === 0) throw new ConflictError('Hóa đơn đã bị thay đổi hoặc dữ liệu không hợp lệ');
 };
 
-exports.modifyDepositReceipt = async ({ receiptObjectId, receiptAmount }, session) => {
+exports.modifyDepositReceipt = async ({ receiptObjectId, receiptAmount }) => {
 	const currentReceipt = await Entity.ReceiptsEntity.findOne({ _id: receiptObjectId }, { amount: 1, version: 1, paidAmount: 1 })
-		.session(session)
+
 		.lean()
 		.exec();
 	if (!currentReceipt) throw new NotFoundError('Hóa đơn không tồn tại');
@@ -177,9 +177,6 @@ exports.modifyDepositReceipt = async ({ receiptObjectId, receiptAmount }, sessio
 			},
 			$inc: { version: 1 },
 		},
-		{
-			session,
-		},
 	);
 	console.log('result form modifyReceipts: ', result);
 
@@ -187,7 +184,7 @@ exports.modifyDepositReceipt = async ({ receiptObjectId, receiptAmount }, sessio
 		throw new ConflictError('Dữ liệu này đã bị ai đó thay đổi !');
 	}
 
-	return result._id;
+	return result;
 };
 
 exports.getReceiptInfoByReceiptCode = async (receiptCode) => {
@@ -360,5 +357,21 @@ exports.updateReceiptPeriod = async ({ receiptId, month, year }, session) => {
 		{ $set: { month, year, locked: true }, $inc: { version: 1 } },
 		{ session },
 	);
+	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');
+};
+
+// for depositReceipt
+exports.setContractId = async ({ receiptId, status = null, contractId }) => {
+	const updateQuery = !!status
+		? {
+				$set: { contract: contractId, status },
+				$inc: { version: 1 },
+		  }
+		: {
+				$set: { contract: contractId },
+				$inc: { version: 1 },
+		  };
+
+	const result = await Entity.ReceiptsEntity.updateOne({ _id: receiptId }, updateQuery);
 	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');
 };

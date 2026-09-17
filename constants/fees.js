@@ -21,7 +21,7 @@ const FEE_UNIT_TYPE = {
 };
 
 const UPDATE_FEE_INDEX_SOURCE = {
-	LIST_FEES: 'listFees',
+	UPDATE_FEE: 'updateFee',
 	MODIFY_INVOICE: 'modifyInvoice',
 	CREATE_INVOICE: 'createInvoice',
 	UPDATE_INVOICE: 'updateInvoice',

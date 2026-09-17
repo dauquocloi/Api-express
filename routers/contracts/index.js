@@ -60,15 +60,15 @@ router.patch(
 	Contracts.cancelIsEarlyTermination,
 );
 
-router.patch(
-	'/:contractId/workflow/terminate-early',
-	authorization(ROLES['OWNER'], ROLES['MANAGER']),
-	validator(schema.id, ValidateSource.PARAM),
-	validator(schema.terminateEarly, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['contracts'], PERMISSIONS['EDIT_CONTRACT']),
-	checkIdempotency,
-	Contracts.terminateContractUnRefund,
-);
+// router.patch(
+// 	'/:contractId/workflow/terminate-early',
+// 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+// 	validator(schema.id, ValidateSource.PARAM),
+// 	validator(schema.terminateEarly, ValidateSource.BODY),
+// 	checkResourceAccess(RESOURCES['contracts'], PERMISSIONS['EDIT_CONTRACT']),
+// 	checkIdempotency,
+// 	Contracts.terminateContractUnRefund,
+// );
 
 router.patch(
 	'/:contractId/workflow/contract-extention',

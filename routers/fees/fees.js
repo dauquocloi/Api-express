@@ -2,34 +2,76 @@ const UseCase = require('../../data_providers/fees');
 const listFeeInitial = require('../../utils/getListFeeInital');
 const asyncHandler = require('../../utils/asyncHandler');
 const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse');
+const { executeIdempotent } = require('../../utils/idempotent');
+const generateRequestHash = require('../../utils/generateRequestHash');
 
-exports.addFee = asyncHandler(async (req, res, next) => {
-	let data = req.body;
-	console.log('log of data from addFee: ', data);
-	const result = await UseCase.addFee(data.roomId, data.feeKey, Number(data.feeAmount), req.redisKey, req.user._id);
+exports.addFee = asyncHandler(async (req, res) => {
+	const { roomId, feeKey, feeAmount, lastIndex } = req.body;
+	const data = {
+		roomId,
+		feeKey,
+		feeAmount: Number(feeAmount),
+		lastIndex,
+		userId: req.user._id,
+	};
+	const result = await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			roomId: roomId,
+			feeKey,
+			feeAmount,
+			lastIndex,
+		}),
+		resourceId: data.roomId,
+		execute: () => UseCase.addFee(data),
+	});
 	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.deleteFee = asyncHandler(async (req, res) => {
 	let data = req.params;
 	console.log('log of data from deleteFee: ', data);
-	await UseCase.deleteFee(data.feeId, req.user._id);
+	await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			feeId: data.feeId,
+		}),
+		resourceId: data.feeId,
+		execute: () => UseCase.deleteFee(data.feeId, req.user._id),
+	});
 	return new SuccessMsgResponse('Success').send(res);
 });
 
 exports.editFee = asyncHandler(async (req, res) => {
-	let data = { ...req.params, ...req.body };
+	const { feeId } = req.params;
+	const { roomId, feeAmount, lastIndex, version } = req.body;
+	const data = {
+		feeId,
+		roomId,
+		feeAmount: Number(feeAmount),
+		lastIndex,
+		version,
+	};
 	console.log('log of data from editFee: ', data);
-	await UseCase.editFee(
-		data.feeId,
-		data.roomId,
-		req.user._id,
+	await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			feeId: data.feeId,
+			roomId,
+			feeAmount,
+			lastIndex,
+			version,
+		}),
+		resourceId: data.feeId,
+		execute: () => UseCase.editFee(data),
+	});
 
-		Number(data.feeAmount),
-		data.lastIndex,
-		data.version,
-		req.redisKey,
-	);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

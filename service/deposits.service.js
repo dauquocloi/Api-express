@@ -5,15 +5,11 @@ const { ConflictError, InternalError, NotFoundError } = require('../AppError');
 
 exports.findById = (depositId) => Entity.DepositsEntity.findById(depositId);
 
-exports.findDepositByRoomId = async (roomId, session) => {
-	const query = Entity.DepositsEntity.findOne({
+exports.findDepositByRoomId = (roomId) =>
+	Entity.DepositsEntity.findOne({
 		room: roomId,
 		status: { $nin: [depositStatus['CLOSED'], depositStatus['CANCELLED'], depositStatus['PENDING']] },
 	});
-	if (session) query.session(session);
-	const result = await query.lean().exec();
-	return result;
-};
 
 exports.getDeposits = async (buildingObjectId) => {
 	const [result] = await Entity.DepositsEntity.aggregate(Pipelines.deposits.getDepositsPipeline(buildingObjectId));
@@ -145,4 +141,9 @@ exports.modifyDeposit = async ({
 	);
 
 	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu đặt cọc đã bị thay đổi !');
+};
+
+exports.closeDeposit = async ({ depositId }) => {
+	const result = await Entity.DepositsEntity.updateOne({ _id: depositId }, { $set: { status: depositStatus['CLOSED'] }, $inc: { version: 1 } });
+	if (result.matchedCount === 0) throw new NotFoundError('Dữ liệu đặt cọc không tồn tại');
 };

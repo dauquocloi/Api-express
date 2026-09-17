@@ -75,14 +75,12 @@ const bumpRoomVersion = async (roomId, version) => {
 	return bumpRoomVersion;
 };
 
-const bumpRoomVersionBlind = async (roomId, session) => {
-	const result = await Entity.RoomsEntity.updateOne({ _id: roomId }, { $inc: { version: 1 } }, { session });
+const bumpRoomVersionBlind = async (roomId) => {
+	const result = await Entity.RoomsEntity.updateOne({ _id: roomId }, { $inc: { version: 1 } });
 
 	if (result.matchedCount === 0) {
 		throw new NotFoundError('Phòng không tồn tại');
 	}
-
-	return result;
 };
 
 const getRoomLockInfo = async (roomId, session) => {
@@ -307,6 +305,26 @@ const updateRoomRental = async ({ roomId, newRent }) => {
 	if (result.matchedCount === 0) throw new NotFoundError('Phòng không tồn tại !');
 };
 
+const updateRoomByGenerateContract = async ({ roomId, roomPice, roomDeposit, interiors }) => {
+	const result = await Entity.RoomsEntity.findOneAndUpdate(
+		{ _id: roomId },
+		{
+			$set: {
+				roomPrice: roomPice,
+				roomDeposit: roomDeposit,
+				interior: interiors,
+				roomState: roomState['HIRED'],
+				isDeposited: false,
+			},
+			$inc: { version: 1 },
+		},
+		{ new: true },
+	);
+
+	if (!result) throw new ConflictError('Dữ liệu của phòng đã bị thay đổi, vui lòng tải lại trang !');
+	return result;
+};
+
 module.exports = {
 	getAllRooms,
 	getRoom,
@@ -333,4 +351,5 @@ module.exports = {
 	writeNote,
 	updateRoomRental,
 	removeInterior,
+	updateRoomByGenerateContract,
 };

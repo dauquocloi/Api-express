@@ -1,6 +1,7 @@
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const listFeeInitial = require('../utils/getListFeeInital');
+const FEE_KEYS = listFeeInitial.map((item) => item.feeKey);
 
 const FeeSchema = new Schema({
 	feeAmount: {
@@ -9,7 +10,8 @@ const FeeSchema = new Schema({
 	},
 	feeKey: {
 		type: String,
-		enum: listFeeInitial.map((item) => item.feeKey),
+		enum: FEE_KEYS,
+		required: true,
 	},
 	lastIndex: {
 		type: Number,
@@ -38,10 +40,10 @@ const InteriorSchema = new Schema({
 
 const ContractDraftsSchema = new Schema(
 	{
-		room: { type: Schema.Types.ObjectId, ref: 'rooms', required: true },
-		depositReceiptId: { type: Schema.Types.ObjectId, ref: 'receipts', required: true },
-		firstInvoiceId: { type: Schema.Types.ObjectId, ref: 'invoices', required: true },
-		depositId: { type: Schema.Types.ObjectId, ref: 'deposits', default: null },
+		room: { type: Schema.Types.ObjectId, ref: 'RoomsEntity', required: true },
+		depositReceiptId: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity', required: true },
+		firstInvoiceId: { type: Schema.Types.ObjectId, ref: 'InvoicesEntity', required: true },
+		depositId: { type: Schema.Types.ObjectId, ref: 'DepositsEntity', default: null },
 		rent: { type: Number, required: true },
 		depositAmount: { type: Number, required: true },
 

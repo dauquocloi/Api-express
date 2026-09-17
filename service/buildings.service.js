@@ -222,6 +222,7 @@ const getRevenues = async (buildingId, month, year) => {
 	const [result] = await Entity.BuildingsEntity.aggregate(Pipelines.revenues.getAllRevenues(buildingId, month, year));
 	if (!result) throw new NotFoundError('Id tòa nhà không tồn tại');
 
+	// Nên thêm logic tòa nhà có hay không ghi nhận khoản thu đặt cọc !
 	const depositReceiptsUnCarriedOverPaidAmount = await Entity.DepositsEntity.aggregate(
 		Pipelines.deposits.getDepositReceiptsUnCarriedOverPaidAmount(buildingId),
 	);

@@ -31,8 +31,8 @@ exports.expiredVehicles = async ({ roomId, contractId }) => {
 	return result;
 };
 
-exports.importVehicles = async (vehiclesData, session) => {
-	const result = await Entity.VehiclesEntity.insertMany(vehiclesData, { session });
+exports.importVehicles = async (vehiclesData) => {
+	const result = await Entity.VehiclesEntity.insertMany(vehiclesData);
 	return result;
 };
 

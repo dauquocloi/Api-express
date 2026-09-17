@@ -2,12 +2,19 @@ const { NotFoundError, ConflictError, BadRequestError, InternalError } = require
 const Entity = require('../models');
 const pipelines = require('./aggregates');
 const { feeUnit: FEE_UNIT } = require('../constants/fees');
+const listFeeInitial = require('../utils/getListFeeInital');
 
 exports.findById = (feeId) => Entity.FeesEntity.findById(feeId);
 
 exports.findByRoomId = (roomId) => Entity.FeesEntity.find({ room: roomId });
 
 exports.findByRoomIdAndFeeKey = (roomId, feeKeys) => Entity.FeesEntity.find({ room: roomId, feeKey: { $in: feeKeys } });
+
+exports.createFee = async (data) => {
+	const result = await Entity.FeesEntity.create(data);
+	if (!result) throw new InternalError('Cannot create fee');
+	return result;
+};
 
 exports.getRoomFeesAndDebts = async (roomObjectId) => {
 	const [roomFees] = await Entity.RoomsEntity.aggregate(pipelines.fees.getRoomFeesAndDebts(roomObjectId));
@@ -105,8 +112,8 @@ exports.modifyFeeUnitIndex = async (feeId, lastIndex, feeAmount, version) => {
 	return result;
 };
 
-exports.removeFee = async (feeId, session) => {
-	const result = await Entity.FeesEntity.deleteOne({ _id: feeId }, { session });
+exports.removeFee = async (feeId) => {
+	const result = await Entity.FeesEntity.deleteOne({ _id: feeId });
 	if (result.deletedCount !== 1) throw new NotFoundError('Phí không tồn tại !');
 
 	return 'success';
@@ -288,8 +295,8 @@ exports.getFeeIndexHistoryByFeeId = (feeId) => {
 	return Entity.FeeIndexHistoryEntity.findOne({ fee: feeId });
 };
 
-exports.importFees = async (feesData, session) => {
-	const result = await Entity.FeesEntity.insertMany(feesData, { session });
+exports.importFees = async (feesData) => {
+	const result = await Entity.FeesEntity.insertMany(feesData);
 	return result;
 };
 
@@ -344,4 +351,71 @@ exports.setFeesIndexValue = async (data) => {
 	}
 
 	return result;
+};
+
+exports.generateAndUpdateFees = async ({ feesToCreate, feesToUpdate, feesToRemove, roomId }) => {
+	const listFeeInitialMap = new Map(feesToCreate.map((fee) => [fee.feeKey, fee]));
+	const operations = [
+		...feesToUpdate.map((fee) => ({
+			updateOne: {
+				filter: {
+					_id: fee.feeId,
+					room: roomId,
+				},
+				update: {
+					$set: {
+						feeAmount: fee.feeAmount,
+					},
+					$inc: {
+						version: 1,
+					},
+				},
+			},
+		})),
+
+		...feesToCreate.map((fee) => ({
+			insertOne: {
+				document: {
+					unit: listFeeInitialMap.get(fee.feeKey).unit,
+					feeName: listFeeInitialMap.get(fee.feeKey).feeName,
+					iconPath: listFeeInitialMap.get(fee.feeKey).iconPath,
+					feeKey: fee.feeKey,
+					feeAmount: fee.feeAmount,
+					lastIndex: fee.lastIndex || null,
+					room: roomId,
+				},
+			},
+		})),
+
+		...feesToRemove.map((fee) => ({
+			deleteOne: {
+				filter: {
+					_id: fee._id,
+					room: roomId,
+				},
+			},
+		})),
+	];
+
+	console.log('[FEES] bulkWrite operations:', JSON.stringify(operations, null, 2));
+
+	const result = await Entity.FeesEntity.bulkWrite(operations);
+
+	const expectedUpdateCount = feesToUpdate.length;
+	const expectedCreateCount = feesToCreate.length;
+	const expectedRemoveCount = feesToRemove.length;
+
+	const actualUpdateMatchedCount = result.matchedCount;
+	const actualUpdateModifiedCount = result.modifiedCount;
+	const actualCreateCount = result.insertedCount;
+	const actualRemoveCount = result.deletedCount;
+
+	if (
+		actualUpdateMatchedCount !== expectedUpdateCount ||
+		actualUpdateModifiedCount !== expectedUpdateCount ||
+		actualCreateCount !== expectedCreateCount ||
+		actualRemoveCount !== expectedRemoveCount
+	) {
+		throw new ConflictError('Đồng bộ phí phòng không thành công. Dữ liệu đã thay đổi bởi một thao tác khác.');
+	}
 };

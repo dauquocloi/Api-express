@@ -134,3 +134,47 @@ exports.getFeeIndexesForRollback = (feeIndexSnapshot = [], currentFees = []) => 
 
 	return rollbackFeeMap;
 };
+
+exports.compareFees = (currentFees = [], newFees = []) => {
+	const currentFeeMap = new Map(currentFees.map((fee) => [fee.feeKey, fee]));
+
+	const newFeeMap = new Map(newFees.map((fee) => [fee.feeKey, fee]));
+
+	const feesToUpdate = [];
+	const feesToCreate = [];
+	const feesToRemove = [];
+
+	// Kiểm tra fees mới
+	for (const newFee of newFees) {
+		const currentFee = currentFeeMap.get(newFee.feeKey);
+
+		// Chưa tồn tại trong DB
+		if (!currentFee) {
+			feesToCreate.push(newFee);
+			continue;
+		}
+
+		// Đã tồn tại nhưng feeAmount thay đổi
+		if (currentFee.feeAmount !== newFee.feeAmount) {
+			feesToUpdate.push({
+				feeId: currentFee._id,
+				feeKey: currentFee.feeKey,
+				oldFeeAmount: currentFee.feeAmount,
+				newFeeAmount: newFee.feeAmount,
+			});
+		}
+	}
+
+	// Kiểm tra fees cũ không còn trong danh sách mới
+	for (const currentFee of currentFees) {
+		if (!newFeeMap.has(currentFee.feeKey)) {
+			feesToRemove.push(currentFee);
+		}
+	}
+
+	return {
+		feesToUpdate,
+		feesToCreate,
+		feesToRemove,
+	};
+};

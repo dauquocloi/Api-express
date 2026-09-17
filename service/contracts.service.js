@@ -65,109 +65,89 @@ exports.getContractPdfUrl = async (contractCode) => {
 	return contractPdfUrl;
 };
 
-exports.generateContract = async (
-	{
-		rent,
-		roomFees,
-		contractSignDate,
-		contractEndDate,
-		contractTerm,
+exports.generateContract = async ({
+	rent,
+	roomFees,
+	contractSignDate,
+	contractEndDate,
+	contractTerm,
 
-		roomId,
-		depositReceiptId,
-		depositId,
-		depositAmount,
-	},
-	session,
-) => {
+	roomId,
+	depositReceiptId,
+	depositId,
+	depositAmount,
+}) => {
 	const contractCode = await generateContractCode(process.env.CONTRACT_CODE_LENGTH);
-	const [createContract] = await Entity.ContractsEntity.create(
-		[
+	const createContract = await Entity.ContractsEntity.create({
+		createdAt: new Date(),
+		rent: rent,
+		fees: roomFees,
+		contractSignDate: contractSignDate,
+		contractEndDate: contractEndDate,
+		contractTerm: contractTerm,
+		status: contractStatus['ACTIVE'],
+		room: roomId,
+		contractCode: contractCode,
+		depositReceiptId: depositReceiptId,
+		depositId: depositId ?? null,
+		depositAmount: depositAmount,
+		versions: [
 			{
-				createdAt: new Date(),
+				version: 0,
 				rent: rent,
-				fees: roomFees,
-				contractSignDate: contractSignDate,
-				contractEndDate: contractEndDate,
-				contractTerm: contractTerm,
-				status: contractStatus['ACTIVE'],
-				room: roomId,
-				contractCode: contractCode,
-				depositReceiptId: depositReceiptId,
-				depositId: depositId ?? null,
 				depositAmount: depositAmount,
-				versions: [
-					{
-						version: 0,
-						rent: rent,
-						depositAmount: depositAmount,
-						contractSingDate: contractSignDate,
-						contractEndDate: contractEndDate,
-						contractPdfUrl: null,
-						contractPdfFile: null,
-						createdAt: new Date(),
-						updatedAt: new Date(),
-						customerConfirmed: false,
-						status: contractStatus['PENDING'],
-						fees: roomFees,
-					},
-				],
+				contractSingDate: contractSignDate,
+				contractEndDate: contractEndDate,
+				contractPdfUrl: null,
+				contractPdfFile: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+				customerConfirmed: false,
+				status: contractStatus['PENDING'],
+				fees: roomFees,
 			},
 		],
-		{ session },
-	);
+	});
 	if (!createContract) throw new InternalError('Có lỗi trong quá trình tạo hợp đồng');
 	return createContract.toObject();
 };
 
-exports.createContractDraft = async (
-	{
+exports.createContractDraft = async ({
+	room,
+	rent,
+	depositAmount,
+	depositId = null,
+	depositReceiptId,
+	firstInvoiceId,
+
+	interiors,
+	fees,
+	customers,
+	contractSignDate,
+	contractEndDate,
+	contractTerm,
+	note,
+}) => {
+	const contractDraft = await Entity.ContractDraftsEntity.create({
 		room,
 		rent,
 		depositAmount,
-		depositId = null,
-		depositReceiptId,
-		firstInvoiceId,
-
 		interiors,
 		fees,
 		customers,
 		contractSignDate,
 		contractEndDate,
 		contractTerm,
+		depositId,
+		firstInvoiceId,
+		depositReceiptId,
 		note,
-	},
-	session,
-) => {
-	const [contractDraft] = await Entity.ContractDraftsEntity.create(
-		[
-			{
-				room,
-				rent,
-				depositAmount,
-				interiors,
-				fees,
-				customers,
-				contractSignDate,
-				contractEndDate,
-				contractTerm,
-				depositId,
-				firstInvoiceId,
-				depositReceiptId,
-				note,
-			},
-		],
-		session,
-	);
-
+	});
+	if (!contractDraft) throw new InternalError('Có lỗi trong quá trình tạo hợp đồng mới !');
 	return contractDraft;
 };
 
-exports.getContractDraftById = async (contractDraftId, session) => {
-	const result = await Entity.ContractDraftsEntity.findById(contractDraftId).session(session).lean().exec();
-	if (!result) throw new NotFoundError('Dữ liệu không tồn tại!');
-	return result;
-};
+exports.getContractDraftById = (contractDraftId) => Entity.ContractDraftsEntity.findById(contractDraftId);
 
 exports.expiredContract = async (contractId) => {
 	const result = await Entity.ContractsEntity.updateOne(
@@ -227,14 +207,11 @@ exports.importManyCustomerRef = async (ownerByContract, session) => {
 	return true;
 };
 
-exports.contractExtention = async (
-	{ contractId, newContractEndDate, newContractSignDate, newRent, version, depositAmount, contractTerm },
-	session,
-) => {
-	const currentContract = await Entity.ContractsEntity.findById(contractId).session(session).lean().exec();
+exports.contractExtention = async ({ contractId, newContractEndDate, newContractSignDate, newRent, version, depositAmount, contractTerm }) => {
+	const currentContract = await Entity.ContractsEntity.findById(contractId).lean().exec();
 	if (!currentContract) throw new NotFoundError('Hợp đồng không tồn tại');
 	const latestContractVersion = currentContract.versions.reduce((sum, v) => (v.version > sum.version ? v : sum));
-	const fees = await Entity.FeesEntity.find({ room: currentContract.room }).session(session).lean().exec();
+	const fees = await Entity.FeesEntity.find({ room: currentContract.room }).lean().exec();
 
 	const result = await Entity.ContractsEntity.updateOne(
 		{
@@ -270,7 +247,6 @@ exports.contractExtention = async (
 			},
 			$inc: { version: 1 },
 		},
-		{ session },
 	);
 	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu đã cũ, vui lòng tải lại trang');
 	return true;
@@ -299,12 +275,8 @@ exports.getDebtsAndReceiptsUnpaid = async (contractId) => {
 	return result;
 };
 
-exports.setContractOwner = async ({ currentCustomerId, customerId }, session = null) => {
-	const result = await Entity.ContractsEntity.updateOne(
-		{ customer: currentCustomerId },
-		{ $set: { customer: customerId }, $inc: { version: 1 } },
-		{ session },
-	);
+exports.setContractOwner = async ({ currentCustomerId, customerId }) => {
+	const result = await Entity.ContractsEntity.updateOne({ customer: currentCustomerId }, { $set: { customer: customerId }, $inc: { version: 1 } });
 	if (result.matchedCount === 0) throw new NotFoundError('Hợp đồng không tồn tại');
 	return true;
 };
@@ -392,4 +364,20 @@ exports.modifyContractVersion = async ({
 	}
 
 	return result;
+};
+
+exports.cancelEarlyTermination = async ({ contractId }) => {
+	const result = await Entity.ContractsEntity.findOneAndUpdate(
+		{
+			_id: contractId,
+		},
+		{
+			$set: {
+				isEarlyTermination: false,
+				expectedMoveOutDate: null,
+			},
+		},
+		{ new: true },
+	);
+	if (!result) throw new NotFoundError(`Hợp đồng với không tồn tại`);
 };
