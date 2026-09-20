@@ -34,7 +34,7 @@ exports.deleteTask = async (taskId) => {
 	return removeTask;
 };
 
-exports.updateTask = async ({ taskId, taskContent, detail, executionDate, performers, status, images = null }, session = null) => {
+exports.updateTask = async ({ taskId, taskContent, detail, executionDate, performers, status, images = null }) => {
 	const querys = {
 		taskContent,
 		detail,
@@ -44,7 +44,7 @@ exports.updateTask = async ({ taskId, taskContent, detail, executionDate, perfor
 	};
 	if (images) querys.images = images;
 
-	const result = await Entity.TasksEntity.findOneAndUpdate({ _id: taskId }, querys, { new: true, session: session })
+	const result = await Entity.TasksEntity.findOneAndUpdate({ _id: taskId }, querys, { new: true })
 		.populate([
 			{ path: 'managements', select: 'fullName _id avatar' },
 			{ path: 'performers', select: 'fullName _id avatar' },

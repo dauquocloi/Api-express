@@ -1,7 +1,5 @@
 const mongoose = require('mongoose');
-const Entity = require('./index');
 const Schema = mongoose.Schema;
-const getFileUrl = require('../utils/getFileUrl');
 const { roomState } = require('../constants');
 // Create a Mongoose Schema
 
@@ -81,29 +79,7 @@ const RoomsSchema = new Schema(
 	{ timestamps: true, versionKey: false },
 );
 
-// RoomsSchema.post('aggregate', async function (docs, next) {
-// 	try {
-// 		if (docs[0]?.roomImage != undefined && docs.length > 0) {
-// 			const { roomImage } = docs[0];
-// 			const roomImageUrl = [];
-// 			for (const key of roomImage.ref) {
-// 				const signalUrl = await getFileUrl(key);
-// 				roomImageUrl.push(signalUrl);
-// 			}
-// 			console.log(roomImageUrl);
-
-// 			if (docs[0].roomImage) {
-// 				docs[0].roomImage.ref = roomImageUrl; // Gán an toàn
-// 			}
-
-// 			next();
-// 		} else {
-// 			next();
-// 		}
-// 	} catch (error) {
-// 		next(error);
-// 	}
-// });
+RoomsSchema.index({ building: 1 });
 
 exports.RoomsEntity = mongoose.model('RoomsEntity', RoomsSchema, 'rooms');
 // Register the room schema

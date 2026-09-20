@@ -98,6 +98,7 @@ const getAllRevenues = (buildingId, month, year) => {
 			$project: {
 				_id: 1,
 				buildingName: 1,
+				includeDepositRevenue: 1,
 				roomInfo: {
 					_id: '$rooms._id',
 					roomIndex: '$rooms.roomIndex',
@@ -125,6 +126,13 @@ const getAllRevenues = (buildingId, month, year) => {
 		{
 			$group: {
 				_id: '$_id',
+				buildingName: {
+					$first: '$buildingName',
+				},
+
+				includeDepositRevenue: {
+					$first: '$includeDepositRevenue',
+				},
 				revenues: {
 					$push: {
 						roomId: '$roomInfo._id',
@@ -214,6 +222,8 @@ const getAllRevenues = (buildingId, month, year) => {
 		{
 			$project: {
 				_id: 1,
+				buildingName: 1,
+				includeDepositRevenue: 1,
 				revenues: 1,
 				otherRevenues: 1,
 			},

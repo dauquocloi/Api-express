@@ -15,7 +15,7 @@ router.post(
 	'/basic',
 	validator(schema.signup),
 	asyncHandler(async (req, res) => {
-		const user = await Services.users.findUserByPhone(req.body.userName);
+		const user = await Services.users.findUserByPhone(req.body.userName).lean().exec();
 		if (user) throw new BadRequestError('User already registered');
 
 		const accessTokenKey = crypto.randomBytes(64).toString('hex');

@@ -11,6 +11,37 @@ const ValidateSource = {
 	FILES: 'files',
 };
 
+const sanitizeJoiError = (error) => {
+	const detail = error.details?.[0];
+
+	if (!detail) {
+		return 'Dữ liệu đầu vào không hợp lệ';
+	}
+
+	switch (detail.type) {
+		case 'any.only':
+			return `"${detail.context?.key}" có giá trị không hợp lệ`;
+
+		case 'any.required':
+			return `"${detail.context?.key}" là bắt buộc`;
+
+		case 'string.base':
+			return `"${detail.context?.key}" phải là chuỗi`;
+
+		case 'string.empty':
+			return `"${detail.context?.key}" không được để trống`;
+
+		case 'number.base':
+			return `"${detail.context?.key}" phải là số`;
+
+		case 'boolean.base':
+			return `"${detail.context?.key}" phải là boolean`;
+
+		default:
+			return 'Dữ liệu đầu vào không hợp lệ';
+	}
+};
+
 const validator = (schema, source) => (req, res, next) => {
 	try {
 		const { error, value } = schema.validate(req[source]);
@@ -20,9 +51,9 @@ const validator = (schema, source) => (req, res, next) => {
 
 			console.log('detail error:', details);
 
-			const message = details.map((i) => i.message.replace(/['"]+/g, '')).join(',');
+			// const message = details.map((i) => i.message.replace(/['"]+/g, '')).join(',');
 
-			return next(new InvalidInputError(message));
+			return next(new InvalidInputError(sanitizeJoiError(error)));
 		}
 
 		req[source] = value;

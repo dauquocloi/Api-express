@@ -51,5 +51,6 @@ module.exports = {
 		cccdIssueAt: Joi.string().required(),
 		permanentAddress: Joi.string().required(),
 		gender: Joi.string().valid('nam', 'nữ').required(),
+		role: Joi.string().valid(ROLES['MANAGER'], ROLES['STAFF']).required(),
 	}),
 };

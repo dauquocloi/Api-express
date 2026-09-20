@@ -1,10 +1,8 @@
-const { default: mongoose } = require('mongoose');
 const Services = require('../service');
 const { BadRequestError, NoDataError, NotFoundError, InternalError, ConflictError } = require('../AppError');
 const { getInvoiceStatus } = require('../service/invoices.helper');
 const { notificationJob } = require('../jobs/notification/notification.job');
 const { NOTI_TRANSACTION_DECLINED } = require('../jobs/constant/jobNames');
-const { client: redis } = require('../config').redisDb;
 const { CREATED_BY, OWNER_CONFIRMED_STATUS, paymentConfirmationMode, PAYMENT_METHOD } = require('../constants');
 const { calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
 const { calculateCheckoutCostStatus } = require('../service/checkoutCost/checkoutCosts.helper');
@@ -20,13 +18,13 @@ exports.confirmTransaction = async (transactionId) => {
 	let result;
 	if (currentTransaction.invoice) {
 		result = {
-			type: 'invoice',
+			type: billType['INVOICE'],
 			invoiceId: currentTransaction.invoice._id.toString(),
 		};
 		return result;
 	} else if (currentTransaction.receipt) {
 		result = {
-			type: 'receipt',
+			type: billType['RECEIPT'],
 			receiptId: currentTransaction.receipt._id.toString(),
 		};
 
@@ -131,6 +129,7 @@ exports.denyTransaction = async (transactionId, reason, buildingId, version, use
 		transactionId,
 		ownerConfirmationStatus: OWNER_CONFIRMED_STATUS['DECLINED'],
 		ownerDeclinedReason: reason,
+		version,
 	});
 
 	return result;
@@ -151,62 +150,12 @@ exports.receiveCashFromManager = async (transactionId) => {
 			type: billType['INVOICE'],
 			invoiceId: transaction.invoice._id.toString(),
 		};
-		// await redis.set(redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 		return result;
 	} else if (transaction.receipt) {
 		const result = {
 			type: billType['RECEIPT'],
 			receiptId: transaction.receipt._id.toString(),
 		};
-		// await redis.set(redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 		return result;
 	}
 };
-
-// exports.receiveCashFromManagerV2 = async (transactionId) => {
-// 	let session;
-// 	try {
-// 		session = await mongoose.startSession();
-// 		session.startTransaction();
-// 		const transaction = await Services.transactions
-// 			.findById(transactionId)
-// 			.session(session)
-// 			.populate('invoice')
-// 			.populate('receipt')
-// 			.lean()
-// 			.exec();
-
-// 		if (!transaction) throw new NotFoundError('Giao dịch không tồn tại !');
-// 		if (!transaction.invoice && !transaction.receipt) throw new NoDataError('Giao dịch không đi kèm với bất kỳ hóa đơn nào !');
-// 		if (!transaction.isTransactionDetected) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ !');
-// 		if (transaction.createdBy === CREATED_BY['OWNER']) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ !');
-// 		if (transaction.ownerConfirmed === OWNER_CONFIRMED_STATUS['CONFIRMED']) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ !');
-// 		if (transaction.paymentMethod !== PAYMENT_METHOD['CASH']) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ !');
-
-// 		await Services.transactions.confirmTransaction(transactionId, session);
-// 		let result;
-// 		if (transaction.invoice) {
-// 			result = {
-// 				type: billType['INVOICE'],
-// 				invoiceId: transaction.invoice._id.toString(),
-// 			};
-// 		} else if (transaction.receipt) {
-// 			result = {
-// 				type: billType['RECEIPT'],
-// 				receiptId: transaction.receipt._id.toString(),
-// 			};
-// 		}
-
-// 		console.log(`declineTransaction: ${(performance.now() - start).toFixed(2)}ms`);
-
-// 		throw new InternalError('StopForTesting');
-
-// 		await session.commitTransaction();
-// 		return result;
-// 	} catch (error) {
-// 		if (session) await session.abortTransaction();
-// 		throw error;
-// 	} finally {
-// 		if (session) session.endSession();
-// 	}
-// };

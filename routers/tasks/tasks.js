@@ -2,6 +2,8 @@ const UseCase = require('../../data_providers/tasks');
 const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
 const delay = require('../../utils/delay');
+const { executeIdempotent } = require('../../utils/idempotent');
+const generateRequestHash = require('../../utils/generateRequestHash');
 
 exports.createTask = asyncHandler(async (req, res) => {
 	let data = req.body;
@@ -26,21 +28,31 @@ exports.getTaskDetail = asyncHandler(async (req, res) => {
 	let data = req.params;
 	console.log('log of data from getTaskDetail: ', data);
 
-	// await delay(5000, false);
-
 	const result = await UseCase.getTaskDetail(data.taskId);
 	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.modifyTask = asyncHandler(async (req, res) => {
 	const taskImages = req.files ?? null;
-	let data = { ...req.body, ...req.params, taskImages };
+	const { taskId } = req.params;
+	const { taskContent, detail, executionDate, performers, status, removeAllImages } = req.body;
+	const data = {
+		taskId,
+		taskContent,
+		detail,
+		executionDate,
+		performers,
+		status,
+		taskImages,
+		removeAllImages,
+	};
 	console.log('log of data from modifyTask: ', data);
+
 	const result = await UseCase.modifyTask(data);
 	return new SuccessResponse('Success', result).send(res);
 });
 
-exports.deleteTask = asyncHandler(async (req, res, next) => {
+exports.deleteTask = asyncHandler(async (req, res) => {
 	let data = req.params;
 	console.log('log of data from deleteTask: ', data);
 	await UseCase.deleteTask(data.taskId);

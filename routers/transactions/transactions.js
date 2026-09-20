@@ -1,7 +1,6 @@
 const UseCase = require('../../data_providers/transactions');
 const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
-const { client: redis } = require('../../config').redisDb;
 const { executeIdempotent } = require('../../utils/idempotent');
 const generateRequestHash = require('../../utils/generateRequestHash');
 

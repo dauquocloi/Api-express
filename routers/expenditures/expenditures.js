@@ -1,6 +1,8 @@
 const UseCase = require('../../data_providers/expenditures');
 const asyncHandler = require('../../utils/asyncHandler');
 const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse');
+const executeIdempotent = require('../../utils/idempotent');
+const generateRequestHash = require('../../utils/generateRequestHash');
 
 exports.getExpenditures = asyncHandler(async (req, res) => {
 	const data = req.query;
@@ -10,14 +12,32 @@ exports.getExpenditures = asyncHandler(async (req, res) => {
 });
 
 exports.createExpenditure = asyncHandler(async (req, res) => {
-	var data = { ...req.body, ...req.params };
+	const { buildingId, spender, amount, type, content, date } = req.body;
+	const data = {
+		buildingId,
+		spender,
+		amount: Number(amount),
+		type,
+		content: content.trim(),
+		date,
+	};
 	console.log('this is log of createExpenditure', data);
 	await UseCase.createExpenditure(data);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
 exports.modifyExpenditure = asyncHandler(async (req, res) => {
-	var data = { ...req.body, ...req.params };
+	const { expenditureId } = req.params;
+	const { spender, amount, content, date, type, version } = req.body;
+	const data = {
+		expenditureId,
+		spender,
+		amount: Number(amount),
+		content: content.trim(),
+		date,
+		type,
+		version,
+	};
 	console.log('this is log of modifyExpenditure', data);
 
 	await UseCase.modifyExpenditure(data);
@@ -25,7 +45,7 @@ exports.modifyExpenditure = asyncHandler(async (req, res) => {
 });
 
 exports.deleteExpenditure = asyncHandler(async (req, res) => {
-	var data = { ...req.params, ...req.body };
+	const data = { ...req.params, ...req.body };
 	console.log('this is log of deleteExpenditure', data);
 
 	await UseCase.deleteExpenditure(data);

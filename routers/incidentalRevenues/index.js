@@ -37,6 +37,8 @@ router.delete(
 	'/:incidentalRevenueId',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
+	validator(schema.deleteIncidentalRevenue, ValidateSource.BODY),
+
 	checkResourceAccess(RESOURCES['incidentalRevenues']),
 	IncidentalRevenues.deleteIncidentalRevenue,
 );

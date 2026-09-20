@@ -23,6 +23,7 @@ const {
 	expenditureType,
 	UPDATE_FEE_INDEX_SOURCE,
 	depositRefundStatus,
+	getDebtsReceiptsUnpaidUsedFor,
 } = require('../constants');
 const { formatDebts } = require('../service/debts.helper');
 const { checkExistPendingTransactions } = require('./depositRefunds.util');
@@ -131,13 +132,19 @@ exports.confirmDepositRefund = async (data) => {
 exports.generateDepositRefund = async (data) => {
 	const { contractId, roomVersion, feeIndexValues, feesOther, userId } = data;
 
-	const currentContract = await Services.contracts.findById(contractId).populate('room').lean().exec();
-	if (!currentContract) throw new BadRequestError('Contract not found');
+	const currentContract = await Services.contracts
+		.findById(contractId)
+		.populate({ path: 'room', populate: { path: 'building', select: '_id includeDepositRevenue' } })
+		.lean()
+		.exec();
+	if (!currentContract) throw new NotFoundError('Hợp đồng không tồn tại !');
+	if (!currentContract.room) throw new NotFoundError('Phòng không tồn tại !');
+	if (!currentContract.room.building) throw new NotFoundError('Tòa nhà không tồn tại !');
 
-	const debtsReceiptsUnpaid = await Services.contracts.getDebtsAndReceiptsUnpaid(contractId);
+	const debtsReceiptsUnpaid = await Services.contracts.getDebtsAndReceiptsUnpaid(contractId, getDebtsReceiptsUnpaidUsedFor['DEPOSIT_REFUND']);
 	const { invoicesUnpaid, receiptsUnpaid, debts, contract, depositReceipt, fees, room } = debtsReceiptsUnpaid;
 	checkExistPendingTransactions(receiptsUnpaid, invoicesUnpaid);
-	const currentPeriod = await getCurrentPeriod(currentContract.room.building);
+	const currentPeriod = await getCurrentPeriod(currentContract.room.building._id);
 
 	const totalDebts = formatDebts(debts).amount;
 	const totalReceiptsUnpaid = calculateTotalReceipts(receiptsUnpaid);
@@ -174,7 +181,7 @@ exports.generateDepositRefund = async (data) => {
 		feesOther,
 		depositRefundAmount,
 		invoiceUnpaid: invoicesUnpaid?.length ? invoicesUnpaid[0]._id : null,
-		buildingId: currentContract.room.building,
+		buildingId: currentContract.room.building._id,
 		contractId,
 		depositReceiptId: depositReceipt._id,
 		contractOwnerId: currentContract.customer,
@@ -199,6 +206,19 @@ exports.generateDepositRefund = async (data) => {
 			detuctedType: CHECKOUT_TYPES['DEPOSIT_REFUND'],
 			detuctedId: createdDepositRefund._id,
 		});
+	}
+	if (currentContract.room.building.includeDepositRevenue) {
+		const createdExpenditure = await Services.expenditures.generateExpenditure({
+			content: `Hoàn cọc phòng ${currentContract.room.roomIndex}`,
+			amount: depositRefundAmount,
+			type: expenditureType['INCIDENTAL'],
+			month: currentPeriod.currentMonth,
+			year: currentPeriod.currentYear,
+			spender: currentContract.user,
+			date: Date.now(),
+		});
+
+		console.log('createdExpenditure: ', createdExpenditure);
 	}
 
 	await Services.customers.expiredCustomers({ roomId: room._id, contractId: contractId });

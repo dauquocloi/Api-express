@@ -1,4 +1,4 @@
-const { BadRequestError } = require('../AppError');
+const { BadRequestError, ConflictError, NotFoundError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
 const { expenditureType } = require('../constants');
@@ -22,7 +22,7 @@ exports.generateExpenditures = async (data) => {
 	return result;
 };
 
-exports.generateExpenditure = async ({ month, year, content, amount, type, building, spender }) => {
+exports.generateExpenditure = async ({ month, year, content, amount, type, building, spender, date }) => {
 	const result = await Entity.ExpendituresEntity.create({
 		month,
 		year,
@@ -31,6 +31,7 @@ exports.generateExpenditure = async ({ month, year, content, amount, type, build
 		type,
 		building,
 		spender, // Owner only
+		date: date || new Date(),
 	});
 	return result;
 };
@@ -42,4 +43,54 @@ exports.lockAllExpenditures = async (buildingId, month, year, session) => {
 		{ session },
 	);
 	return result;
+};
+
+exports.modifyExpenditure = async ({ amount, content, spender, date, expenditureId, version }) => {
+	const result = await Entity.ExpendituresEntity.findOneAndUpdate(
+		{ _id: expenditureId, version },
+		{
+			$set: { amount, content, spender, date },
+			$inc: { version: 1 },
+		},
+		{ new: true },
+	);
+
+	if (!result) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi, vui lòng tải lại trang !');
+	return result;
+};
+
+exports.removeExpenditure = async ({ expenditureId }) => {
+	const result = await Entity.ExpendituresEntity.deleteOne({ _id: expenditureId });
+	if (result.deletedCount !== 1) throw new NotFoundError('Dữ liệu không tồn tại !');
+	return 'success';
+};
+
+// ========= PERIODIC EXPENDITURE ================ //
+
+exports.generatePeriodicExpenditure = async ({ content, amount, building }) => {
+	const result = await Entity.PeriodicExpendituresEntity.create({
+		content,
+		amount,
+		building,
+	});
+	return result;
+};
+
+exports.modifyPeriodicExpenditure = async ({ amount, content, expenditureId, version }) => {
+	const result = await Entity.PeriodicExpendituresEntity.findOneAndUpdate(
+		{ expenditureId, version },
+		{
+			$set: { amount, content },
+			$inc: { version: 1 },
+		},
+		{ new: true },
+	);
+	if (!result) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi, vui lòng tải lại trang !');
+	return result;
+};
+
+exports.removePeriodicExpenditure = async ({ expenditureId }) => {
+	const result = await Entity.PeriodicExpendituresEntity.deleteOne({ _id: expenditureId });
+	if (result.deletedCount !== 1) throw new NotFoundError('Dữ liệu không tồn tại !');
+	return 'success';
 };

@@ -2,6 +2,8 @@ var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const { feeUnit } = require('../constants/fees');
 const { depositStatus } = require('../constants/deposits');
+const listFeeInitial = require('../utils/getListFeeInital');
+const FEE_KEYS = listFeeInitial.map((item) => item.feeKey);
 
 const FeeSchema = new Schema({
 	feeName: { type: String, required: true },
@@ -11,7 +13,7 @@ const FeeSchema = new Schema({
 		type: Number,
 		default: 0,
 	},
-	feeKey: { type: String },
+	feeKey: { type: String, enum: FEE_KEYS, required: true },
 	iconPath: { type: String },
 });
 

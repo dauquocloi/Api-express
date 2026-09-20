@@ -1,7 +1,18 @@
 const mongoose = require('mongoose');
-const { invoiceStatus, receiptStatus, receiptTypes, debtStatus, OWNER_CONFIRMED_STATUS } = require('../../../constants');
+const {
+	invoiceStatus,
+	receiptStatus,
+	receiptTypes,
+	debtStatus,
+	OWNER_CONFIRMED_STATUS,
+	getDebtsReceiptsUnpaidUsedFor,
+} = require('../../../constants');
 
-exports.getDebtsAndReceiptsUnpaid = (contractId) => {
+exports.getDebtsAndReceiptsUnpaid = (contractId, usedFor) => {
+	let RECEIPT_UNPAID_TYPES = [receiptTypes['INCIDENTAL'], receiptTypes['DEBTS']];
+	if (usedFor === getDebtsReceiptsUnpaidUsedFor['TERMINATE_CONTRACT_EARLY']) {
+		RECEIPT_UNPAID_TYPES.push(receiptTypes['DEPOSIT']);
+	}
 	return [
 		{
 			$match: {
@@ -101,7 +112,7 @@ exports.getDebtsAndReceiptsUnpaid = (contractId) => {
 										$eq: ['$locked', false],
 									},
 									{
-										$in: ['$receiptType', [receiptTypes['INCIDENTAL'], receiptTypes['DEBTS']]],
+										$in: ['$receiptType', RECEIPT_UNPAID_TYPES],
 									},
 								],
 							},

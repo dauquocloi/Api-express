@@ -13,4 +13,6 @@ const paymentConfirmationMode = {
 	MANUAL: 'manual',
 };
 
-module.exports = { buildingPermissions, paymentConfirmationMode };
+const LOCK_BUILDING_TTL_MS = 10 * 60 * 1000;
+
+module.exports = { buildingPermissions, paymentConfirmationMode, LOCK_BUILDING_TTL_MS };

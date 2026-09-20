@@ -1,20 +1,69 @@
 const UseCase = require('../../data_providers/admin');
 const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
-const { client: redis } = require('../../config').redisDb;
+const { executeIdempotent } = require('../../utils/idempotent');
+const generateRequestHash = require('../../utils/generateRequestHash');
 
 exports.importBuilding = asyncHandler(async (req, res) => {
-	const data = { ...req.body, ...req.files };
+	const { buildingName, buildingAddress, roomQuantity, invoiceNotes, ownerId, companyId, paymentConfirmationMode } = req.body;
+
+	const { contractDocxUrl, contractPdfUrl, depositTermUrl } = req.files;
+	const data = {
+		buildingName: buildingName.trim(),
+		buildingAddress: buildingAddress.trim(),
+		roomQuantity: Number(roomQuantity),
+		invoiceNotes: invoiceNotes.trim(),
+		contractDocxUrl,
+		contractPdfUrl,
+		depositTermUrl,
+		ownerId,
+		companyId,
+		paymentConfirmationMode,
+	};
 	console.log('log of data from importBuilding: ', data);
-	const result = await UseCase.buildings.importBuilding(data);
-	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
+	const result = await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			buildingName: data.buildingName,
+			buildingAddress: data.buildingAddress,
+			roomQuantity: data.roomQuantity,
+			invoiceNotes: data.invoiceNotes,
+			contractDocxUrl: data.contractDocxUrl,
+			contractPdfUrl: data.contractPdfUrl,
+			depositTermUrl: data.depositTermUrl,
+			ownerId: data.ownerId,
+			companyId: data.companyId,
+			paymentConfirmationMode: data.paymentConfirmationMode,
+		}),
+		resourceId: data.companyId,
+		execute: () => UseCase.buildings.importBuilding(data),
+	});
+
 	return new SuccessResponse('Import building successfully', result).send(res);
 });
 
 exports.importRooms = asyncHandler(async (req, res) => {
-	const data = { ...req.body, roomFile: req.file };
+	const { roomFile } = req.files;
+	const { buildingId, ownerId } = req.body;
+	const data = {
+		roomFile,
+		buildingId,
+		ownerId,
+	};
 	console.log('log of data from importRooms: ', data);
-	await UseCase.rooms.importRooms(data);
+	await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			buildingId: data.buildingId,
+			ownerId: data.ownerId,
+		}),
+		resourceId: data.buildingId,
+		execute: () => UseCase.rooms.importRooms(data),
+	});
 	return new SuccessMsgResponse('Import rooms successfully').send(res);
 });
 
@@ -34,7 +83,7 @@ exports.importPaymentInfo = asyncHandler(async (req, res) => {
 	const data = { ...req.body, ...req.params };
 	console.log('log of importPaymentInfo', data);
 	const result = await UseCase.buildings.importPaymentInfo(data.buildingId, data.bankAccountId);
-	return new SuccessMsgResponse('Success').send(res);
+	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.createBankAccount = asyncHandler(async (req, res) => {
@@ -62,6 +111,5 @@ exports.importBank = asyncHandler(async (req, res) => {
 		iconPath: data.iconPath,
 		active: data.active,
 	});
-	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 	return new SuccessResponse('Success', result).send(res);
 });

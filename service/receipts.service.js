@@ -139,6 +139,12 @@ exports.modifyReceipt = async ({ receiptObjectId, receiptVersion, receiptAmount,
 	return result.toObject();
 };
 
+exports.modifyDepositReceipt = async ({ receiptId, amount, status }) => {
+	const result = await Entity.ReceiptsEntity.findOneAndUpdate({ _id: receiptId }, { $set: { amount, status } }, { new: true });
+	if (!result) throw new NotFoundError('Hóa đơn đặt cọc không tồn tại');
+	return result;
+};
+
 exports.updateReceiptPaidAmount = async ({ receiptId, paidAmount, receiptStatus, version }) => {
 	const result = await Entity.ReceiptsEntity.updateOne(
 		{
@@ -241,7 +247,7 @@ exports.findReceiptInfoByPaymentContent = async (paymentContent, session) => {
 	return result;
 };
 
-exports.importReceiptsDeposit = async (receiptData, session) => {
+exports.importReceiptsDeposit = async (receiptData) => {
 	const receiptArray = await Promise.all(
 		receiptData.map(async (data) => {
 			const paymentContent = await generatePaymentContent(process.env.PAYMENT_CONTENT_LENGTH);
@@ -251,16 +257,18 @@ exports.importReceiptsDeposit = async (receiptData, session) => {
 			const amount = Number(data.amount);
 			const paidAmount = Number(data.paidAmount);
 
+			const receiptStatus = getInvoiceStatus(paidAmount, amount);
+
 			return {
 				room: data.room,
 				amount,
 				paidAmount,
 				receiptType: receiptTypes.DEPOSIT,
-				status: amount === paidAmount ? receiptStatus['PAID'] : receiptStatus['PARTIAL'],
+				status: receiptStatus,
 				paymentContent,
 				receiptCode,
-				month: data.month,
-				year: data.year,
+				// month: data.month,
+				// year: data.year,
 				receiptContent: `Hóa đơn đặt cọc phòng ${data.roomIndex}`,
 				carriedOverPaidAmount: paidAmount,
 				createdAt,
@@ -271,7 +279,6 @@ exports.importReceiptsDeposit = async (receiptData, session) => {
 	);
 
 	const result = await Entity.ReceiptsEntity.insertMany(receiptArray, {
-		session,
 		timestamps: false,
 		ordered: true,
 	});
@@ -343,21 +350,20 @@ exports.removeDetuctedInfo = async (receiptId) => {
 };
 
 exports.closeReceiptDeposit = async ({ receiptId }) => {
-	const result = await Entity.ReceiptsEntity.updateOne(
-		{ _id: receiptId, receiptType: receiptTypes.DEPOSIT },
-		{ $set: { locked: true, isActive: false } },
+	const result = await Entity.ReceiptsEntity.findOneAndUpdate(
+		{ _id: receiptId },
+		{
+			$set: { locked: true, isActive: false },
+			$inc: { version: 1 },
+		},
 	);
-	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');
+	if (!result) throw new BadRequestError('Hóa đơn đặt cọc không tồn tại !');
 	return result;
 };
 
-exports.updateReceiptPeriod = async ({ receiptId, month, year }, session) => {
-	const result = await Entity.ReceiptsEntity.updateOne(
-		{ _id: receiptId },
-		{ $set: { month, year, locked: true }, $inc: { version: 1 } },
-		{ session },
-	);
-	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');
+exports.updateReceiptPeriod = async ({ receiptId, month, year }) => {
+	const result = await Entity.ReceiptsEntity.updateOne({ _id: receiptId }, { $set: { month, year, locked: true }, $inc: { version: 1 } });
+	if (result.matchedCount === 0) throw new BadRequestError('Hóa đơn đặt cọc không tồn tại !');
 };
 
 // for depositReceipt

@@ -9,19 +9,14 @@ exports.findById = (bankAccountId) => Entity.BankAccountsEntity.findById(bankAcc
 
 exports.findByBuildingId = (buildingId) => Entity.BankAccountsEntity.findOne({ buildings: buildingId });
 
-exports.importBankAccount = async ({ accountNumber, accountName, bankId, ownerId, buildingId }, session = null) => {
-	const [result] = await Entity.BankAccountsEntity.create(
-		[
-			{
-				accountNumber,
-				accountName,
-				bank: bankId,
-				buildings: [buildingId],
-				user: ownerId,
-			},
-		],
-		{ session },
-	);
+exports.importBankAccount = async ({ accountNumber, accountName, bankId, ownerId, buildingId }) => {
+	const result = await Entity.BankAccountsEntity.create({
+		accountNumber,
+		accountName,
+		bank: bankId,
+		buildings: [buildingId],
+		user: ownerId,
+	});
 	if (!result) throw new InternalError('Thêm tài khoản ngân hàng thất bại');
 
 	return result.toObject();

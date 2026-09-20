@@ -41,8 +41,8 @@ exports.findContractNearExpi = (targetDate) =>
 
 exports.findByCustomerId = (customerId) => Entity.ContractsEntity.findOne({ customer: customerId });
 
-exports.importCustomerRef = async (contractId, customerId, session) => {
-	const result = await Entity.ContractsEntity.updateOne({ _id: contractId }, { $set: { customer: customerId } }, { session: session });
+exports.importCustomerRef = async (contractId, customerId) => {
+	const result = await Entity.ContractsEntity.updateOne({ _id: contractId }, { $set: { customer: customerId } });
 	if (result.matchedCount === 0) throw new NotFoundError('Hợp đồng không tồn tại');
 	return result;
 };
@@ -165,8 +165,8 @@ exports.expiredContract = async (contractId) => {
 	return result;
 };
 
-exports.importContracts = async (contractsData, session) => {
-	const result = await Entity.ContractsEntity.insertMany(contractsData, { session });
+exports.importContracts = async (contractsData) => {
+	const result = await Entity.ContractsEntity.insertMany(contractsData);
 	return result;
 };
 
@@ -188,7 +188,7 @@ exports.importContractPdfUrlAndContractFile = async (contractId, contractPdfUrl,
 	return result.toObject();
 };
 
-exports.importManyCustomerRef = async (ownerByContract, session) => {
+exports.importManyCustomerRef = async (ownerByContract) => {
 	const bulkOps = [];
 
 	ownerByContract.forEach((ownerId, contractId) => {
@@ -202,7 +202,7 @@ exports.importManyCustomerRef = async (ownerByContract, session) => {
 		});
 	});
 
-	const result = await Entity.ContractsEntity.bulkWrite(bulkOps, { session });
+	const result = await Entity.ContractsEntity.bulkWrite(bulkOps);
 	if (result.matchedCount !== ownerByContract.size) throw new NotFoundError('Hợp đồng không tồn tại');
 	return true;
 };
@@ -269,8 +269,9 @@ exports.clientConfirmContract = async (contractId, session) => {
 	return true;
 };
 
-exports.getDebtsAndReceiptsUnpaid = async (contractId) => {
-	const [result] = await Entity.ContractsEntity.aggregate(Pipelines.contracts.getDebtsAndReceiptsUnpaid(contractId));
+// used for: depositRefund/terminateContractEarly
+exports.getDebtsAndReceiptsUnpaid = async (contractId, usedFor) => {
+	const [result] = await Entity.ContractsEntity.aggregate(Pipelines.contracts.getDebtsAndReceiptsUnpaid(contractId, usedFor));
 	if (!result) throw new NotFoundError('Hợp đồng không tồn tại');
 	return result;
 };

@@ -3,6 +3,7 @@ const { validator, ValidateSource } = require('../../utils/validator');
 const Admins = require('./admins');
 const Users = require('./users');
 const Companies = require('./companies');
+const Access = require('./access');
 const ROLES = require('../../constants/userRoles');
 const authentication = require('../../auth/authentication');
 const authorization = require('../../auth/authorization');
@@ -12,8 +13,10 @@ const router = express.Router();
 const schema = require('./schema');
 const { checkIdempotency } = require('../../middleware/idempotency');
 
-// router.use(authentication);
-// router.use(authorization(ROLES['ADMIN']));
+router.post('/login', validator(schema.login, ValidateSource.BODY), Access.login);
+
+router.use(authentication);
+router.use(authorization(ROLES['ADMIN']));
 
 router.post(
 	'/import-building',

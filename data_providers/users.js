@@ -1,56 +1,42 @@
 const mongoose = require('mongoose');
 var Entity = require('../models');
 const bcrypt = require('bcrypt');
-const { NotFoundError, BadRequestError } = require('../AppError');
+const { NotFoundError, BadRequestError, InternalError, ConflictError } = require('../AppError');
 const Services = require('../service');
-const { client: redis } = require('../config').redisDb;
 const generateHashPassword = require('../utils/generateHashPassword');
 
 exports.getAll = async () => {
 	return await Services.users.getAllUsers();
 };
 
-exports.create = async (data, redisKey) => {
-	let session;
-	try {
-		const user = await Services.users.findUserByPhone(data.phone);
-		if (user) throw new BadRequestError('User already registered');
+exports.create = async (data) => {
+	const { buildingIds, fullName, phone, dob, cccd, cccdIssueDate, cccdIssueAt, permanentAddress, gender, role } = data;
 
-		const { buildingIds } = data;
-		session = await mongoose.startSession();
-		await session.withTransaction(async () => {
-			const encryptedPassword = await generateHashPassword(data.phone.trim(), 10);
-			const userInfo = {
-				fullName: data.fullName.trim(),
-				phone: data.phone.trim(),
-				username: data.phone.trim(),
-				cccd: data.cccd,
-				cccdIssueDate: data.cccdIssueDate,
-				cccdIssueAt: data.cccdIssueAt.trim(),
-				permanentAddress: data.permanentAddress,
-				password: encryptedPassword,
-				role: data.role,
-				dob: data.dob ?? null,
-				gender: data.gender,
-			};
-			const userCreated = await Services.users.createManagement({ ...userInfo }, session);
+	const user = await Services.users.findUserByPhone(phone).lean().exec();
+	if (user) throw new ConflictError('Người dùng đã tồn tại trong hệ thống !');
 
-			await Services.buildings.addManagement(userCreated._id, buildingIds, userCreated.role, session);
+	const encryptedPassword = await generateHashPassword(phone.trim(), 10);
+	const userInfo = {
+		fullName: fullName.trim(),
+		phone: phone.trim(),
+		username: phone.trim(),
+		cccd: cccd,
+		cccdIssueDate: cccdIssueDate,
+		cccdIssueAt: cccdIssueAt.trim(),
+		permanentAddress: permanentAddress,
+		password: encryptedPassword,
+		role: role,
+		dob: dob ?? null,
+		gender: gender,
+	};
+	const userCreated = await Services.users.createManagement({ ...userInfo });
 
-			return 'Success';
-		});
+	await Services.buildings.addManagement(userCreated._id, buildingIds, userCreated.role);
 
-		await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
-		return 'Success';
-	} catch (error) {
-		throw error;
-	} finally {
-		if (session) {
-			session.endSession();
-		}
-	}
+	return userCreated;
 };
 
+// unrefacted
 exports.modifyPassword = async (data, cb, next) => {
 	try {
 		const userId = new mongoose.Types.ObjectId(data.userId);
@@ -75,47 +61,30 @@ exports.modifyPassword = async (data, cb, next) => {
 	}
 };
 
-exports.modifyManagementInfo = async (payload, userId, redisKey) => {
-	const user = await Services.users.findById(userId);
-	if (!user) throw new NotFoundError('Người dùng không tồn tại!');
+exports.modifyManagementInfo = async (payload) => {
+	const { userId, buildingIds, fullName, phone, dob, cccd, cccdIssueDate, cccdIssueAt, permanentAddress, gender, role } = payload;
 
-	let session;
-	try {
-		const { buildingIds } = payload;
-		const buildingObjectIds = buildingIds.map((id) => new mongoose.Types.ObjectId(id));
-		session = await mongoose.startSession();
-		await session.withTransaction(async () => {
-			const userInfo = {
-				fullName: payload.fullName.trim(),
-				phone: payload.phone.trim(),
-				cccd: payload.cccd,
-				cccdIssueDate: payload.cccdIssueDate,
-				cccdIssueAt: payload.cccdIssueAt.trim(),
-				permanentAddress: payload.permanentAddress,
-				role: payload.role,
-				dob: payload.dob ?? null,
-				gender: payload.gender,
-			};
-			await Services.users.modifyManagementInfo({ ...userInfo }, user._id, session);
+	const buildingObjectIds = buildingIds.map((id) => new mongoose.Types.ObjectId(id));
 
-			await Services.buildings.pullManagementNotMatchBuilding(buildingObjectIds, user._id, session);
+	const userInfo = {
+		fullName: fullName.trim(),
+		phone: phone.trim(),
+		cccd: cccd,
+		cccdIssueDate: cccdIssueDate,
+		cccdIssueAt: cccdIssueAt.trim(),
+		permanentAddress: permanentAddress,
+		role: role,
+		dob: dob ?? null,
+		gender: gender,
+	};
+	await Services.users.modifyManagementInfo({ ...userInfo, userId });
 
-			await Services.buildings.findAndModifyManagement(buildingObjectIds, user._id, payload.role, session);
+	await Services.buildings.pullManagementNotMatchBuilding(buildingObjectIds, userId);
 
-			// throw new BadRequestError('stop for testing');
-			return 'Success';
-		});
+	await Services.buildings.findAndModifyManagement(buildingObjectIds, userId, role);
 
-		await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
-		return 'Success';
-	} catch (error) {
-		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
-		throw error;
-	} finally {
-		if (session) {
-			session.endSession();
-		}
-	}
+	throw new InternalError('Stop for testing');
+	return 'Success';
 };
 
 // role admin only (this is shit)
@@ -146,7 +115,7 @@ exports.removeManager = async (managerId) => {
 	return 'Success';
 };
 
-exports.modifyUserPermission = async (userId, newPermission, redisKey) => {
+exports.modifyUserPermission = async (userId, newPermission) => {
 	const modifyUserRoleInBuildings = await Entity.BuildingsEntity.findOneAndUpdate(
 		{ 'management.user': userId },
 		{
@@ -161,7 +130,6 @@ exports.modifyUserPermission = async (userId, newPermission, redisKey) => {
 	const modifyUserPermission = await Entity.UsersEntity.findOneAndUpdate({ _id: userId }, { role: newPermission }, { new: true });
 	if (!modifyUserPermission) throw new NotFoundError('Người dùng không tồn tại trong hệ thống!');
 
-	await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
 	return 'Success';
 };
 
@@ -171,57 +139,39 @@ exports.checkManagerCollectedCash = async (userId) => {
 	return transactions;
 };
 
-exports.changeUserBuildingManagement = async (data, redisKey) => {
-	let session;
-	try {
-		const userObjectId = new mongoose.Types.ObjectId(data.userId);
-		const listBuildingObjectIds = data.buildingIds.map((b) => new mongoose.Types.ObjectId(b));
-		session = await mongoose.startSession();
-		session.startTransaction();
+exports.changeUserBuildingManagement = async (data) => {
+	const { userId, buildingIds, role } = data;
 
-		await Promise.all([
-			Entity.BuildingsEntity.updateMany(
-				{ 'management.user': userObjectId },
-				{
-					$pull: {
-						management: { user: userObjectId },
-					},
-				},
-				{ session },
-			),
+	// await Promise.all([
+	// 	Entity.BuildingsEntity.updateMany(
+	// 		{ 'management.user': userObjectId },
+	// 		{
+	// 			$pull: {
+	// 				management: { user: userObjectId },
+	// 			},
+	// 		},
+	// 	),
 
-			Entity.BuildingsEntity.updateMany(
-				{ _id: { $in: listBuildingObjectIds } },
-				{
-					$push: {
-						management: {
-							user: userObjectId,
-							role: data.role,
-						},
-					},
-				},
-				{ session },
-			),
-		]);
+	// 	Entity.BuildingsEntity.updateMany(
+	// 		{ _id: { $in: listBuildingObjectIds } },
+	// 		{
+	// 			$push: {
+	// 				management: {
+	// 					user: userObjectId,
+	// 					role: data.role,
+	// 				},
+	// 			},
+	// 		},
+	// 	),
+	// ]);
 
-		await session.commitTransaction();
-
-		await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
-		return 'Success';
-	} catch (error) {
-		if (session) await session.abortTransaction();
-		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
-		throw error;
-	} finally {
-		if (session) session.endSession();
-	}
+	await Services.buildings.updateUserBuildingManagement({ buildingIds, userId, role: data.role });
 };
 
-exports.addDevice = async (userId, deviceId, platform, expoPushToken, redisKey) => {
+exports.addDevice = async (userId, deviceId, platform, expoPushToken) => {
 	const currentUser = await Services.users.findById(userId).lean().exec();
 	if (!currentUser) throw new NotFoundError('Không tìm thấy người dùng');
 	await Services.users.addDevice(userId, deviceId, platform, expoPushToken);
-	await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
 	return 'Success';
 };
 
@@ -234,22 +184,20 @@ exports.setNotification = async (userId, type, enabled) => {
 	};
 };
 
-exports.modifyUserInfo = async (payload, userId) => {
-	const user = await Services.users.findById(userId);
-	if (!user) throw new NotFoundError('Người dùng không tồn tại!');
-
+exports.modifyUserInfo = async (payload) => {
+	const { userId, fullName, phone, cccd, cccdIssueDate, cccdIssueAt, permanentAddress, role, dob, gender } = payload;
 	const userInfo = {
-		fullName: payload.fullName.trim(),
-		phone: payload.phone.trim(),
-		cccd: payload.cccd,
-		cccdIssueDate: payload.cccdIssueDate,
-		cccdIssueAt: payload.cccdIssueAt.trim(),
-		permanentAddress: payload.permanentAddress,
-		role: payload.role,
-		dob: payload.dob ?? null,
-		gender: payload.gender,
+		fullName: fullName.trim(),
+		phone: phone.trim(),
+		cccd: cccd,
+		cccdIssueDate: cccdIssueDate,
+		cccdIssueAt: cccdIssueAt.trim(),
+		permanentAddress: permanentAddress,
+		role: role,
+		dob: dob ?? null,
+		gender: gender,
 	};
-	const result = await Services.users.modifyManagementInfo({ ...userInfo }, user._id);
+	const result = await Services.users.modifyManagementInfo({ ...userInfo, userId });
 
 	return {
 		fullName: result.fullName,

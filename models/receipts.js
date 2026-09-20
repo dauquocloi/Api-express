@@ -36,7 +36,7 @@ const ReceiptsSchema = new Schema(
 			type: Boolean,
 			default: false,
 		},
-		status: { type: String, enum: Object.values(receiptStatus), default: 'unpaid' },
+		status: { type: String, enum: Object.values(receiptStatus), default: receiptStatus['UNPAID'] },
 		amount: {
 			type: Number,
 			min: 0,

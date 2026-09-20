@@ -13,7 +13,9 @@ const {
 	feeUnit,
 	debtStatus,
 	UPDATE_FEE_INDEX_SOURCE,
+	getDebtsReceiptsUnpaidUsedFor,
 } = require('../constants');
+const Roles = require('../constants/userRoles');
 // const { LockInvoiceJob } = require('../jobs/Invoices');
 const { lockInvoiceJob } = require('../jobs/invoice/invoice.job');
 const { lockReceiptJob } = require('../jobs/receipt/receipt.job');
@@ -263,6 +265,7 @@ exports.terminateCheckoutCost = async (checkoutCostId, version) => {
 	}
 };
 
+//should Generate incidental revenue deposit receipt amount
 exports.generateCheckoutCost = async (data) => {
 	const { roomId, contractId, creatorId, feeIndexValues, feesOther, stayDays, roomVersion } = data;
 	const roomObjectId = new mongoose.Types.ObjectId(roomId);
@@ -272,7 +275,10 @@ exports.generateCheckoutCost = async (data) => {
 	const contractOwner = await Services.customers.findIsContractOwnerByRoomId(roomObjectId).lean().exec();
 	if (!contractOwner) throw new NotFoundError(`Phòng không tồn tại chủ hợp đồng !`);
 
-	const debtsAndReceiptUnpaid = await Services.contracts.getDebtsAndReceiptsUnpaid(contractId);
+	const debtsAndReceiptUnpaid = await Services.contracts.getDebtsAndReceiptsUnpaid(
+		contractId,
+		getDebtsReceiptsUnpaidUsedFor['TERMINATE_CONTRACT_EARLY'],
+	);
 	const { fees, depositReceipt, invoicesUnpaid = [], receiptsUnpaid = [], debts = [], contract } = debtsAndReceiptUnpaid;
 	checkExistPendingTransactions(receiptsUnpaid, invoicesUnpaid);
 
@@ -307,7 +313,7 @@ exports.generateCheckoutCost = async (data) => {
 		});
 	}
 
-	await Services.receipts.closeReceiptDeposit({ receiptId: depositReceipt._id });
+	const closeDepositReceipt = await Services.receipts.closeReceiptDeposit({ receiptId: depositReceipt._id });
 
 	const newCheckoutCost = await Services.checkoutCosts.generateCheckoutCost({
 		roomId: roomId,
@@ -326,6 +332,22 @@ exports.generateCheckoutCost = async (data) => {
 		feesOther: feesOther,
 		stayDays: stayDays,
 	});
+
+	const building = await Services.buildings.findById(currentRoom.building).lean().exec();
+	console.log('building: ', building);
+	if (building.includeDepositRevenue === false) {
+		const ownerInfo = building.management.find((m) => m.role === Roles['OWNER']);
+		const incidentalRevenue = await Services.revenues.createIncidentalRevenue({
+			month: currentPeriod.currentMonth,
+			year: currentPeriod.currentYear,
+			buildingId: currentRoom.building,
+			amount: closeDepositReceipt.paidAmount,
+			content: `Khoản bỏ cọc của phòng ${currentRoom.roomIndex}`,
+			collector: ownerInfo._id,
+			date: Date.now(),
+		});
+		console.log('incidentalRevenue: ', incidentalRevenue);
+	}
 
 	if (Array.isArray(newCheckoutCost.debts) && newCheckoutCost.debts?.length > 0) {
 		await Services.debts.closeAndSetSourceInfo({

@@ -1,6 +1,7 @@
 const Joi = require('joi');
 const { JoiObjectId } = require('../../utils/validator');
 const listFeeInitial = require('../../utils/getListFeeInital');
+const { getDebtsReceiptsUnpaidUsedFor } = require('../../constants');
 const initialFeeKeys = listFeeInitial.map((fee) => fee.feeKey);
 
 const customerSchema = Joi.object().keys({
@@ -122,5 +123,10 @@ module.exports = {
 			extentionDate: Joi.date().required(),
 			version: Joi.number().integer().min(1).required(),
 		}),
+	}),
+	getDebtsAndReceiptsUnpaid: Joi.object().keys({
+		usedFor: Joi.string()
+			.valid(...Object.values(getDebtsReceiptsUnpaidUsedFor))
+			.required(),
 	}),
 };

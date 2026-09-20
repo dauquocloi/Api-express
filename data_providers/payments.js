@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-var Entity = require('../models');
 const { AppError, BadRequestError, InternalError } = require('../AppError');
 const { errorCodes } = require('../constants/errorCodes');
 const Services = require('../service');
@@ -16,37 +15,6 @@ const { receiptToDepositRefundStatusMap } = require('../constants/deposits');
 const { SepayError, sepayErrorTypes } = require('../infrastructure/Sepay/SepayError');
 const { notificationJob } = require('../jobs/notification/notification.job');
 const { NOTI_PAYMENT } = require('../jobs/constant/jobNames');
-
-exports.handleSepayIPN = (data) => {
-	let session;
-	try {
-		if (data.transfer_type === 'credit') {
-			const tracsactionContent = data.content;
-		}
-	} catch (error) {
-		next(error);
-	}
-};
-
-exports.collectCashFromEmployee = async (data, cb, next) => {
-	try {
-		const transactionObjectId = new mongoose.Types.ObjectId(data.transactionId);
-		const ownerObjectId = new mongoose.Types.ObjectId(data.userId);
-
-		// const transaction = await Entity.TransactionsEntity.findOne({ _id: transactionObjectId });
-		const transaction = await Services.transactions.findById(transactionObjectId);
-		if (!transaction) {
-			throw new AppError(errorCodes.notExist, `Giao dịch không tồn tại!`, 200);
-		}
-
-		transaction.collector = ownerObjectId;
-		await transaction.save();
-
-		cb(null, { type: transaction.invoice == null ? 'receipt' : 'invoice' });
-	} catch (error) {
-		next(error);
-	}
-};
 
 {
 	/*

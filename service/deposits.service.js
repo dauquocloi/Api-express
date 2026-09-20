@@ -25,56 +25,47 @@ exports.getDepositDetail = async ({ depositId }) => {
 
 exports.findByReceiptId = (receiptId) => Entity.DepositsEntity.findOne({ receipt: receiptId });
 
-exports.cancelledDeposit = async (depositId, version, session) => {
+exports.cancelledDeposit = async (depositId, version) => {
 	const result = await Entity.DepositsEntity.updateOne(
 		{ _id: depositId, version: version },
 		{ $set: { status: depositStatus['CANCELLED'] }, $inc: { version: 1 } },
-		{ session },
 	);
 	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu đặt cọc đã bị thay đổi!');
 	return result;
 };
 
-exports.generateDeposit = async (
-	{
-		roomId,
-		buildingId,
-		receiptId,
-		rent,
-		depositAmount,
-		actualDepositAmount,
-		depositCompletionDate,
-		checkinDate,
-		rentalTerm,
-		numberOfOccupants,
-		customer,
-		interiors,
-		fees,
-		status,
-	},
-	session,
-) => {
-	const [result] = await Entity.DepositsEntity.create(
-		[
-			{
-				room: roomId,
-				building: buildingId,
-				receipt: receiptId,
-				status: status,
-				rent: rent,
-				depositAmount: depositAmount,
-				actualDepositAmount: actualDepositAmount,
-				depositCompletionDate: depositCompletionDate,
-				checkinDate: checkinDate,
-				rentalTerm: rentalTerm,
-				numberOfOccupants: numberOfOccupants,
-				customer: customer,
-				fees: fees,
-				interiors: interiors,
-			},
-		],
-		{ session },
-	);
+exports.generateDeposit = async ({
+	roomId,
+	buildingId,
+	receiptId,
+	rent,
+	depositAmount,
+	actualDepositAmount,
+	depositCompletionDate,
+	checkinDate,
+	rentalTerm,
+	numberOfOccupants,
+	customer,
+	interiors,
+	fees,
+	status,
+}) => {
+	const result = await Entity.DepositsEntity.create({
+		room: roomId,
+		building: buildingId,
+		receipt: receiptId,
+		status: status,
+		rent: rent,
+		depositAmount: depositAmount,
+		actualDepositAmount: actualDepositAmount,
+		depositCompletionDate: depositCompletionDate,
+		checkinDate: checkinDate,
+		rentalTerm: rentalTerm,
+		numberOfOccupants: numberOfOccupants,
+		customer: customer,
+		fees: fees,
+		interiors: interiors,
+	});
 
 	if (!result) throw new InternalError('Tạo khoản đặt cọc thất bại !');
 	return result;

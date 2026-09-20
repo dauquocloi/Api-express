@@ -1,6 +1,7 @@
 const Joi = require('joi');
 const { JoiObjectId, JoiFile } = require('../../utils/validator');
 const ROLES = require('../../constants/userRoles');
+const { paymentConfirmationMode } = require('../../constants');
 
 module.exports = {
 	getUserDetail: Joi.object().keys({
@@ -17,6 +18,9 @@ module.exports = {
 		buildingAddress: Joi.string().required(),
 		roomQuantity: Joi.number().optional(),
 		invoiceNotes: Joi.string().optional(),
+		paymentConfirmationMode: Joi.string()
+			.valid(...Object.values(paymentConfirmationMode))
+			.required(),
 	}),
 	importBuildingFiles: Joi.object().keys({
 		contractPdfUrl: Joi.array()
@@ -90,5 +94,9 @@ module.exports = {
 		logoPath: Joi.string().optional(),
 		iconPath: Joi.string().optional(),
 		active: Joi.string().required(),
+	}),
+	login: Joi.object().keys({
+		userName: Joi.string().required(),
+		password: Joi.string().required(),
 	}),
 };

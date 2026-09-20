@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const Entity = require('../models');
 const uploadFile = require('../utils/uploadFile');
 const getFileUrl = require('../utils/getFileUrl');
 const { errorCodes } = require('../constants/errorCodes');
@@ -11,11 +10,12 @@ const ROLES = require('../constants/userRoles');
 const { TASK_STATUS } = require('../constants/tasks');
 const deleteFileFromS3 = require('../utils/deleteFileFromS3');
 const dayjs = require('dayjs');
+const { uploadTaskImages, deleteTaskImages } = require('./tasks.util');
 
 exports.createTask = async (performers, userId, taskContent, detail, executionDate) => {
 	let performerObjectIds = [];
 
-	const buildings = await Services.buildings.findByManagementId(userId);
+	const buildings = await Services.buildings.findByManagementId(userId).lean().exec();
 	if (!Array.isArray(buildings) || buildings.length === 0) {
 		throw new BadRequestError('Dữ liệu người dùng không tồn tại trong hệ thống!');
 	}
@@ -116,54 +116,94 @@ exports.getTasks = async (userId, page = 1, search, startDate, endDate) => {
 };
 
 exports.modifyTask = async (data) => {
-	const existingTask = await Services.tasks.findById(data.taskId).lean().exec();
-	if (!existingTask) {
-		return new BadRequestError('Dữ liệu không tồn tại!');
-	}
-	if (data.taskImages?.length > 0 && data.removeAllImages) {
+	const { taskId, taskContent, detail, executionDate, performers, status, taskImages, removeAllImages } = data;
+
+	if (taskImages?.length > 0 && removeAllImages) {
 		throw new BadRequestError('Dữ liệu đầu vào không hợp lệ!');
 	}
 
-	// Prepare update data
-	const updateData = {
-		taskContent: data.taskContent,
-		detail: data.detail,
-		executionDate: data.executionDate,
-		performers: data.performers,
-		status: data.status,
-	};
+	const existingTask = await Services.tasks.findById(taskId).lean().exec();
 
-	if (data.taskImages?.length > 0) {
-		const uploadResults = await Promise.all(data.taskImages.map((image) => uploadFile(image)));
-
-		updateData.images = uploadResults.map((r) => r.Key);
-
-		if (existingTask.images?.length > 0) {
-			await Promise.all(existingTask.images.map((image) => deleteFileFromS3(image)));
-		}
-	}
-	if (data.removeAllImages) {
-		if (existingTask.images?.length > 0) {
-			await Promise.all(existingTask.images.map((image) => deleteFileFromS3(image)));
-		}
-
-		updateData.images = [];
+	if (!existingTask) {
+		throw new BadRequestError('Dữ liệu không tồn tại!');
 	}
 
-	// Update task and return populated document in one query
-	const taskModified = await Services.tasks.updateTask({ taskId: data.taskId, ...updateData });
-	console.log('taskModified: ', taskModified);
+	const oldImageKeys = existingTask.images ?? [];
 
-	// Enqueue notification if task completed
-	if (data.status === TASK_STATUS['COMPLETED'] && existingTask.status !== TASK_STATUS['COMPLETED']) {
+	let newImageKeys = [];
+	let taskModified;
+
+	try {
+		// =====================================================
+		// 1. Upload ảnh mới
+		// =====================================================
+
+		if (taskImages?.length > 0) {
+			newImageKeys = await uploadTaskImages(taskImages);
+		}
+
+		// =====================================================
+		// 2. Prepare update data
+		// =====================================================
+
+		const updateData = {
+			taskContent,
+			detail,
+			executionDate,
+			performers,
+			status,
+		};
+
+		if (taskImages?.length > 0) {
+			updateData.images = newImageKeys;
+		}
+
+		if (removeAllImages) {
+			updateData.images = [];
+		}
+
+		// =====================================================
+		// 3. Update MongoDB
+		// =====================================================
+
+		taskModified = await Services.tasks.updateTask({
+			taskId,
+			...updateData,
+		});
+	} catch (error) {
+		// Rollback những ảnh mới đã upload
+		if (newImageKeys.length > 0) {
+			await deleteTaskImages(newImageKeys);
+		}
+
+		throw error;
+	}
+
+	// =====================================================
+	// 4. Notification
+	// =====================================================
+
+	if (status === TASK_STATUS['COMPLETED'] && existingTask.status !== TASK_STATUS['COMPLETED']) {
 		await notificationJob({
 			managementIds: taskModified.managements.map((m) => m._id),
-			performerIds: data.performers,
+			performerIds: performers,
 			taskTitle: taskModified.taskContent,
-			taskId: data.taskId.toString(),
+			taskId: taskId.toString(),
 			notiType: NOTI_TASK_COMPLETED,
 		});
 	}
+
+	// =====================================================
+	// 5. Cleanup ảnh cũ
+	// =====================================================
+
+	if (taskImages?.length > 0 || removeAllImages) {
+		await deleteTaskImages(oldImageKeys);
+	}
+
+	// =====================================================
+	// 6. Response
+	// =====================================================
 
 	return {
 		_id: dayjs(taskModified.executionDate).format('YYYY-MM-DD'),

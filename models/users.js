@@ -37,7 +37,6 @@ const UsersSchema = new Schema(
 		cccd: {
 			type: String,
 			trim: true,
-			required: false,
 			unique: true,
 		},
 		cccdIssueDate: {
@@ -54,8 +53,7 @@ const UsersSchema = new Schema(
 		},
 		expoPushToken: {
 			type: String,
-			unique: true,
-			default: '',
+			trim: true,
 		},
 		deviceId: { type: String },
 		platform: { type: String },

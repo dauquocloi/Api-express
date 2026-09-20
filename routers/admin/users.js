@@ -1,6 +1,5 @@
 const UseCase = require('../../data_providers/admin');
 const asyncHandler = require('../../utils/asyncHandler');
-const { client: redis } = require('../../config').redisDb;
 const { SuccessResponse } = require('../../utils/apiResponse');
 
 exports.getUserDetail = asyncHandler(async (req, res) => {
@@ -23,6 +22,5 @@ exports.createUser = asyncHandler(async (req, res) => {
 		role: data.role,
 		gender: data.gender,
 	});
-	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 	return new SuccessResponse('Success', result).send(res);
 });

@@ -156,9 +156,10 @@ exports.getDebtsAndReceiptsUnpaid = asyncHandler(async (req, res) => {
 		endPoint: `${req.method}:${req.route.path}`,
 		requestHash: generateRequestHash({
 			contractId: req.params.contractId,
+			usedFor: req.body.usedFor,
 		}),
 		resourceId: req.params.contractId,
-		execute: () => UseCase.getDebtsAndReceiptsUnpaid(req.params.contractId, req.user._id),
+		execute: () => UseCase.getDebtsAndReceiptsUnpaid(req.params.contractId, req.user._id, req.body.usedFor),
 	});
 	return new SuccessResponse('Success', result).send(res);
 });

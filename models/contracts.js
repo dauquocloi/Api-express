@@ -81,8 +81,8 @@ const ContractsSchema = new Schema(
 		room: { type: Schema.Types.ObjectId, ref: 'RoomsEntity', required: true },
 		depositReceiptId: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity', required: false },
 		depositId: { type: Schema.Types.ObjectId, ref: 'DepositsEntity' },
-		user: { type: Schema.Types.ObjectId, ref: 'UsersEntity' }, //owner A
-		customer: { type: Schema.Types.ObjectId, ref: 'CustomersEntity' }, // owner B
+		user: { type: Schema.Types.ObjectId, ref: 'UsersEntity', required: true }, //owner A
+		customer: { type: Schema.Types.ObjectId, ref: 'CustomersEntity', required: true }, // owner B
 
 		rent: { type: Number, required: true },
 

@@ -1,10 +1,9 @@
 const mongoose = require('mongoose');
-const MongoConnect = require('../utils/MongoConnect');
 var Entity = require('../models');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
-const Pipelines = require('../service/aggregates');
 const { BadRequestError, NotFoundError } = require('../AppError');
 const Services = require('../service');
+const { expenditureType } = require('../constants');
 
 exports.getExpenditures = async (buildingId, month, year) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -46,114 +45,77 @@ exports.getExpenditures = async (buildingId, month, year) => {
 };
 
 exports.createExpenditure = async (data) => {
-	const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
-	const spenderObjectId = new mongoose.Types.ObjectId(data.spender);
+	const { buildingId, content, amount, type, spender, date } = data;
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
-	if (data.type == 'incidental') {
+	if (type === expenditureType['INCIDENTAL']) {
 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
-		const newIncidentalExpenditure = await Entity.ExpendituresEntity.create({
+		const newIncidentalExpenditure = await Services.expenditures.generateExpenditure({
 			month: currentPeriod.currentMonth,
 			year: currentPeriod.currentYear,
-			content: data.content,
-			amount: data.amount,
-			spender: spenderObjectId || null,
-			type: 'incidental',
-			building: buildingObjectId,
-			date: data.date,
+			content,
+			amount,
+			type: expenditureType['INCIDENTAL'],
+			building: buildingId,
+			spender,
+			date,
 		});
 
 		return newIncidentalExpenditure;
-	} else if (data.type == 'periodic' || !data.type) {
-		const newPeriodicExpenditure = new Entity.PeriodicExpendituresEntity({
-			content: data.content,
-			amount: data.amount,
+	} else if (type === expenditureType['PERIODIC']) {
+		const newPeriodicExpenditure = await Services.expenditures.generatePeriodicExpenditure({
+			content: content,
+			amount: amount,
 			building: buildingObjectId,
 		});
-		const createPeriodicExpenditure = await newPeriodicExpenditure.save();
 
-		return createPeriodicExpenditure;
+		return newPeriodicExpenditure;
 	} else {
 		throw new BadRequestError('Expenditure type invalid');
 	}
 };
 
 exports.modifyExpenditure = async (data) => {
-	const expenditureObjectId = new mongoose.Types.ObjectId(data.expenditureId);
+	const { spender, amount, content, date, expenditureId, type, version } = data;
 
-	if (data.type === 'incidental') {
-		const currentExpenditure = await Entity.ExpendituresEntity.findOne({ _id: expenditureObjectId });
-		if (currentExpenditure == null) {
-			throw new NotFoundError(`Khoản chi ${data.expenditureId} không tồn tại`);
-		}
+	if (type === expenditureType['INCIDENTAL']) {
+		const updatedExpenditure = await Services.expenditures.modifyExpenditure({
+			expenditureId,
+			content,
+			amount,
+			date,
+			spender,
+			version,
+		});
 
-		const newExpenditure = {
-			content: data.content,
-			amount: data.amount,
-			date: data.date,
-			// spender: data.spender,
-		};
-
-		Object.assign(currentExpenditure, newExpenditure);
-
-		const updatedExpenditure = await currentExpenditure.save();
 		return updatedExpenditure;
 	}
-	if (data.type === 'periodic') {
-		const currentExpenditure = await Entity.PeriodicExpendituresEntity.findOne({ _id: expenditureObjectId });
-		if (currentExpenditure == null) {
-			throw new NotFoundError(`Khoản chi ${data.expenditureId} không tồn tại`);
-		}
-		const newExpenditure = {
-			content: data.content,
-			amount: data.amount,
-		};
+	if (type === expenditureType['PERIODIC']) {
+		const updatedPeriodicExpenditure = await Services.expenditures.modifyPeriodicExpenditure({
+			expenditureId,
+			content,
+			amount,
+			version,
+		});
 
-		Object.assign(currentExpenditure, newExpenditure);
-
-		const updatedExpenditure = await currentExpenditure.save();
-
-		return updatedExpenditure;
+		return updatedPeriodicExpenditure;
 	}
 
 	throw new BadRequestError('Expenditure type invalid');
 };
 
 exports.deleteExpenditure = async (data) => {
-	const expenditureObjectId = new mongoose.Types.ObjectId(data.expenditureId);
-	if (data.type === 'incidental') {
-		const deletedExpenditure = await Entity.ExpendituresEntity.findOneAndDelete({ _id: expenditureObjectId });
-		if (deletedExpenditure === null) {
-			throw new NotFoundError(`Không tìm thấy khoản chi với id: ${data.expenditureId} `);
-		}
-		return 'Success';
-	} else if (data.type === 'periodic') {
-		const deletedPeriodicExpenditure = await Entity.PeriodicExpendituresEntity.findOneAndDelete({ _id: expenditureObjectId });
-		if (deletedPeriodicExpenditure === null) {
-			throw new NotFoundError(`Không tìm thấy khoản chi với id: ${data.expenditureId} `);
-		}
-		return 'Success';
+	const { expenditureId, type } = data;
+
+	if (type === expenditureType['INCIDENTAL']) {
+		const currentExpenditure = await Services.expenditures.findById(expenditureId);
+		if (!currentExpenditure) throw new NotFoundError('Dữ liệu không tốn tại !');
+		if (currentExpenditure.locked === true) throw new BadRequestError('Dữ liệu khoản chi này không thể cập nhật !');
+
+		await Services.expenditures.removeExpenditure({ expenditureId });
+	} else if (type === expenditureType['PERIODIC']) {
+		await Services.expenditures.removePeriodicExpenditure({ expenditureId });
 	} else {
 		throw new BadRequestError('Expenditure type invalid');
 	}
 };
-
-//========== UN REFACTORED ========== //
-
-//====NOT USED====//
-// exports.createPeriodicExpenditure = async (data, cb, next) => {
-// 	try {
-// 		const db = MongoConnect.Connect(config.database.fullname);
-// 		const buildingObjectId = new mongoose.Types.ObjectId(data.buildingId);
-
-// 		const newPeriodcExpenditure = new Entity.PeriodicExpendituresEntity({
-// 			content: data.content,
-// 			amount: data.amount,
-// 			building: buildingObjectId,
-// 		});
-// 		const createPeriodicExpenditure = await newPeriodcExpenditure.save();
-
-// 		cb(null, createPeriodicExpenditure);
-// 	} catch (error) {
-// 		next(error);
-// 	}
-// };

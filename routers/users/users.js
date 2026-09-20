@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const asyncHandler = require('../../utils/asyncHandler');
 const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
 const { client: redis } = require('../../config').redisDb;
+const { executeIdempotent } = require('../../utils/idempotent');
+const generateRequestHash = require('../../utils/generateRequestHash');
 
 // global.config = require('../../config');
 
@@ -14,88 +16,43 @@ exports.getAll = asyncHandler(async (req, res) => {
 	return new SuccessResponse('Success', result).send(res);
 });
 
-// exports.create = (req, res, next) => {
-// 	var data = req.body;
-// 	console.log('this is log of req user create:', data);
-
-// 	UseCase.create(data, (err, result) => {
-// 		if (err) {
-// 			return res.status(204).send({
-// 				errorCode: 0,
-// 				data: {},
-// 				message: 'created fail',
-// 				errors: [],
-// 			});
-// 		} else {
-// 			return res.status(201).send({
-// 				errorCode: 0,
-// 				data: result,
-// 				message: 'succesfull created',
-// 				errors: [],
-// 			});
-// 		}
-// 	});
-// };
-
-// exports.register = async (req, res) => {
-// 	var data = req.body;
-// 	// mã hóa Mật Khẩu
-// 	encryptedPassword = await bcrypt.hash(data.password, 5);
-// 	data.password = encryptedPassword;
-// 	console.log(data.password);
-// 	UseCase.getEmail(data, (err, result) => {
-// 		if (result === null) {
-// 			UseCase.create(data, (err, result) => {
-// 				if (err) {
-// 					return res.status(204).send({
-// 						errorCode: 0,
-// 						data: {},
-// 						message: 'created fail',
-// 						errors: [],
-// 					});
-// 				} else {
-// 					return res.status(201).send({
-// 						errorCode: 0,
-// 						data: result,
-// 						message: 'succesfull created',
-// 						errors: [],
-// 					});
-// 				}
-// 			});
-// 		} else {
-// 			// trả về cho client
-// 			return res.status(200).send({
-// 				errorCode: 0,
-// 				data: [],
-// 				message: 'khứa này có rồi',
-// 				errors: [],
-// 			});
-// 		}
-// 	});
-// }
-
-// exports.modifyPassword = async (req, res, next) => {
-// 	let data = { ...req.body, ...req.params };
-
-// 	UseCase.modifyPassword(
-// 		data,
-// 		(err, result) => {
-// 			if (!err) {
-// 				return res.status(200).send({
-// 					errorCode: 0,
-// 					message: 'Change password success',
-// 					errors: [],
-// 				});
-// 			}
-// 		},
-// 		next,
-// 	);
-// };
-
 exports.modifyManagementInfo = asyncHandler(async (req, res) => {
-	let data = { ...req.body, ...req.params };
+	const { userId } = req.params;
+	const { buildingIds, fullName, phone, dob, cccd, cccdIssueDate, cccdIssueAt, permanentAddress, gender, role } = req.body;
+	const data = {
+		userId,
+		buildingIds,
+		fullName,
+		phone,
+		dob,
+		cccd,
+		cccdIssueDate,
+		cccdIssueAt,
+		permanentAddress,
+		gender,
+		role,
+	};
 	console.log('log of data from modifyUserInfo: ', data);
-	await UseCase.modifyManagementInfo(req.body, req.params.userId, req.redisKey);
+	await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			userId: userId,
+			buildingIds: buildingIds,
+			fullName: fullName,
+			phone: phone,
+			dob: dob,
+			cccd: cccd,
+			cccdIssueDate: cccdIssueDate,
+			cccdIssueAt: cccdIssueAt,
+			permanentAddress: permanentAddress,
+			gender: gender,
+			role: role,
+		}),
+		resourceId: userId,
+		execute: () => UseCase.modifyManagementInfo(data),
+	});
 	return new SuccessMsgResponse('Success').send(res);
 });
 
@@ -121,10 +78,40 @@ exports.getListSelectionManagements = asyncHandler(async (req, res) => {
 });
 
 exports.createManagement = asyncHandler(async (req, res) => {
-	let data = req.body;
+	const { buildingIds, fullName, phone, dob, cccd, cccdIssueDate, cccdIssueAt, permanentAddress, gender, role } = req.body;
+	const data = {
+		buildingIds,
+		fullName: fullName.trim(),
+		phone: phone.trim(),
+		dob,
+		cccd,
+		cccdIssueDate,
+		cccdIssueAt,
+		permanentAddress: permanentAddress.trim(),
+		gender,
+		role,
+	};
 	console.log('log of data from createManagement: ', data);
-	await UseCase.create(data, req.redisKey);
-	return new SuccessMsgResponse('Success').send(res);
+	const result = await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			buildingIds: buildingIds,
+			fullName: fullName,
+			phone: phone,
+			dob: dob,
+			cccd: cccd,
+			cccdIssueDate: cccdIssueDate,
+			cccdIssueAt: cccdIssueAt,
+			permanentAddress: permanentAddress,
+			gender: gender,
+			role: role,
+		}),
+		resourceId: req.user._id,
+		execute: () => UseCase.create(data),
+	});
+	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.modifyUserPermission = asyncHandler(async (req, res) => {
@@ -142,16 +129,22 @@ exports.checkManagerCollectedCash = asyncHandler(async (req, res) => {
 });
 
 exports.changeUserBuildingManagement = asyncHandler(async (req, res) => {
-	let data = { ...req.params, ...req.body };
+	const { userId } = req.params;
+	const { buildingIds, role } = req.body;
+	const data = {
+		userId,
+		buildingIds,
+		role,
+	};
 	console.log('log of data from changeUserBuildingManagement: ', data);
-	await UseCase.changeUserBuildingManagement(data, req.redisKey);
+	await UseCase.changeUserBuildingManagement(data);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
 exports.addDevice = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('log of data from addDevice: ', data);
-	await UseCase.addDevice(req.user._id, data.deviceId, data.platform, data.expoPushToken, req.redisKey);
+	await UseCase.addDevice(req.user._id, data.deviceId, data.platform, data.expoPushToken);
 	return new SuccessMsgResponse('Success').send(res);
 });
 
@@ -159,15 +152,24 @@ exports.setNotification = asyncHandler(async (req, res) => {
 	const data = req.body;
 	console.log('log of data from setNotification: ', data);
 	const result = await UseCase.setNotification(req.user._id, data.type, data.enabled);
-	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.modifyUserInfo = asyncHandler(async (req, res) => {
-	let data = req.body;
+	const { fullName, phone, dob, cccd, cccdIssueDate, cccdIssueAt, permanentAddress, gender } = req.body;
+	const data = {
+		userId: req.user._id,
+		fullName: fullName.trim(),
+		phone: phone.trim(),
+		dob,
+		cccd,
+		cccdIssueDate,
+		cccdIssueAt,
+		permanentAddress: permanentAddress.trim(),
+		gender,
+	};
 	console.log('log of data from modifyUserInfo: ', data);
-	const result = await UseCase.modifyUserInfo(req.body, req.user._id);
-	await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
+	const result = await UseCase.modifyUserInfo(data);
 
 	return new SuccessResponse('Success', result).send(res);
 });

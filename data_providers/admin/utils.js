@@ -8,6 +8,7 @@ const { contractStatus: CONTRACT_STATUS } = require('../../constants/contracts')
 const generateContractCode = require('../../utils/generateContractCode');
 const { contractJob } = require('../../jobs/contract/contract.job');
 const { GENERATE_CONTRACT } = require('../../jobs/constant/jobNames');
+const { UPDATE_FEE_INDEX_SOURCE } = require('../../constants');
 
 function parseInteriors(row) {
 	const interiorsMap = {};
@@ -217,7 +218,7 @@ function parseVehicles(data, roomId, contractId, rowIndex, customerMap) {
 	return vehicles;
 }
 
-const createRooms = async ({ data, buildingId, session }) => {
+const createRooms = async ({ data, buildingId }) => {
 	const roomData = data.map((room) => ({
 		building: buildingId,
 		roomIndex: room.roomIndex?.toString()?.trim() || '',
@@ -226,7 +227,7 @@ const createRooms = async ({ data, buildingId, session }) => {
 		interior: parseInteriors(room),
 	}));
 
-	const roomsCreated = await Services.rooms.importRooms(roomData, session);
+	const roomsCreated = await Services.rooms.importRooms(roomData);
 
 	const roomMap = new Map();
 
@@ -240,7 +241,7 @@ const createRooms = async ({ data, buildingId, session }) => {
 	};
 };
 
-const createDepositReceipts = async ({ data, roomMap, session, ownerId }) => {
+const createDepositReceipts = async ({ data, roomMap, ownerId }) => {
 	const depositReceiptData = data
 		.filter((room) => room.roomState !== ROOM_STATE['UN_HIRED'])
 		.map((room) => ({
@@ -249,12 +250,12 @@ const createDepositReceipts = async ({ data, roomMap, session, ownerId }) => {
 			amount: Number(room.deposit),
 			paidAmount: Number(room.depositPaidAmount),
 			date: new Date(room.depositPaidDate),
-			month: new Date(room.signDate).getMonth() + 1,
-			year: new Date(room.signDate).getFullYear(),
+			// month: new Date(room.signDate).getMonth() + 1,
+			// year: new Date(room.signDate).getFullYear(),
 			creater: ownerId,
 		}));
 
-	const receipts = await Services.receipts.importReceiptsDeposit(depositReceiptData, session);
+	const receipts = await Services.receipts.importReceiptsDeposit(depositReceiptData);
 
 	const depositReceiptMap = new Map();
 
@@ -268,7 +269,7 @@ const createDepositReceipts = async ({ data, roomMap, session, ownerId }) => {
 	};
 };
 
-const createDepositTransactions = async ({ receipts, ownerId, session }) => {
+const createDepositTransactions = async ({ receipts, ownerId }) => {
 	const payload = receipts.map((receipt) => ({
 		collector: ownerId,
 		receipt: receipt._id,
@@ -278,10 +279,10 @@ const createDepositTransactions = async ({ receipts, ownerId, session }) => {
 		year: receipt.year,
 	}));
 
-	return Services.transactions.importCashTransactions(payload, session);
+	return Services.transactions.importCashTransactions(payload);
 };
 
-const createFees = async ({ data, roomMap, ownerId, session }) => {
+const createFees = async ({ data, roomMap, ownerId }) => {
 	const feesData = [];
 	const feesMap = new Map();
 
@@ -298,28 +299,25 @@ const createFees = async ({ data, roomMap, ownerId, session }) => {
 		feesMap.set(roomMap.get(room.roomIndex.trim()), fees);
 	});
 
-	const createdFees = await Services.fees.importFees(feesData, session);
+	const createdFees = await Services.fees.importFees(feesData);
 
 	const feeIndexHistoryPayload = createdFees
 		.filter((fee) => fee.unit === FEE_UNIT['INDEX'])
 		.map((fee) => ({
-			feeKey: fee.feeKey,
-			fee: fee._id,
+			feeId: fee._id,
 			room: fee.room,
-			lastIndex: fee.lastIndex,
-			prevIndex: fee.lastIndex,
-			lastUpdated: new Date(),
-			prevUpdated: new Date(),
-			lastEditor: ownerId,
-			prevEditor: ownerId,
+			fromIndex: fee.lastIndex,
+			toIndex: fee.lastIndex,
+			editor: ownerId,
+			fromSource: UPDATE_FEE_INDEX_SOURCE['CREATE_FEE'],
 		}));
 
-	await Services.fees.createFeeIndexHistory(feeIndexHistoryPayload, session);
+	await Services.fees.generateFeeIndexRecords(feeIndexHistoryPayload);
 
 	return { createdFees, feesMap };
 };
 
-const createContracts = async ({ data, roomMap, depositReceiptMap, session, feesMap }) => {
+const createContracts = async ({ data, roomMap, depositReceiptMap, feesMap }) => {
 	const contractData = [];
 
 	for (const room of data) {
@@ -362,7 +360,7 @@ const createContracts = async ({ data, roomMap, depositReceiptMap, session, fees
 		});
 	}
 
-	const contracts = await Services.contracts.importContracts(contractData, session);
+	const contracts = await Services.contracts.importContracts(contractData);
 
 	const contractMap = new Map();
 
@@ -376,7 +374,7 @@ const createContracts = async ({ data, roomMap, depositReceiptMap, session, fees
 	};
 };
 
-const createCustomers = async ({ data, roomMap, contractMap, session }) => {
+const createCustomers = async ({ data, roomMap, contractMap }) => {
 	const customerData = [];
 	const customerMap = new Map();
 
@@ -398,10 +396,7 @@ const createCustomers = async ({ data, roomMap, contractMap, session }) => {
 		});
 	});
 
-	const createdCustomers = await Services.customers.importCustomers(
-		customerData.map((c) => c.data),
-		session,
-	);
+	const createdCustomers = await Services.customers.importCustomers(customerData.map((c) => c.data));
 
 	createdCustomers.forEach((customer, i) => {
 		const { _rowIndex, _clientIndex } = customerData[i];
@@ -416,7 +411,7 @@ const createCustomers = async ({ data, roomMap, contractMap, session }) => {
 	};
 };
 
-const linkContractOwners = async ({ contracts, createdCustomers, session }) => {
+const linkContractOwners = async ({ contracts, createdCustomers }) => {
 	const ownerCustomers = createdCustomers.filter((c) => c.isContractOwner);
 
 	const ownerByContract = new Map();
@@ -437,10 +432,10 @@ const linkContractOwners = async ({ contracts, createdCustomers, session }) => {
 		}
 	});
 
-	await Services.contracts.importManyCustomerRef(ownerByContract, session);
+	await Services.contracts.importManyCustomerRef(ownerByContract);
 };
 
-const createVehicles = async ({ data, roomMap, contractMap, customerMap, session }) => {
+const createVehicles = async ({ data, roomMap, contractMap, customerMap }) => {
 	const vehicleData = [];
 
 	data.forEach((row, rowIndex) => {
@@ -453,7 +448,7 @@ const createVehicles = async ({ data, roomMap, contractMap, customerMap, session
 		vehicleData.push(...parseVehicles(row, roomId, contractId, rowIndex, customerMap));
 	});
 
-	return Services.vehicles.importVehicles(vehicleData, session);
+	return Services.vehicles.importVehicles(vehicleData);
 };
 
 const addGenerateContractPdfJobs = async (contractIds, buildingId) => {

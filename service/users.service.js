@@ -8,11 +8,7 @@ exports.findById = (userId) => {
 	return Entity.UsersEntity.findById(userId);
 };
 
-exports.findUserByPhone = async (phone, session) => {
-	let query = Entity.UsersEntity.findOne({ phone: phone });
-	if (session) query.session(session);
-	return await query.lean().exec();
-};
+exports.findUserByPhone = (phone) => Entity.UsersEntity.findOne({ phone: phone });
 
 // exports.createUser = async (user, accessTokenKey, refreshTokenKey, session) => {
 // 	const [createdUser] = await Entity.UsersEntity.create(
@@ -85,10 +81,7 @@ exports.importUser = async ({ username, role, fullName, password, permanentAddre
 	return result.toObject();
 };
 
-exports.createManagement = async (
-	{ fullName, phone, dob, cccd, cccdIssueDate, cccdIssueAt, permanentAddress, role, gender, password, username },
-	session,
-) => {
+exports.createManagement = async ({ fullName, phone, dob, cccd, cccdIssueDate, cccdIssueAt, permanentAddress, role, gender, password, username }) => {
 	const notificationSetting =
 		role === Roles.OWNER
 			? ownerNotiSettings.reduce((acc, key) => {
@@ -100,33 +93,24 @@ exports.createManagement = async (
 					return acc;
 			  }, {});
 
-	const [result] = await Entity.UsersEntity.create(
-		[
-			{
-				fullName: fullName,
-				phone: phone,
-				birthdate: dob,
-				cccd: cccd,
-				cccdIssueDate: cccdIssueDate,
-				cccdIssueAt: cccdIssueAt,
-				permanentAddress: permanentAddress,
-				role: role,
-				gender,
-				username: username,
-				password: password,
-				notificationSetting: notificationSetting,
-			},
-		],
-		{ session },
-	);
+	const result = await Entity.UsersEntity.create({
+		fullName: fullName,
+		phone: phone,
+		birthdate: dob,
+		cccd: cccd,
+		cccdIssueDate: cccdIssueDate,
+		cccdIssueAt: cccdIssueAt,
+		permanentAddress: permanentAddress,
+		role: role,
+		gender,
+		username: username,
+		password: password,
+		notificationSetting: notificationSetting,
+	});
 	return result.toObject();
 };
 
-exports.modifyManagementInfo = async (
-	{ fullName, phone, dob, cccd, cccdIssueDate, cccdIssueAt, permanentAddress, gender, role },
-	userId,
-	session = null,
-) => {
+exports.modifyManagementInfo = async ({ userId, fullName, phone, dob, cccd, cccdIssueDate, cccdIssueAt, permanentAddress, gender, role }) => {
 	const result = await Entity.UsersEntity.findOneAndUpdate(
 		{ _id: userId },
 		{
@@ -142,13 +126,13 @@ exports.modifyManagementInfo = async (
 				gender: gender,
 			},
 		},
-		{ session, new: true },
+		{ new: true },
 	);
-	if (!result) throw new NotFoundError('User not found');
+	if (!result) throw new NotFoundError('Người dùng không tồn tại !');
 	return result.toObject();
 };
 
-exports.setNotificationSetting = async (userId, type, enabled, session = null) => {
+exports.setNotificationSetting = async (userId, type, enabled) => {
 	const result = await Entity.UsersEntity.findOneAndUpdate(
 		{ _id: userId },
 		{
@@ -156,7 +140,6 @@ exports.setNotificationSetting = async (userId, type, enabled, session = null) =
 				[`notificationSetting.${type}`]: enabled,
 			},
 		},
-		{ session },
 	);
 	if (!result) throw new NotFoundError('User not found');
 	return result.toObject();

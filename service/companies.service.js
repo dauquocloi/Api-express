@@ -5,24 +5,19 @@ const findById = (companyId) => Entity.CompaniesEntity.findById(companyId);
 
 const findByUserId = (userId) => Entity.CompaniesEntity.findOne({ user: userId });
 
-const createCompany = async ({ fullName, shortName, status, user }, session = null) => {
-	const [result] = await Entity.CompaniesEntity.create(
-		[
-			{
-				fullName,
-				shortName,
-				status,
-				user,
-			},
-		],
-		{ session },
-	);
+const createCompany = async ({ fullName, shortName, status, user }) => {
+	const result = await Entity.CompaniesEntity.create({
+		fullName,
+		shortName,
+		status,
+		user,
+	});
 
 	if (!result) throw new InternalError('Create company fail');
 	return result.toObject();
 };
 
-const setCompanyPermission = async ({ companyId, permission, enabled, version }, session = null) => {
+const setCompanyPermission = async ({ companyId, permission, enabled, version }) => {
 	const result = await Entity.CompaniesEntity.findOneAndUpdate(
 		{ _id: companyId, version },
 		{
@@ -31,7 +26,6 @@ const setCompanyPermission = async ({ companyId, permission, enabled, version },
 		},
 		{
 			new: true,
-			session,
 		},
 	);
 

@@ -5,29 +5,6 @@ const { getTransactionManager } = require('../../instance');
 const { TRANS_STATUS } = require('../../constants/transactions');
 const { SepayError } = require('../../infrastructure/Sepay/SepayError');
 
-exports.collectCashFromEmployee = (req, res, next) => {
-	try {
-		const data = { ...req.params, ...req.user };
-		console.log('log of collectCashFromEmployee', data);
-		UseCase.collectCashFromEmployee(
-			data,
-			(err, result) => {
-				if (!err) {
-					return res.status(200).send({
-						errorCode: 0,
-						message: 'succesfull',
-						data: result,
-						errors: [],
-					});
-				}
-			},
-			next,
-		);
-	} catch (error) {
-		next(error);
-	}
-};
-
 exports.testSocket = asyncHandler(async (req, res) => {
 	const data = req.body;
 	console.log('log of testSocket', data);

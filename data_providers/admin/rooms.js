@@ -1,5 +1,3 @@
-const mongoose = require('mongoose');
-const Entity = require('../../models');
 const XLSX = require('xlsx');
 const fs = require('fs');
 const {
@@ -18,57 +16,47 @@ const {
 	addGenerateContractPdfJobs,
 } = require('./utils');
 const Services = require('../../service');
-const { BadRequestError } = require('../../AppError');
-const generateContractCode = require('../../utils/generateContractCode');
-const { feeUnit } = require('../../constants/fees');
+const { BadRequestError, InternalError } = require('../../AppError');
 
 exports.importRooms = async (data) => {
-	let session;
+	const { buildingId, ownerId, roomFile } = data;
 	let contractIds = [];
-	try {
-		session = await mongoose.startSession();
-		await session.withTransaction(async () => {
-			const building = await Services.buildings.findById(data.buildingId).session(session).lean().exec();
-			if (!building) throw new BadRequestError('Building not found');
 
-			let workBook = XLSX.read(data.roomFile.buffer, { type: 'buffer' });
-			let workSheet = workBook.Sheets[workBook.SheetNames[0]];
-			const jsonData = XLSX.utils.sheet_to_json(workSheet);
+	// const building = await Services.buildings.findById(buildingId).lean().exec();
+	// if (!building) throw new BadRequestError('Building not found');
 
-			const { roomMap } = await createRooms({ data: jsonData, buildingId: building._id, session });
+	let workBook = XLSX.read(roomFile.buffer, { type: 'buffer' });
+	let workSheet = workBook.Sheets[workBook.SheetNames[0]];
+	const jsonData = XLSX.utils.sheet_to_json(workSheet);
 
-			const { receipts, depositReceiptMap } = await createDepositReceipts({ data: jsonData, roomMap, ownerId: data.ownerId, session });
+	const { roomMap } = await createRooms({ data: jsonData, buildingId });
 
-			const depositTransactions = await createDepositTransactions({ receipts: receipts, ownerId: data.ownerId, session });
+	const { receipts, depositReceiptMap } = await createDepositReceipts({ data: jsonData, roomMap, ownerId: ownerId });
 
-			const { createdFees, feesMap } = await createFees({ data: jsonData, roomMap, ownerId: data.ownerId, session });
+	const depositTransactions = await createDepositTransactions({ receipts: receipts, ownerId: ownerId });
 
-			const { contracts, contractMap } = await createContracts({ data: jsonData, roomMap, depositReceiptMap, feesMap: feesMap, session });
-			contractIds = contracts.map((c) => c._id);
+	const { createdFees, feesMap } = await createFees({ data: jsonData, roomMap, ownerId: ownerId });
 
-			const { customerData, createdCustomers, customerMap } = await createCustomers({ data: jsonData, roomMap, contractMap, session });
+	const { contracts, contractMap } = await createContracts({ data: jsonData, roomMap, depositReceiptMap, feesMap: feesMap });
+	contractIds = contracts.map((c) => c._id);
 
-			await linkContractOwners({
-				contracts,
-				createdCustomers,
-				session,
-			});
+	const { customerData, createdCustomers, customerMap } = await createCustomers({ data: jsonData, roomMap, contractMap });
 
-			await createVehicles({
-				data: jsonData,
-				roomMap,
-				contractMap,
-				customerMap,
-				session,
-			});
-		});
+	await linkContractOwners({
+		contracts,
+		createdCustomers,
+	});
 
-		await addGenerateContractPdfJobs(contractIds, data.buildingId);
+	await createVehicles({
+		data: jsonData,
+		roomMap,
+		contractMap,
+		customerMap,
+	});
 
-		return 'Success';
-	} finally {
-		if (session) {
-			session.endSession();
-		}
-	}
+	throw new InternalError('stop for testing');
+
+	await addGenerateContractPdfJobs(contractIds, buildingId);
+
+	return 'Success';
 };

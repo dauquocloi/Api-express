@@ -107,11 +107,10 @@ exports.generateTransferTransactionByManagement = async ({
 	return result.toObject();
 };
 
-exports.confirmTransaction = async (transactionId, session) => {
+exports.confirmTransaction = async (transactionId) => {
 	const result = await Entity.TransactionsEntity.updateOne(
 		{ _id: transactionId },
 		{ $set: { ownerConfirmed: OWNER_CONFIRMED_STATUS['CONFIRMED'], confirmedDate: new Date() } },
-		{ session },
 	);
 	if (result.matchedCount === 0) throw new NotFoundError('Không tìm thấy bản ghi!');
 };
@@ -145,11 +144,11 @@ exports.generateUnDetectedTransaction = async (
 	return result;
 };
 
-exports.checkExistedTransaction = async (transactionid, session) => {
-	return await Entity.TransactionsEntity.findOne({ transactionId: transactionid }).session(session);
+exports.checkExistedTransaction = async (transactionid) => {
+	return await Entity.TransactionsEntity.findOne({ transactionId: transactionid });
 };
 
-exports.importCashTransactions = async (data, session) => {
+exports.importCashTransactions = async (data) => {
 	const transactionData = data.map((data) => ({
 		transactionDate: data.createdAt,
 		createdAt: data.createdAt,
@@ -164,21 +163,9 @@ exports.importCashTransactions = async (data, session) => {
 		createdBy: CREATED_BY['OWNER'],
 		ownerConfirmed: OWNER_CONFIRMED_STATUS['CONFIRMED'],
 	}));
-	const result = await Entity.TransactionsEntity.insertMany(transactionData, { session, timestamps: false });
+	const result = await Entity.TransactionsEntity.insertMany(transactionData, { timestamps: false });
 	return result;
 };
-
-exports.transformCashPaymentMethod = async (transactionId, session) => {
-	const result = await Entity.TransactionsEntity.updateOne(
-		{ _id: transactionId },
-		{ $set: { paymentMethod: PAYMENT_METHOD['CASH'] } },
-		{ session },
-	);
-	if (result.matchedCount === 0) throw new NotFoundError('Giao dịch không tồn tại');
-	return true;
-};
-
-exports.removeTransaction = (transactionId, session) => Entity.TransactionsEntity.deleteOne({ _id: transactionId }, { session });
 
 exports.getAllTransactionsInPeriod = async (buildingObjectId, currentMonth, currentYear, session) => {
 	const [result] = await Entity.BuildingsEntity.aggregate(
@@ -188,7 +175,7 @@ exports.getAllTransactionsInPeriod = async (buildingObjectId, currentMonth, curr
 	return result;
 };
 
-exports.updateOwnerConfirmationStatus = async ({ transactionId, ownerConfirmationStatus, version, ownerDeclinedReason = '' }, session) => {
+exports.updateOwnerConfirmationStatus = async ({ transactionId, ownerConfirmationStatus, version, ownerDeclinedReason = '' }) => {
 	const result = await Entity.TransactionsEntity.updateOne(
 		{ _id: transactionId, version: version },
 		{ $set: { ownerConfirmed: ownerConfirmationStatus, ownerDeclinedReason }, $inc: { version: 1 } },
@@ -198,9 +185,3 @@ exports.updateOwnerConfirmationStatus = async ({ transactionId, ownerConfirmatio
 
 	return true;
 };
-
-// exports.updateOwnerConfirmedStatus = async ({ transactionId, ownerConfirmedStatus }, session) => {
-// 	const result = awat Entity.TransactionsEntity.updateOne(
-
-// 	)
-// }

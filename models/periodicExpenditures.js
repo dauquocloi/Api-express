@@ -6,7 +6,7 @@ const PeriodicExpendituresSchema = new Schema(
 	{
 		content: {
 			type: String,
-			maxLength: 300,
+			// maxLength: 300,
 			required: true,
 		},
 		amount: {
@@ -16,7 +16,7 @@ const PeriodicExpendituresSchema = new Schema(
 		},
 		building: {
 			type: Schema.Types.ObjectId,
-			ref: 'buildings',
+			ref: 'BuildingsEntity',
 		},
 		version: {
 			type: Number,
@@ -29,5 +29,7 @@ const PeriodicExpendituresSchema = new Schema(
 		timestamps: true, // Thêm thời gian tạo và cập nhật
 	},
 );
+
+PeriodicExpendituresSchema.index({ building: 1 });
 
 exports.PeriodicExpendituresEntity = mongoose.model('PeriodicExpendituresEntity', PeriodicExpendituresSchema, 'periodicExpenditures');

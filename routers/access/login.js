@@ -17,7 +17,7 @@ router.post(
 	'/basic',
 	validator(schema.credential, ValidateSource.BODY),
 	asyncHandler(async (req, res) => {
-		const user = await Services.users.findUserByPhone(req.body.userName);
+		const user = await Services.users.findUserByPhone(req.body.userName).lean().exec();
 		console.log('log of user from login: ', user);
 		if (!user) throw new InvalidInputError('Sai tài khoản hoặc mật khẩu');
 		if (!user.password) throw new InvalidInputError('Sai tài khoản hoặc mật khẩu');

@@ -5,5 +5,6 @@ const banks = require('./banks.js');
 const users = require('./users.js');
 const bankAccounts = require('./bankAccounts');
 const companies = require('./companies.js');
+const access = require('./access.js');
 
-module.exports = { buildings, rooms, statistics, banks, users, bankAccounts, companies };
+module.exports = { buildings, rooms, statistics, banks, users, bankAccounts, companies, access };

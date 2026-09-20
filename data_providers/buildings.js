@@ -23,12 +23,11 @@ const ExcelJS = require('exceljs');
 const uploadFile = require('../utils/uploadFile');
 const { FailureMsgResponse } = require('../utils/apiResponse');
 const deleteFileFromS3 = require('../utils/deleteFileFromS3');
-const { client: redis } = require('../config').redisDb;
 const { getRevenues } = require('./revenues');
 const { getExpenditures } = require('./expenditures');
 const { calculateTotalExpenditures } = require('./expenditures.util');
 const calculateComparisonRate = require('../utils/calculateComparisonRate');
-const { STATISTIC_STATUS } = require('../constants');
+const { STATISTIC_STATUS, LOCK_REASON } = require('../constants');
 
 //  get all buildings by managername
 exports.getAll = async (userId) => {
@@ -227,6 +226,7 @@ exports.getFinanceSettlementConditionInfo = async (buildingId) => {
 };
 
 // Cần khóa việc sửa các collections (DONE)
+// Cấn khóa việc thêm mới revenues, expenditures;
 exports.prepareFinanceSettlement = async (buildingId, userId) => {
 	const ttl = 10 * 60 * 1000;
 	const createdAt = Date.now();
@@ -253,6 +253,7 @@ exports.prepareFinanceSettlement = async (buildingId, userId) => {
 	}
 
 	await Services.rooms.lockAllRoomsForSettlement(buildingId, userId, expiredAt);
+	await Services.buildings.setWriteLockedBuilding({ buildingId, lockReason: LOCK_REASON['SETTLEMENT'], lockOwner: userId });
 
 	return {
 		passed: true,

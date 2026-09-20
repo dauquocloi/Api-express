@@ -182,8 +182,8 @@ const updateRoomState = async ({ roomId, roomState }) => {
 	return result;
 };
 
-const setRoomDeposited = async ({ roomId, isDeposited, session }) => {
-	const result = await Entity.RoomsEntity.updateOne({ _id: roomId }, { $set: { isDeposited: isDeposited }, $inc: { version: 1 } }, { session });
+const setRoomDeposited = async ({ roomId, isDeposited }) => {
+	const result = await Entity.RoomsEntity.updateOne({ _id: roomId }, { $set: { isDeposited: isDeposited }, $inc: { version: 1 } });
 	if (result.matchedCount === 0) throw new ConflictError('Phòng không tồn tại ');
 	return 'Success';
 };
@@ -254,8 +254,8 @@ const getRoomHistoryDetail = async (roomHistoryObjectId) => {
 	return result;
 };
 
-const importRooms = async (roomData, session) => {
-	const result = await Entity.RoomsEntity.insertMany(roomData, { session });
+const importRooms = async (roomData) => {
+	const result = await Entity.RoomsEntity.insertMany(roomData);
 	return result;
 };
 

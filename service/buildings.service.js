@@ -1,8 +1,9 @@
-const { NotFoundError, BadRequestError } = require('../AppError');
+const { NotFoundError, BadRequestError, ConflictError, InternalError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
 const Roles = require('../constants/userRoles');
 const mongoose = require('mongoose');
+const { LOCK_REASON, LOCK_BUILDING_TTL_MS } = require('../constants');
 
 const findById = (buildingId) => Entity.BuildingsEntity.findById(buildingId);
 
@@ -11,6 +12,8 @@ const findByManagementId = (userId) => Entity.BuildingsEntity.find({ 'management
 const findUserInBuilding = async ({ userId, buildingId }) => {
 	return await Entity.BuildingsEntity.findOne({ _id: buildingId, 'management.user': userId }).lean().exec();
 };
+
+const getBuildingIncludeDepositRevenue = (buildingId) => Entity.BuildingsEntity.findById(buildingId).select('includeDepositRevenue');
 
 const getAllBuildingsByManagementId = async (userId) => {
 	const result = await Entity.BuildingsEntity.aggregate(Pipelines.buildings.getAllBuildingsByManagementId(userId));
@@ -73,27 +76,32 @@ const getStatisticGeneral = async (buildingObjectId, year) => {
 	return await Entity.StatisticsEntity.aggregate(Pipelines.buildings.getStatisticGeneral(buildingObjectId, year));
 };
 
-const importBuilding = async (
-	{ buildingSortName, buildingAddress, roomQuantity, invoiceNotes, contractDocxUrl, contractPdfUrl, depositTermUrl, management, companyId },
-	session,
-) => {
-	const [result] = await Entity.BuildingsEntity.create(
-		[
-			{
-				buildingName: buildingSortName,
-				buildingAddress,
-				roomQuantity,
-				invoiceNotes,
+const importBuilding = async ({
+	buildingSortName,
+	buildingAddress,
+	roomQuantity,
+	invoiceNotes,
+	contractDocxUrl,
+	contractPdfUrl,
+	depositTermUrl,
+	management,
+	companyId,
+	paymentConfirmationMode,
+}) => {
+	const result = await Entity.BuildingsEntity.create({
+		buildingName: buildingSortName,
+		buildingAddress,
+		roomQuantity,
+		invoiceNotes,
 
-				management,
-				contractDocxUrl,
-				contractPdfUrl,
-				depositTermUrl,
-				company: companyId,
-			},
-		],
-		{ session },
-	);
+		management,
+		contractDocxUrl,
+		contractPdfUrl,
+		depositTermUrl,
+		company: companyId,
+		paymentConfirmationMode,
+	});
+	if (!result) throw new InternalError('Create building fail');
 	return result.toObject();
 };
 
@@ -113,17 +121,13 @@ const getPrepareFinanceSettlementV2 = async (buildingObjectId, currentMonth, cur
 	return result;
 };
 
-const addManagement = async (userId, buildingIds, role, session) => {
-	const result = await Entity.BuildingsEntity.updateMany(
-		{ _id: { $in: buildingIds } },
-		{ $push: { management: { user: userId, role } } },
-		{ session },
-	);
+const addManagement = async (userId, buildingIds, role) => {
+	const result = await Entity.BuildingsEntity.updateMany({ _id: { $in: buildingIds } }, { $push: { management: { user: userId, role } } });
 	if (result.matchedCount === 0 || result.matchedCount !== buildingIds.length) throw new NotFoundError('Id tòa nhà không tồn tại');
 	return result;
 };
 
-const pullManagementNotMatchBuilding = async (buildingObjectIds, userId, session) => {
+const pullManagementNotMatchBuilding = async (buildingObjectIds, userId) => {
 	const result = await Entity.BuildingsEntity.updateMany(
 		{
 			_id: { $nin: buildingObjectIds },
@@ -134,13 +138,12 @@ const pullManagementNotMatchBuilding = async (buildingObjectIds, userId, session
 				management: { user: userId },
 			},
 		},
-		{ session },
 	);
 
 	return result;
 };
 
-const findAndModifyManagement = async (buildingObjectIds, userObjectId, role, session) => {
+const findAndModifyManagement = async (buildingObjectIds, userObjectId, role) => {
 	const result = await Entity.BuildingsEntity.updateMany(
 		{
 			_id: { $in: buildingObjectIds },
@@ -170,7 +173,7 @@ const findAndModifyManagement = async (buildingObjectIds, userObjectId, role, se
 				},
 			},
 		],
-		{ session, updatePipeline: true },
+		{ updatePipeline: true },
 	);
 
 	if (result.matchedCount !== buildingObjectIds.length) {
@@ -189,7 +192,7 @@ const getPrepareFinanceSettlementData = async (buildingObjectId, currentMonth, c
 };
 
 const importPaymentInfo = async (buildingId, bankAccountId) => {
-	const result = await Entity.BuildingsEntity.updateOne(
+	const result = await Entity.BuildingsEntity.findOneAndUpdate(
 		{
 			_id: buildingId,
 		},
@@ -200,7 +203,7 @@ const importPaymentInfo = async (buildingId, bankAccountId) => {
 			$inc: { version: 1 },
 		},
 	);
-	if (result.matchedCount === 0) throw new NotFoundError('Tòa nhà không tồn tại');
+	if (!result) throw new NotFoundError('Tòa nhà không tồn tại');
 	return result;
 };
 
@@ -222,23 +225,118 @@ const getRevenues = async (buildingId, month, year) => {
 	const [result] = await Entity.BuildingsEntity.aggregate(Pipelines.revenues.getAllRevenues(buildingId, month, year));
 	if (!result) throw new NotFoundError('Id tòa nhà không tồn tại');
 
-	// Nên thêm logic tòa nhà có hay không ghi nhận khoản thu đặt cọc !
-	const depositReceiptsUnCarriedOverPaidAmount = await Entity.DepositsEntity.aggregate(
-		Pipelines.deposits.getDepositReceiptsUnCarriedOverPaidAmount(buildingId),
-	);
+	if (result.includeDepositRevenue === true) {
+		const depositReceiptsUnCarriedOverPaidAmount = await Entity.DepositsEntity.aggregate(
+			Pipelines.deposits.getDepositReceiptsUnCarriedOverPaidAmount(buildingId),
+		);
 
-	result.revenues = result.revenues.map((revenue) => {
-		const carriedOver = depositReceiptsUnCarriedOverPaidAmount.find((item) => item.room.toString() === revenue.roomId.toString());
+		result.revenues = result.revenues.map((revenue) => {
+			const carriedOver = depositReceiptsUnCarriedOverPaidAmount.find((item) => item.room.toString() === revenue.roomId.toString());
 
-		if (!carriedOver) return revenue;
+			if (!carriedOver) return revenue;
 
-		return {
-			...revenue,
-			receiptInfo: [...(revenue.receiptInfo ?? []), ...(carriedOver.receipts ?? [])],
-		};
-	});
+			return {
+				...revenue,
+				receiptInfo: [...(revenue.receiptInfo ?? []), ...(carriedOver.receipts ?? [])],
+			};
+		});
+	}
 
 	return result;
+};
+
+const setWriteLockedBuilding = async ({ buildingId, lockReason, lockOwner }) => {
+	const now = new Date();
+	const expireAt = new Date(now.getTime() + LOCK_BUILDING_TTL_MS);
+	const lockResult = await Entity.BuildingsEntity.updateOne(
+		{
+			_id: buildingId,
+			$or: [
+				{ 'writeLock.locked': { $ne: true } },
+				{ 'writeLock.expAt': { $lte: now } }, // lock cũ hết hạn
+				{ 'writeLock.ownerId': { $eq: lockOwner } },
+			],
+		},
+		{
+			$set: {
+				'writeLock.ownerId': lockOwner,
+				'writeLock.locked': true,
+				'writeLock.lockedAt': now,
+				'writeLock.expAt': expireAt,
+				'writeLock.reason': lockReason || LOCK_REASON['SETTLEMENT'],
+			},
+			$inc: { version: 1 },
+		},
+	);
+	if (lockResult.matchedCount === 0) {
+		throw new ConflictError('Phòng hiện đang được cập nhật, vui lòng thử lại sau !');
+	}
+
+	return {
+		lockExpireAt: expireAt,
+	};
+};
+
+const assertBuildingWritable = async ({ buildingId, userId }) => {
+	const now = new Date();
+	const building = await Entity.RoomsEntity.findById(buildingId).lean().exec();
+
+	if (!building || !building._id) throw new NotFoundError('Phòng không tồn tại');
+
+	const { locked, expAt, ownerId } = building.writeLock || {};
+
+	if (locked === true && expAt > now && String(ownerId) !== String(userId)) {
+		throw new ConflictError('Tòa nhà hiện đang được ai đó cập nhật, vui lòng thử lại sau !');
+	}
+
+	return building;
+};
+
+const updateUserBuildingManagement = async ({ userId, buildingIds, role }) => {
+	await Entity.BuildingsEntity.updateMany(
+		{
+			$or: [{ 'management.user': userId }, { _id: { $in: buildingIds } }],
+		},
+		[
+			{
+				$set: {
+					management: {
+						$concatArrays: [
+							{
+								$filter: {
+									input: '$management',
+									as: 'manager',
+									cond: {
+										$ne: ['$$manager.user', userId],
+									},
+								},
+							},
+							{
+								$cond: [
+									{
+										$in: ['$_id', buildingIds],
+									},
+									[
+										{
+											user: userId,
+											role: role,
+										},
+									],
+									[],
+								],
+							},
+						],
+					},
+				},
+			},
+			{
+				$inc: {
+					version: 1,
+				},
+			},
+		],
+		{ updatePipeline: true },
+	);
 };
 
 module.exports = {
@@ -261,4 +359,8 @@ module.exports = {
 	getAllInvoicesInPeriod,
 	getExcelData,
 	getRevenues,
+	setWriteLockedBuilding,
+	assertBuildingWritable,
+	updateUserBuildingManagement,
+	getBuildingIncludeDepositRevenue,
 };

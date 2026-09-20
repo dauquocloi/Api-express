@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const Entity = require('../models');
 const listFeeInitial = require('../utils/getListFeeInital');
 const { NotFoundError, BadRequestError, InternalError, ConflictError } = require('../AppError');
 const { contractJob } = require('../jobs/contract/contract.job');
@@ -9,7 +8,6 @@ const { calculateTotalFeeAmount } = require('../utils/calculateFeeTotal');
 const { generateInvoiceFeesFromReq } = require('../service/invoices.helper');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const getFieldUrl = require('../utils/getFileUrl');
-const { client: redis } = require('../config').redisDb;
 const { roomState, invoiceStatus, invoiceType, feeUnit, receiptTypes, receiptStatus, depositStatus } = require('../constants');
 const { compareFees, getChangedFeeIndexes } = require('../service/fees.helper');
 const { processImportCustomersAndVehicles, formatInitialFees } = require('./contracts.util');
@@ -129,8 +127,6 @@ exports.generateContract = async (contractDraftId, userId) => {
 		version: contractDraft.version,
 	});
 
-	// should not delete all
-	// await Entity.FeesEntity.deleteMany({ room: contractDraft.room }, { session });
 	const currentRoomFees = await Services.fees.findByRoomId(contractDraft.room).lean().exec();
 
 	const { feesToUpdate, feesToCreate, feesToRemove } = compareFees(currentRoomFees, contractDraft.fees);
@@ -184,58 +180,6 @@ exports.generateContract = async (contractDraftId, userId) => {
 
 	await Services.invoices.setContractId({ invoiceId: contractDraft.firstInvoiceId, contractId: contractCreated._id });
 
-	// let vehiclesWithoutOwner = [];
-	// let customersData = contractDraft.customers?.map((cus, index) => {
-	// 	if (cus.vehicleLicensePlate && cus.vehicleLicensePlate?.trim() !== '') {
-	// 		vehiclesWithoutOwner.push({
-	// 			licensePlate: cus.vehicleLicensePlate,
-	// 			phone: cus.phone,
-	// 			index: index,
-	// 		});
-	// 	}
-	// 	return {
-	// 		fullName: cus.fullName,
-	// 		gender: cus.sex.toLowerCase(),
-	// 		isContractOwner: index === 0 ? true : false,
-	// 		birthdate: cus.dob,
-	// 		permanentAddress: cus.address,
-	// 		phone: cus.phone,
-	// 		avatar: '',
-	// 		cccd: cus.cccd,
-	// 		cccdIssueDate: cus.cccdIssueDate,
-	// 		cccdIssueAt: cus.cccdIssueAt,
-	// 		status: 1,
-	// 		room: contractDraft.room,
-	// 		temporaryResidence: false,
-	// 		checkinDate: new Date(),
-	// 		checkoutDate: contractDraft.contractEndDate,
-	// 		contract: contractCreated._id,
-	// 	};
-	// });
-
-	// const createdCustomers = await Entity.CustomersEntity.insertMany(customersData, { session });
-	// let ownerId = createdCustomers.filter((c) => c.isContractOwner === true)[0]?._id;
-	// await Services.contracts.importCustomerRef(contractCreated._id, ownerId, session);
-
-	// if (vehiclesWithoutOwner?.length > 0) {
-	// 	const customerMap = {};
-	// 	createdCustomers.forEach((customer) => {
-	// 		customerMap[customer.phone] = customer._id;
-	// 	});
-
-	// 	const vehicles = vehiclesWithoutOwner.map((vehicleData) => ({
-	// 		licensePlate: vehicleData.licensePlate,
-	// 		fromDate: new Date(),
-	// 		owner: customerMap[vehicleData.phone], // _id của customer sở hữu
-	// 		image: '',
-	// 		room: contractCreated.room,
-	// 		status: 'active',
-	// 		contract: contractCreated._id,
-	// 	}));
-
-	// 	await Entity.VehiclesEntity.insertMany(vehicles, { session });
-	// }
-
 	await processImportCustomersAndVehicles({
 		customers: contractDraft.customers,
 		contractEndDate: contractDraft.contractEndDate,
@@ -243,8 +187,8 @@ exports.generateContract = async (contractDraftId, userId) => {
 		roomId: contractDraft.room,
 	});
 
-	await Services.rooms.bumpRoomVersionBlind(contractDraft.room, session);
-	await Services.rooms.unLockedRoom(contractDraft.room, session);
+	await Services.rooms.bumpRoomVersionBlind(contractDraft.room);
+	await Services.rooms.unLockedRoom(contractDraft.room);
 
 	result = {
 		buildingId: updateRoom.building,
@@ -303,49 +247,6 @@ exports.setExpectedMoveOutDate = async (data) => {
 		expectedMoveOutDate: currentContract.expectedMoveOutDate,
 	};
 };
-
-// exports.terminateContractUnRefund = async (contractId, redisKey) => {
-// 	let session;
-// 	try {
-// 		session = await mongoose.startSession();
-// 		session.startTransaction();
-
-// 		const contractObjectId = new mongoose.Types.ObjectId(contractId);
-
-// 		const currentContract = await Entity.ContractsEntity.findOne({ _id: contractObjectId }).exec();
-// 		if (!currentContract) throw new NotFoundError(`Hợp đồng với không tồn tại`);
-// 		const { room } = currentContract;
-// 		const updateRoomState = await Entity.RoomsEntity.findOneAndUpdate({ _id: room }, { $set: { status: 0 } }, { session });
-// 		if (!updateRoomState) throw new NotFoundError(`Phòng không tồn tại`);
-
-// 		const updateCustomers = await Entity.CustomersEntity.updateMany(
-// 			{ room: room, status: { $in: [1, 2] } },
-// 			{ $set: { status: 0 } },
-// 			{ session },
-// 		);
-// 		const lockReceiptsUnpaid = await Entity.ReceiptsEntity.updateMany(
-// 			{ room: room, status: { $in: ['unpaid', 'partial'] } },
-// 			{ $set: { locked: true } },
-// 			{ session },
-// 		);
-// 		const lockInvoiceUnpaid = await Entity.InvoicesEntity.findOneAndUpdate(
-// 			{ room: room, status: { $in: ['unpaid', 'partial'] } },
-// 			{ $set: { locked: true } },
-// 			{ session },
-// 		);
-
-// 		await session.commitTransaction();
-
-// 		await redis.set(redisKey, `SUCCESS:${JSON.stringify({})}`, 'EX', process.env.REDIS_EXP_SEC);
-// 		return 'Success';
-// 	} catch (error) {
-// 		await redis.set(redisKey, `FAILED:${error.message}`, 'EX', process.env.REDIS_EXP_SEC);
-// 		if (session) await session.abortTransaction();
-// 		throw error;
-// 	} finally {
-// 		if (session) session.endSession();
-// 	}
-// };
 
 exports.cancelIsEarlyTermination = async (contractId, roomId) => {
 	const checkIsExistDeposit = await Services.deposits.findDepositByRoomId(roomId).lean().exec();
@@ -429,10 +330,10 @@ exports.getContractPdfUrlByCustomerPhone = async (phoneNumber) => {
 	};
 };
 
-exports.getDebtsAndReceiptsUnpaid = async (contractId, userId) => {
+exports.getDebtsAndReceiptsUnpaid = async (contractId, userId, usedFor) => {
 	const currentContract = await Services.contracts.findById(contractId).lean().exec();
 	if (!currentContract) throw new NotFoundError('Hợp đồng không tồn tại');
 	await Services.rooms.setWriteLockedRoom(currentContract.room, null, userId);
-	const result = await Services.contracts.getDebtsAndReceiptsUnpaid(contractId);
+	const result = await Services.contracts.getDebtsAndReceiptsUnpaid(contractId, usedFor);
 	return result;
 };

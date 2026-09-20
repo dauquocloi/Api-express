@@ -19,5 +19,9 @@ module.exports = {
 		date: Joi.date().optional(),
 		image: Joi.string().optional(),
 		collector: JoiObjectId().optional(),
+		version: Joi.number().integer().min(1).required(),
+	}),
+	deleteIncidentalRevenue: Joi.object().keys({
+		version: Joi.number().integer().min(1).required(),
 	}),
 };

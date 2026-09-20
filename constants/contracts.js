@@ -27,4 +27,9 @@ const CONTRACT_DOCUMENT_FORM = {
 	ROOM_PRICE: 'ROOM_PRICE',
 };
 
-module.exports = { contractStatus, CONTRACT_DOCUMENT_FORM };
+const getDebtsReceiptsUnpaidUsedFor = {
+	TERMINATE_CONTRACT_EARLY: 'terminateContractEarly',
+	DEPOSIT_REFUND: 'depositRefund',
+};
+
+module.exports = { contractStatus, CONTRACT_DOCUMENT_FORM, getDebtsReceiptsUnpaidUsedFor };
