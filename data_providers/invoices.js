@@ -319,17 +319,17 @@ exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, cre
 	const feeIndexSnapshot = formatFeeIndexRecords(formatRoomFees);
 	console.log('log of feeIndexSnapshot: ', feeIndexSnapshot);
 
-	let getDebts = await Services.debts.getDebts(roomObjectId);
-	if (getDebts.length > 0) getDebts = formatDebts(getDebts);
-	else getDebts = null;
+	let debts = await Services.debts.getDebts(roomObjectId);
+	if (debts?.length > 0) debts = formatDebts(debts);
+	else debts = null;
 
-	const totalInvoiceAmount = totalRoomfees + (getDebts?.amount ?? 0);
+	const totalInvoiceAmount = totalRoomfees + (debts?.amount ?? 0);
 	const createdInvoice = await Services.invoices.createInvoice({
 		roomId: roomObjectId,
 		listFees: formatRoomFees,
 		totalInvoiceAmount,
 		stayDays,
-		debtInfo: getDebts,
+		debtInfo: debts,
 		currentPeriod,
 		payerName: roomContractOwner.fullName,
 		creater: createrId,
@@ -337,11 +337,13 @@ exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, cre
 		feeIndexSnapshot: feeIndexSnapshot,
 	});
 
-	await Services.debts.closeAndSetSourceInfo({
-		contractId: roomContractOwner.contract._id,
-		sourceId: createdInvoice._id,
-		sourceType: sourceType['INVOICE'],
-	});
+	if (Array.isArray(debts) && debts.length > 0) {
+		await Services.debts.closeAndSetSourceInfo({
+			contractId: roomContractOwner.contract._id,
+			sourceId: createdInvoice._id,
+			sourceType: sourceType['INVOICE'],
+		});
+	}
 
 	const changedFeeMap = getChangedFeeIndexes(roomFees.feeInfo, formatRoomFees);
 	if (changedFeeMap.size > 0) {
@@ -368,9 +370,6 @@ exports.createInvoice = async (roomId, buildingId, stayDays, feeIndexValues, cre
 	}
 
 	await Services.rooms.unLockedRoom(roomId);
-	await Services.rooms.bumpRoomVersion(roomId, roomVersion);
-
-	throw new InternalError('Stop for testing');
 
 	await znsNewInvoiceNotiJob({ billId: createdInvoice._id, type: billType.INVOICE });
 

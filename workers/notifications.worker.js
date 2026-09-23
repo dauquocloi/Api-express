@@ -363,7 +363,7 @@ notificationQueue.on('completed', (job, result) => {
 	console.log(` Job completed: ${job.id}, Result:`, result);
 });
 
-notiDepositTerminatedQueue.on('failed', (job, error) => {
+notificationQueue.on('failed', (job, error) => {
 	console.error(` Job failed: ${job.id}, Error:`, error);
 
 	Sentry.captureException(error, {

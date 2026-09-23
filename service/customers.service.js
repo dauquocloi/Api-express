@@ -26,7 +26,7 @@ exports.findByPhone = (phone) => Entity.CustomersEntity.findOne({ phone: phone }
 
 exports.getAllCustomers = async (buildingObjectId, status) => {
 	const [customerInfo] = await Entity.BuildingsEntity.aggregate(Pipelines.customers.getAllCustomers(buildingObjectId, status));
-	return customerInfo.data ?? [];
+	return customerInfo.rooms ?? [];
 };
 
 exports.expiredCustomers = async ({ roomId, contractId }) => {

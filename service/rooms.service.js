@@ -135,6 +135,7 @@ const unLockedRoom = async (roomId) => {
 				'writeLock.expAt': now,
 				'writeLock.reason': '',
 			},
+			$inc: { version: 1 },
 		},
 	);
 

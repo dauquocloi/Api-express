@@ -105,10 +105,10 @@ const importBuilding = async ({
 	return result.toObject();
 };
 
-const getFinanceSettlementData = async (buildingObjectId, currentMonth, currentYear, session) => {
+const getFinanceSettlementData = async (buildingObjectId, currentMonth, currentYear) => {
 	const [result] = await Entity.BuildingsEntity.aggregate(
 		Pipelines.buildings.getFinanceSettlementData(buildingObjectId, currentMonth, currentYear),
-	).session(session);
+	);
 	if (!result) throw new BadRequestError('Id tòa nhà không tồn tại');
 	return result;
 };

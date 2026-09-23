@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
-var Entity = require('../models');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const { BadRequestError, NotFoundError } = require('../AppError');
 const Services = require('../service');
 const { expenditureType } = require('../constants');
+const { calculateTotalExpenditures } = require('./expenditures.util');
 
 exports.getExpenditures = async (buildingId, month, year) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -26,20 +26,19 @@ exports.getExpenditures = async (buildingId, month, year) => {
 			const expenditures = await Services.expenditures.getExpendituresStatusUnLocked(buildingObjectId, month, year);
 
 			const { incidentalExpenditures, periodicExpenditures } = expenditures;
-			return { incidentalExpenditures, periodicExpenditures, period: { month: month, year: year }, status: 'unlock' };
+			const totalExpenditure = calculateTotalExpenditures(incidentalExpenditures, periodicExpenditures);
+			return { incidentalExpenditures, periodicExpenditures, totalExpenditure, period: { month: month, year: year }, status: 'unlock' };
 		} else {
-			// if (month > currentMonth && year >= currentYear) {
-			// 	return null;
-			// }
-
 			const expenditureLocked = await Services.expenditures.getExpendituresStatusLocked(buildingObjectId, month, year);
 			const { expenditures } = expenditureLocked;
 			if (expenditures.length === 0)
 				return { period: { month: month, year: year }, status: 'lock', incidentalExpenditures: [], periodicExpenditures: [] };
 
-			let incidentalExpenditures = expenditures.filter((expenditure) => expenditure.type === 'incidental');
-			let periodicExpenditures = expenditures.filter((expenditure) => expenditure.type === 'periodic');
-			return { incidentalExpenditures, periodicExpenditures, period: { month: month, year: year }, status: 'lock' };
+			let incidentalExpenditures = expenditures.filter((expenditure) => expenditure.type === expenditureType['INCIDENTAL']);
+			let periodicExpenditures = expenditures.filter((expenditure) => expenditure.type === expenditureType['PERIODIC']);
+			const totalExpenditure = calculateTotalExpenditures(incidentalExpenditures, periodicExpenditures);
+
+			return { incidentalExpenditures, periodicExpenditures, totalExpenditure, period: { month: month, year: year }, status: 'lock' };
 		}
 	}
 };

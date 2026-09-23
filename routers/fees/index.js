@@ -54,4 +54,13 @@ router.get(
 	Fees.getFeeIndexHistory,
 );
 
+router.get(
+	'/feeIndexRecords/:feeId',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	validator(schema.id, ValidateSource.PARAM),
+	validator(schema.getFeeIndexRecords, ValidateSource.QUERY),
+	checkResourceAccess(RESOURCES['fees']),
+	Fees.getFeeIndexRecords,
+);
+
 module.exports = router;

@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { OWNER_CONFIRMED_STATUS } = require('../../../constants');
+const { OWNER_CONFIRMED_STATUS, receiptStatus, invoiceStatus } = require('../../../constants');
 const getTransactionsByUserId = (userObjectId) => {
 	return [
 		{
@@ -73,7 +73,7 @@ const getAllTransactionsInPeriod = (buildingObjectId, currentMonth, currentYear)
 							month: currentMonth,
 							year: currentYear,
 							status: {
-								$in: ['paid', 'partial', 'unpaid'],
+								$in: [invoiceStatus['PAID'], invoiceStatus['PARTIAL'], invoiceStatus['UNPAID']],
 							},
 						},
 					},
@@ -81,7 +81,7 @@ const getAllTransactionsInPeriod = (buildingObjectId, currentMonth, currentYear)
 						$lookup: {
 							from: 'transactions',
 							localField: '_id',
-							foreignField: 'receipt',
+							foreignField: 'invoice',
 							pipeline: [
 								{
 									$match: {
@@ -110,7 +110,7 @@ const getAllTransactionsInPeriod = (buildingObjectId, currentMonth, currentYear)
 							month: currentMonth,
 							year: currentYear,
 							status: {
-								$in: ['paid', 'partial', 'unpaid'],
+								$in: [receiptStatus['PAID'], receiptStatus['PARTIAL'], receiptStatus['UNPAID']],
 							},
 						},
 					},

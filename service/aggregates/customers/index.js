@@ -1,8 +1,11 @@
+const mongoose = require('mongoose');
+const { CUSTOMER_STATUS } = require('../../../constants');
+
 const getAllCustomers = (buildingId, status) => {
 	return [
 		{
 			$match: {
-				_id: buildingId,
+				_id: new mongoose.Types.ObjectId(buildingId),
 			},
 		},
 		{
@@ -10,82 +13,51 @@ const getAllCustomers = (buildingId, status) => {
 				from: 'rooms',
 				localField: '_id',
 				foreignField: 'building',
-				as: 'rooms',
-			},
-		},
-		{
-			$unwind: {
-				path: '$rooms',
-			},
-		},
-		{
-			$sort: {
-				'rooms.roomIndex': 1,
-			},
-		},
-		{
-			$lookup: {
-				from: 'customers',
-				let: {
-					roomId: '$rooms._id',
-				},
 				pipeline: [
 					{
-						$match: {
-							$expr: {
-								$and: [
-									{
-										$eq: ['$room', '$$roomId'],
+						$lookup: {
+							from: 'customers',
+							localField: '_id',
+							foreignField: 'room',
+							pipeline: [
+								{
+									$match: {
+										status: {
+											$in:
+												status === 'leaved'
+													? [CUSTOMER_STATUS['TERMINATED']]
+													: [CUSTOMER_STATUS['ACTIVE'], CUSTOMER_STATUS['SUSPENDED']],
+										},
 									},
-									{
-										$in: ['$status', status === 'leaved' ? [0] : [1, 2]],
+								},
+								{
+									$lookup: {
+										from: 'vehicles',
+										localField: '_id',
+										foreignField: 'owner',
+										as: 'vehicles',
 									},
-								],
-							},
+								},
+							],
+							as: 'customers',
+						},
+					},
+					{
+						$sort: {
+							roomIndex: 1,
 						},
 					},
 					{
 						$project: {
-							_id: 1,
-							room: 1,
-							fullName: 1,
-							avatar: 1,
-							phone: 1,
-							isContractOwner: 1,
-							gender: 1,
-							birthdate: 1,
-							permanentAddress: 1,
-							cccd: 1,
-							cccdIssueDate: 1,
-							cccdIssueAt: 1,
-							status: 1,
-							temporaryResidence: 1,
-							checkinDate: 1,
-							checkoutDate: {
-								$cond: {
-									if: { $eq: ['', 'leaved'] },
-									then: '$checkoutDate',
-									else: '$$REMOVE',
-								},
-							},
-							version: 1,
+							_id: 0,
+							roomId: '$_id',
+							roomIndex: 1,
+							roomState: 1,
+							customerInfo: '$customers',
 						},
 					},
 				],
-				as: 'customers',
-			},
-		},
-		{
-			$group: {
-				_id: '$_id',
-				data: {
-					$push: {
-						roomId: '$rooms._id',
-						roomIndex: '$rooms.roomIndex',
-						roomState: '$rooms.roomState',
-						customerInfo: '$customers',
-					},
-				},
+				as: 'rooms',
 			},
 		},
 	];

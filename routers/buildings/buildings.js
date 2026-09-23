@@ -88,7 +88,16 @@ exports.upLoadDepositTermFile = asyncHandler(async (req, res) => {
 exports.financeSettlement = asyncHandler(async (req, res) => {
 	const data = req.params;
 	console.log('log of financeSettlement', data);
-	await UseCase.financeSettlement(data.buildingId, req.user._id);
+	await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			buildingId: data.buildingId,
+		}),
+		resourceId: data.buildingId,
+		execute: () => UseCase.financeSettlement(data.buildingId, req.user._id),
+	});
 	return new SuccessMsgResponse('Success').send(res);
 });
 

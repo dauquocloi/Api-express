@@ -24,4 +24,7 @@ module.exports = {
 	deleteFee: Joi.object().keys({
 		roomId: JoiObjectId().required(),
 	}),
+	getFeeIndexRecords: Joi.object().keys({
+		roomId: JoiObjectId().required(),
+	}),
 };

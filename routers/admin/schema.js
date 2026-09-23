@@ -47,7 +47,7 @@ module.exports = {
 	createBankAccount: Joi.object().keys({
 		accountNumber: Joi.string().required(),
 		accountName: Joi.string().required(),
-		userId: JoiObjectId().required(),
+		ownerId: JoiObjectId().required(),
 		buildingId: JoiObjectId().required(),
 		bankId: JoiObjectId().required(),
 	}),
@@ -79,11 +79,9 @@ module.exports = {
 		ownerId: JoiObjectId().required(),
 	}),
 
-	roomFile: JoiFile('roomFile', ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
-		.required()
-		.messages({
-			'any.required': 'Vui lòng tải lên file Excel',
-		}),
+	roomFile: JoiFile('roomFile', ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']).messages({
+		'any.required': 'Vui lòng tải lên file Excel',
+	}),
 
 	importBank: Joi.object().keys({
 		brandName: Joi.string().required(),

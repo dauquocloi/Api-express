@@ -253,9 +253,9 @@ exports.importReceiptsDeposit = async (receiptData) => {
 			const paymentContent = await generatePaymentContent(process.env.PAYMENT_CONTENT_LENGTH);
 			const receiptCode = await generatePaymentContent(process.env.INVOICE_CODE_LENGTH);
 
-			const createdAt = new Date(data.date);
 			const amount = Number(data.amount);
 			const paidAmount = Number(data.paidAmount);
+			const carriedOverPaidAmount = Number(data.carriedOverPaidAmount);
 
 			const receiptStatus = getInvoiceStatus(paidAmount, amount);
 
@@ -263,16 +263,17 @@ exports.importReceiptsDeposit = async (receiptData) => {
 				room: data.room,
 				amount,
 				paidAmount,
-				receiptType: receiptTypes.DEPOSIT,
+				receiptType: receiptTypes['DEPOSIT'],
 				status: receiptStatus,
 				paymentContent,
 				receiptCode,
-				// month: data.month,
-				// year: data.year,
+				month: data.month,
+				year: data.year,
 				receiptContent: `Hóa đơn đặt cọc phòng ${data.roomIndex}`,
-				carriedOverPaidAmount: paidAmount,
-				createdAt,
-				updatedAt: createdAt,
+				carriedOverPaidAmount,
+				createdAt: data.date,
+				updatedAt: data.date,
+				date: data.date,
 				creater: data.creater,
 			};
 		}),
@@ -286,8 +287,8 @@ exports.importReceiptsDeposit = async (receiptData) => {
 	return result;
 };
 
-exports.closeAllReceipts = async (receiptIds, session) => {
-	await Entity.ReceiptsEntity.updateMany(
+exports.closeAllReceipts = async (receiptIds) => {
+	const result = await Entity.ReceiptsEntity.updateMany(
 		{ _id: { $in: receiptIds } },
 		{
 			$set: { locked: true },
@@ -295,12 +296,11 @@ exports.closeAllReceipts = async (receiptIds, session) => {
 		},
 		{ session },
 	);
+	if (result.matchedCount !== receiptIds.length) throw new NotFoundError('Hóa đơn không tồn tại !');
 	return true;
 };
 
-exports.updateReceiptsCarriedOverPaidAmount = async (carriedOverMap, session) => {
-	console.log('log of carriedOverMap: ', carriedOverMap);
-	console.log('log of carriedOverMap enties: ', carriedOverMap.entries());
+exports.updateDepositReceiptsCarriedOverPaidAmount = async (carriedOverMap) => {
 	const bulkOps = [];
 	for (const [receiptId, carriedOverPaidAmount] of carriedOverMap.entries()) {
 		bulkOps.push({
@@ -313,7 +313,7 @@ exports.updateReceiptsCarriedOverPaidAmount = async (carriedOverMap, session) =>
 			},
 		});
 	}
-	const result = await Entity.ReceiptsEntity.bulkWrite(bulkOps, { session });
+	const result = await Entity.ReceiptsEntity.bulkWrite(bulkOps);
 	return result;
 };
 
@@ -380,4 +380,22 @@ exports.setContractId = async ({ receiptId, status = null, contractId }) => {
 
 	const result = await Entity.ReceiptsEntity.updateOne({ _id: receiptId }, updateQuery);
 	if (result.matchedCount === 0) throw new BadRequestError('Không tìm thấy bản ghi!');
+};
+
+exports.addManyReceiptPayer = async (dataMap) => {
+	const bulkOps = [];
+	for (const [receiptId, payer] of dataMap.entries()) {
+		bulkOps.push({
+			updateOne: {
+				filter: { _id: receiptId },
+				update: {
+					$set: { payer },
+					$inc: { version: 1 },
+				},
+			},
+		});
+	}
+
+	const result = await Entity.ReceiptsEntity.bulkWrite(bulkOps);
+	return result;
 };

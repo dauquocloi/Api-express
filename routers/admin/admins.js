@@ -45,7 +45,8 @@ exports.importBuilding = asyncHandler(async (req, res) => {
 });
 
 exports.importRooms = asyncHandler(async (req, res) => {
-	const { roomFile } = req.files;
+	const roomFile = req.file;
+	// console.log('log of roomFile: ', roomFile);
 	const { buildingId, ownerId } = req.body;
 	const data = {
 		roomFile,
@@ -87,9 +88,30 @@ exports.importPaymentInfo = asyncHandler(async (req, res) => {
 });
 
 exports.createBankAccount = asyncHandler(async (req, res) => {
-	const data = req.body;
+	const { buildingId, accountNumber, accountName, bankId, ownerId } = req.body;
+	const data = {
+		ownerId: ownerId,
+		buildingId,
+		accountNumber: accountNumber.trim(),
+		accountName: accountName.trim(),
+		bankId,
+	};
 	console.log('log of createBank', data);
-	const result = await UseCase.bankAccounts.importBankAccount(data.userId, data.accountNumber, data.accountName, data.bankId, data.buildingId);
+	const result = await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			ownerId: data.ownerId,
+			buildingId: data.buildingId,
+			accountNumber: data.accountNumber,
+			accountName: data.accountName,
+			bankId: data.bankId,
+		}),
+		resourceId: data.buildingId,
+		execute: () => UseCase.bankAccounts.importBankAccount(data),
+	});
+
 	return new SuccessResponse('Success', result).send(res);
 });
 

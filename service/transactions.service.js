@@ -162,15 +162,16 @@ exports.importCashTransactions = async (data) => {
 		isTransactionDetected: true,
 		createdBy: CREATED_BY['OWNER'],
 		ownerConfirmed: OWNER_CONFIRMED_STATUS['CONFIRMED'],
+		confirmedDate: data.createdAt,
 	}));
 	const result = await Entity.TransactionsEntity.insertMany(transactionData, { timestamps: false });
 	return result;
 };
 
-exports.getAllTransactionsInPeriod = async (buildingObjectId, currentMonth, currentYear, session) => {
+exports.getAllTransactionsInPeriod = async (buildingObjectId, currentMonth, currentYear) => {
 	const [result] = await Entity.BuildingsEntity.aggregate(
 		Pipelines.transactions.getAllTransactionsInPeriod(buildingObjectId, currentMonth, currentYear),
-	).session(session);
+	);
 
 	return result;
 };

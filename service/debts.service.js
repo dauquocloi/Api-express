@@ -54,7 +54,7 @@ exports.rollBackDebtsBySourceIds = async (sourceIds, status) => {
 
 exports.getDebtsByIds = async (debtIds) => Entity.DebtsEntity.find({ _id: { $in: debtIds } });
 
-exports.generateDebts = async (debtsPayload, session) => {
-	const result = await Entity.DebtsEntity.insertMany(debtsPayload, { session });
+exports.generateDebts = async (debtsPayload) => {
+	const result = await Entity.DebtsEntity.insertMany(debtsPayload);
 	return result;
 };

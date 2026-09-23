@@ -1,4 +1,4 @@
-const { NoDataError, NotFoundError } = require('../AppError');
+const { NoDataError, NotFoundError, InternalError } = require('../AppError');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
 
@@ -7,8 +7,21 @@ exports.importFirstStatistics = async (data) => {
 	return result.toObject();
 };
 
-exports.createStatistics = async (
-	{
+exports.createStatistics = async ({
+	month,
+	year,
+	building,
+	revenue,
+	revenueComparisonRate,
+	expenditure,
+	expenditureComparitionRate,
+	profit,
+	profitComparisonRate,
+	room: { totalRoom, rentedRoom, emptyRoom, occupancyRate, occupancyComparisonRate },
+	vehicle: { totalVehicle, vehicleComparisonRate },
+	customer: { temporaryResidentTotal, totalCustomer, customerComparisonRate },
+}) => {
+	const result = await Entity.StatisticsEntity.create({
 		month,
 		year,
 		building,
@@ -21,36 +34,12 @@ exports.createStatistics = async (
 		room: { totalRoom, rentedRoom, emptyRoom, occupancyRate, occupancyComparisonRate },
 		vehicle: { totalVehicle, vehicleComparisonRate },
 		customer: { temporaryResidentTotal, totalCustomer, customerComparisonRate },
-	},
-	session,
-) => {
-	const [result] = await Entity.StatisticsEntity.create(
-		[
-			{
-				month,
-				year,
-				building,
-				revenue,
-				revenueComparisonRate,
-				expenditure,
-				expenditureComparitionRate,
-				profit,
-				profitComparisonRate,
-				room: { totalRoom, rentedRoom, emptyRoom, occupancyRate, occupancyComparisonRate },
-				vehicle: { totalVehicle, vehicleComparisonRate },
-				customer: { temporaryResidentTotal, totalCustomer, customerComparisonRate },
-			},
-		],
-		{ session },
-	);
+	});
 	return result.toObject();
 };
 
-exports.getStatistics = async (buildingObjectId, month, year, session) => {
-	const [statistics] = await Entity.BuildingsEntity.aggregate(
-		Pipelines.statistics.getStatisticsPipelineModify(buildingObjectId, month, year),
-	).session(session);
-
+exports.getStatistics = async (buildingObjectId, month, year) => {
+	const [statistics] = await Entity.BuildingsEntity.aggregate(Pipelines.statistics.getStatisticsPipelineModify(buildingObjectId, month, year));
 	if (!statistics) throw new NotFoundError('Id tòa nhà không tồn tại');
 
 	return statistics;

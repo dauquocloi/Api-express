@@ -320,7 +320,11 @@ exports.generateFeeIndexRecords = async (records) => {
 };
 
 exports.getFeeIndexRecords = async ({ roomId, feeId }) => {
-	const result = await Entity.FeeIndexRecordsEntity.find({ room: roomId, fee: feeId }).lean().exec();
+	const result = await Entity.FeeIndexRecordsEntity.find({ room: roomId, fee: feeId })
+		.populate({ path: 'fee' })
+		.populate({ path: 'editor', select: 'fullName' })
+		.lean()
+		.exec();
 	return result || [];
 };
 

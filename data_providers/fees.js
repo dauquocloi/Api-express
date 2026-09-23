@@ -89,3 +89,8 @@ exports.getFeeIndexHistory = async (feeId) => {
 
 	return feeIndexHistory;
 };
+
+exports.getFeeIndexRecords = async ({ roomId, feeId }) => {
+	const result = await Services.fees.getFeeIndexRecords({ roomId, feeId });
+	return result || [];
+};

@@ -42,14 +42,9 @@ const FeeIndexRecordsSchema = new Schema(
 	},
 );
 
-FeeIndexRecordsSchema.index(
-	{
-		room: 1,
-		fee: 1,
-	},
-	{
-		unique: true,
-	},
-);
+FeeIndexRecordsSchema.index({
+	room: 1,
+	fee: 1,
+});
 
 exports.FeeIndexRecordsEntity = mongoose.model('FeeIndexRecordsEntity', FeeIndexRecordsSchema, 'feeIndexRecords');

@@ -8,7 +8,8 @@ const { contractStatus: CONTRACT_STATUS } = require('../../constants/contracts')
 const generateContractCode = require('../../utils/generateContractCode');
 const { contractJob } = require('../../jobs/contract/contract.job');
 const { GENERATE_CONTRACT } = require('../../jobs/constant/jobNames');
-const { UPDATE_FEE_INDEX_SOURCE } = require('../../constants');
+const { UPDATE_FEE_INDEX_SOURCE, OWNER_CONFIRMED_STATUS } = require('../../constants');
+const moment = require('moment');
 
 function parseInteriors(row) {
 	const interiorsMap = {};
@@ -136,7 +137,7 @@ function parseCustomers(row, roomId, contractId) {
 		if (match) {
 			const idx = match[1];
 			customerMap[idx] ??= {};
-			customerMap[idx].birthdate = row[key] ? new Date(row[key]) : undefined;
+			customerMap[idx].birthdate = row[key] ? moment(row[key], 'DD/MM/YYYY').toDate() : undefined;
 			return;
 		}
 
@@ -144,7 +145,7 @@ function parseCustomers(row, roomId, contractId) {
 		if (match) {
 			const idx = match[1];
 			customerMap[idx] ??= {};
-			customerMap[idx].checkinDate = row[key] ? new Date(row[key]) : undefined;
+			customerMap[idx].checkinDate = row[key] ? moment(row[key], 'DD/MM/YYYY').toDate() : undefined;
 			return;
 		}
 
@@ -160,7 +161,7 @@ function parseCustomers(row, roomId, contractId) {
 		if (match) {
 			const idx = match[1];
 			customerMap[idx] ??= {};
-			customerMap[idx].cccdIssueDate = row[key] ? new Date(row[key]) : undefined;
+			customerMap[idx].cccdIssueDate = row[key] ? moment(row[key], 'DD/MM/YYYY').toDate() : undefined;
 			return;
 		}
 
@@ -229,6 +230,8 @@ const createRooms = async ({ data, buildingId }) => {
 
 	const roomsCreated = await Services.rooms.importRooms(roomData);
 
+	console.log('Log of room created: ', roomsCreated);
+
 	const roomMap = new Map();
 
 	roomsCreated.forEach((room) => {
@@ -241,19 +244,33 @@ const createRooms = async ({ data, buildingId }) => {
 	};
 };
 
-const createDepositReceipts = async ({ data, roomMap, ownerId }) => {
+const createDepositReceipts = async ({ data, roomMap, ownerId, includeDepositRevenue, currentMonth, currentYear }) => {
 	const depositReceiptData = data
 		.filter((room) => room.roomState !== ROOM_STATE['UN_HIRED'])
-		.map((room) => ({
-			room: roomMap.get(room.roomIndex.trim()),
-			roomIndex: room.roomIndex.trim(),
-			amount: Number(room.deposit),
-			paidAmount: Number(room.depositPaidAmount),
-			date: new Date(room.depositPaidDate),
-			// month: new Date(room.signDate).getMonth() + 1,
-			// year: new Date(room.signDate).getFullYear(),
-			creater: ownerId,
-		}));
+		.map((room) => {
+			const month = moment(room.signDate, 'DD-MM-YYYY').month() + 1;
+			const year = moment(room.signDate, 'DD-MM-YYYY').year();
+
+			let carriedOverPaidAmount = 0;
+			if (includeDepositRevenue === true) {
+				if (month === currentMonth && year === currentYear) {
+					carriedOverPaidAmount = 0;
+				} else {
+					carriedOverPaidAmount = room.depositPaidAmount;
+				}
+			}
+			return {
+				room: roomMap.get(room.roomIndex.trim()),
+				roomIndex: room.roomIndex.trim(),
+				amount: Number(room.deposit),
+				paidAmount: Number(room.depositPaidAmount),
+				date: moment(room.signDate, 'DD-MM-YYYY').toDate(),
+				month,
+				year,
+				carriedOverPaidAmount,
+				creater: ownerId,
+			};
+		});
 
 	const receipts = await Services.receipts.importReceiptsDeposit(depositReceiptData);
 
@@ -305,19 +322,21 @@ const createFees = async ({ data, roomMap, ownerId }) => {
 		.filter((fee) => fee.unit === FEE_UNIT['INDEX'])
 		.map((fee) => ({
 			feeId: fee._id,
-			room: fee.room,
+			roomId: fee.room,
 			fromIndex: fee.lastIndex,
 			toIndex: fee.lastIndex,
-			editor: ownerId,
+			editorId: ownerId,
 			fromSource: UPDATE_FEE_INDEX_SOURCE['CREATE_FEE'],
 		}));
 
-	await Services.fees.generateFeeIndexRecords(feeIndexHistoryPayload);
+	const feeIndexRecords = await Services.fees.generateFeeIndexRecords(feeIndexHistoryPayload);
+
+	console.log('feeIndexRecords: ', feeIndexRecords);
 
 	return { createdFees, feesMap };
 };
 
-const createContracts = async ({ data, roomMap, depositReceiptMap, feesMap }) => {
+const createContracts = async ({ data, roomMap, depositReceiptMap, feesMap, ownerId }) => {
 	const contractData = [];
 
 	for (const room of data) {
@@ -329,19 +348,16 @@ const createContracts = async ({ data, roomMap, depositReceiptMap, feesMap }) =>
 			room: roomId,
 			rent: Number(room.rent),
 			depositReceiptId: depositReceiptMap.get(roomId.toString()),
-			// contractSignDate: new Date(room.signDate),
-			// contractEndDate: new Date(room.endDate),
-			// contractTerm: room.contractTerm.trim(),
 			note: room.contractNote?.trim() ?? '',
 			status: CONTRACT_STATUS['ACTIVE'],
-			// contractCode: await generateContractCode(process.env.CONTRACT_CODE_LENGTH),
+			user: ownerId,
 			versions: [
 				{
 					version: 0,
 					rent: Number(room.rent),
 					depositAmount: Number(room.deposit),
-					contractSignDate: new Date(room.signDate),
-					contractEndDate: new Date(room.endDate),
+					contractSignDate: moment(room.signDate, 'DD-MM-YYYY').toDate(),
+					contractEndDate: moment(room.endDate, 'DD-MM-YYYY').toDate(),
 					contractTerm: room.contractTerm.trim(),
 					status: CONTRACT_STATUS['ACTIVE'],
 					contractCode: await generateContractCode(process.env.CONTRACT_CODE_LENGTH),
@@ -365,7 +381,7 @@ const createContracts = async ({ data, roomMap, depositReceiptMap, feesMap }) =>
 	const contractMap = new Map();
 
 	contracts.forEach((contract) => {
-		contractMap.set(contract.room.toString(), contract._id);
+		contractMap.set(contract.room.toString(), { contractId: contract._id, depositReceiptId: contract.depositReceiptId || null });
 	});
 
 	return {
@@ -377,15 +393,16 @@ const createContracts = async ({ data, roomMap, depositReceiptMap, feesMap }) =>
 const createCustomers = async ({ data, roomMap, contractMap }) => {
 	const customerData = [];
 	const customerMap = new Map();
+	const contractOwnerMap = new Map();
 
 	data.forEach((room, rowIndex) => {
 		if (room.roomState === ROOM_STATE['UN_HIRED']) return;
 
 		const roomId = roomMap.get(room.roomIndex.trim());
 
-		const contractId = contractMap.get(roomId.toString());
+		const contract = contractMap.get(roomId.toString());
 
-		const customers = parseCustomers(room, roomId, contractId);
+		const customers = parseCustomers(room, roomId, contract.contractId);
 
 		customers.forEach((customer, index) => {
 			customerData.push({
@@ -393,6 +410,10 @@ const createCustomers = async ({ data, roomMap, contractMap }) => {
 				_clientIndex: index + 1,
 				data: customer,
 			});
+
+			if (customer.isContractOwner) {
+				contractOwnerMap.set(contract.contractId, customer.fullName);
+			}
 		});
 	});
 
@@ -408,6 +429,7 @@ const createCustomers = async ({ data, roomMap, contractMap }) => {
 		customerData,
 		createdCustomers,
 		customerMap,
+		contractOwnerMap,
 	};
 };
 
@@ -435,6 +457,23 @@ const linkContractOwners = async ({ contracts, createdCustomers }) => {
 	await Services.contracts.importManyCustomerRef(ownerByContract);
 };
 
+const addDepositReceiptPayer = async ({ contractMap, contractOwnerMap }) => {
+	const updateReceiptMap = new Map();
+
+	for (const [contractId, { depositReceiptId }] of contractMap.entries()) {
+		if (!depositReceiptId) continue;
+
+		const payer = contractOwnerMap.get(contractId);
+
+		if (!payer) continue;
+
+		updateReceiptMap.set(depositReceiptId, payer);
+	}
+
+	if (updateReceiptMap.size === 0) return;
+
+	await Services.receipts.addManyReceiptPayer(updateReceiptMap);
+};
 const createVehicles = async ({ data, roomMap, contractMap, customerMap }) => {
 	const vehicleData = [];
 
@@ -443,9 +482,9 @@ const createVehicles = async ({ data, roomMap, contractMap, customerMap }) => {
 
 		const roomId = roomMap.get(row.roomIndex.trim());
 
-		const contractId = contractMap.get(roomId.toString());
+		const contract = contractMap.get(roomId.toString());
 
-		vehicleData.push(...parseVehicles(row, roomId, contractId, rowIndex, customerMap));
+		vehicleData.push(...parseVehicles(row, roomId, contract.contractId, rowIndex, customerMap));
 	});
 
 	return Services.vehicles.importVehicles(vehicleData);
@@ -471,4 +510,5 @@ module.exports = {
 	createDepositReceipts,
 	createDepositTransactions,
 	addGenerateContractPdfJobs,
+	addDepositReceiptPayer,
 };

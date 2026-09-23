@@ -86,3 +86,15 @@ exports.getFeeIndexHistory = asyncHandler(async (req, res) => {
 
 	return new SuccessResponse('Success', result).send(res);
 });
+
+exports.getFeeIndexRecords = asyncHandler(async (req, res) => {
+	const { feeId } = req.params;
+	const { roomId } = req.query;
+	const data = {
+		feeId,
+		roomId,
+	};
+	console.log('log of data from getFeeIndexRecords: ', data);
+	const result = await UseCase.getFeeIndexRecords({ roomId: data.roomId, feeId: data.feeId });
+	return new SuccessResponse('Success', result).send(res);
+});

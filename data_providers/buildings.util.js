@@ -1,4 +1,5 @@
 const { calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
+const { calculateComparisonRate } = require('../utils/calculateComparisonRate');
 const {
 	Schema,
 	FormatType,
@@ -12,10 +13,19 @@ const {
 	debtStatus,
 	OWNER_CONFIRMED_STATUS,
 	feeUnit,
+	expenditureType,
 } = require('../constants');
+const { getExpenditures } = require('./expenditures');
+const { getRevenues } = require('./revenues');
+const Services = require('../service');
+const { InternalError } = require('../AppError');
 
-const isMissingInvoice = (rooms, invoices) =>
-	rooms.filter((room) => room.roomState !== 0).some((room) => !invoices.some((invoice) => invoice.room.toString() === room._id.toString()));
+const getMissingInvoiceCount = (rooms, invoices) =>
+	rooms
+		.filter((room) => room.roomState !== roomState['UN_HIRED'])
+		.filter((room) => !invoices.some((invoice) => invoice.room.toString() === room._id.toString())).length;
+
+const isMissingInvoice = (rooms, invoices) => getMissingInvoiceCount(rooms, invoices) > 0;
 
 const formatPeriodicExpenditurePayload = (periodicExpenditures, currentMonth, currentYear, buildingId, userId) => {
 	if (!periodicExpenditures.length || periodicExpenditures.length === 0) return [];
@@ -24,7 +34,7 @@ const formatPeriodicExpenditurePayload = (periodicExpenditures, currentMonth, cu
 		content: exp.content,
 		month: currentMonth,
 		year: currentYear,
-		type: 'periodic',
+		type: expenditureType['PERIODIC'],
 		// date: exp.createdAt,
 		building: buildingId,
 		spender: userId,
@@ -34,20 +44,20 @@ const formatPeriodicExpenditurePayload = (periodicExpenditures, currentMonth, cu
 
 const handleReceiptSettlement = (receipts) => {
 	const receiptUpdatingIds = [];
-	const receiptCarriedOverPaidAmountMap = new Map();
+	const depositReceiptCarriedOverPaidAmountMap = new Map();
 
 	for (const receipt of receipts) {
 		const { paidAmount, locked, receiptType } = receipt;
 		if (locked === true || receiptType === RECEIPT_TYPES['CHECKOUT']) continue;
 		if (receiptType === RECEIPT_TYPES['DEPOSIT']) {
-			receiptCarriedOverPaidAmountMap.set(receipt._id, paidAmount);
+			depositReceiptCarriedOverPaidAmountMap.set(receipt._id, paidAmount);
 			continue;
 		}
 
 		receiptUpdatingIds.push(receipt._id);
 	}
 
-	return { receiptUpdatingIds, receiptCarriedOverPaidAmountMap };
+	return { receiptUpdatingIds, depositReceiptCarriedOverPaidAmountMap };
 };
 
 const generateDebtFromReceipts = (receipts, currentMonth, currentYear) => {
@@ -284,7 +294,7 @@ const styleExcel = (worksheet, schema) => {
 	});
 };
 
-const checkFinnaceSettlementCondition = ({ checkoutCostsUnpaid, depositRefundsUnpaid, pendingTransactions }) => {
+const checkFinnaceSettlementCondition = ({ checkoutCostsUnpaid, depositRefundsUnpaid, pendingTransactions, invoices, rooms }) => {
 	if (depositRefundsUnpaid.length) {
 		return {
 			pass: false,
@@ -309,6 +319,15 @@ const checkFinnaceSettlementCondition = ({ checkoutCostsUnpaid, depositRefundsUn
 			items: pendingTransactions.length,
 		};
 	}
+	const missingInvoiceCount = getMissingInvoiceCount(rooms, invoices);
+	if (missingInvoiceCount > 0) {
+		return {
+			pass: false,
+			reason: 'Tồn tại phòng chưa có hóa đơn tiền nhà !',
+			reasonDetail: 'Mọi phòng đều cần được gửi hóa đơn tiền nhà trước khi thực hiện quyết toán.',
+			items: missingInvoiceCount,
+		};
+	}
 
 	return {
 		pass: true,
@@ -316,6 +335,52 @@ const checkFinnaceSettlementCondition = ({ checkoutCostsUnpaid, depositRefundsUn
 };
 
 const calculateFinalProfit = (totalActualRevenue, totalExpenditure) => totalActualRevenue - totalExpenditure;
+
+const generateStatisticDocument = async ({ buildingId, currentMonth, currentYear }) => {
+	const [revenues, expenditures, statisticInfo] = await Promise.all([
+		getRevenues({ buildingId, month: currentMonth, year: currentYear }),
+		getExpenditures(buildingId, currentMonth, currentYear),
+
+		Services.statistics.getStatisticCurrentPeriod(buildingId, currentMonth, currentYear),
+	]);
+
+	const { room, customer, vehicle, preStatistics } = statisticInfo;
+
+	const revenueComparisonRate = calculateComparisonRate(preStatistics.revenue, revenues.actualTotalRevenue);
+	const expenditureComparisonRate = calculateComparisonRate(preStatistics.expenditure, expenditures.totalExpenditure);
+
+	const profit = calculateFinalProfit(revenues.actualTotalRevenue, expenditures.totalExpenditure);
+	const profitComparisonRate = calculateComparisonRate(preStatistics.profit, profit);
+
+	const generateStatistic = await Services.statistics.createStatistics({
+		month: currentMonth === 12 ? 1 : currentMonth + 1,
+		year: currentMonth === 12 ? currentYear + 1 : currentYear,
+		building: buildingId,
+		revenue: revenues.actualTotalRevenue,
+		revenueComparisonRate: revenueComparisonRate,
+		expenditure: expenditures.totalExpenditure,
+		expenditureComparisonRate: expenditureComparisonRate,
+		profit: profit,
+		profitComparisonRate,
+		room: {
+			totalRoom: room.totalRoom,
+			rentedRoom: room.rentedRoom,
+			emptyRoom: room.emptyRoom,
+			occupancyRate: room.occupancyRate,
+			occupancyComparisonRate: room.occupancyComparisonRate,
+		},
+
+		vehicle: { totalVehicle: vehicle.totalVehicle, vehicleComparisonRate: vehicle.vehicleComparisonRate },
+		customer: {
+			temporaryResidentTotal: customer.temporaryResidentTotal,
+			totalCustomer: customer.totalCustomer,
+			customerComparisonRate: customer.customerComparisonRate,
+		},
+		isInitialStatistics: false,
+	});
+
+	return generateStatistic;
+};
 
 module.exports = {
 	isMissingInvoice,
@@ -330,4 +395,5 @@ module.exports = {
 	styleExcel,
 	checkFinnaceSettlementCondition,
 	calculateFinalProfit,
+	generateStatisticDocument,
 };

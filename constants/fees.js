@@ -25,7 +25,6 @@ const UPDATE_FEE_INDEX_SOURCE = {
 	CREATE_FEE: 'createFee',
 	MODIFY_INVOICE: 'modifyInvoice',
 	CREATE_INVOICE: 'createInvoice',
-	UPDATE_INVOICE: 'updateInvoice',
 	TERMINATE_INVOICE: 'terminateInvoice',
 	CHECKOUT_COST: 'checkoutCost',
 	DEPOSIT_REFUND: 'depositRefund',

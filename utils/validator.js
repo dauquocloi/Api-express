@@ -18,24 +18,26 @@ const sanitizeJoiError = (error) => {
 		return 'Dữ liệu đầu vào không hợp lệ';
 	}
 
+	const fieldName = detail.context?.key ?? detail.path?.[0];
+
 	switch (detail.type) {
 		case 'any.only':
-			return `"${detail.context?.key}" có giá trị không hợp lệ`;
+			return fieldName ? `"${fieldName}" có giá trị không hợp lệ` : 'Dữ liệu đầu vào không hợp lệ';
 
 		case 'any.required':
-			return `"${detail.context?.key}" là bắt buộc`;
+			return fieldName ? `"${fieldName}" là bắt buộc` : 'Dữ liệu đầu vào không hợp lệ';
 
 		case 'string.base':
-			return `"${detail.context?.key}" phải là chuỗi`;
+			return fieldName ? `"${fieldName}" phải là chuỗi` : 'Dữ liệu đầu vào không hợp lệ';
 
 		case 'string.empty':
-			return `"${detail.context?.key}" không được để trống`;
+			return fieldName ? `"${fieldName}" không được để trống` : 'Dữ liệu đầu vào không hợp lệ';
 
 		case 'number.base':
-			return `"${detail.context?.key}" phải là số`;
+			return fieldName ? `"${fieldName}" phải là số` : 'Dữ liệu đầu vào không hợp lệ';
 
 		case 'boolean.base':
-			return `"${detail.context?.key}" phải là boolean`;
+			return fieldName ? `"${fieldName}" phải là boolean` : 'Dữ liệu đầu vào không hợp lệ';
 
 		default:
 			return 'Dữ liệu đầu vào không hợp lệ';
@@ -91,7 +93,9 @@ const JoiFile = (fieldName, mimeTypes = []) =>
 				: Joi.string().required(),
 
 		size: Joi.number().positive().required(),
-	}).unknown(true);
+	})
+		.required()
+		.unknown(true);
 
 module.exports = {
 	JoiAuthBearer,

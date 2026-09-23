@@ -18,6 +18,7 @@ const {
 	styleExcel,
 	checkFinnaceSettlementCondition,
 	calculateFinalProfit,
+	generateStatisticDocument,
 } = require('./buildings.util');
 const ExcelJS = require('exceljs');
 const uploadFile = require('../utils/uploadFile');
@@ -77,22 +78,22 @@ exports.getCheckoutCosts = async (buildingId, month, year) => {
 	return result;
 };
 
-exports.getStatistics = async (buildingId, month, year) => {
-	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+// exports.getStatistics = async (buildingId, month, year) => {
+// 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
-	if (!month || !year) {
-		const currentPeriod = await getCurrentPeriod(buildingObjectId);
-		month = currentPeriod.currentMonth;
-		year = currentPeriod.currentYear;
-	} else {
-		Number(month);
-		Number(year);
-	}
+// 	if (!month || !year) {
+// 		const currentPeriod = await getCurrentPeriod(buildingObjectId);
+// 		month = currentPeriod.currentMonth;
+// 		year = currentPeriod.currentYear;
+// 	} else {
+// 		Number(month);
+// 		Number(year);
+// 	}
 
-	const statistics = await Services.statistics.getStatistics(buildingObjectId, month, year);
+// 	const statistics = await Services.statistics.getStatistics(buildingObjectId, month, year);
 
-	return statistics;
-};
+// 	return statistics;
+// };
 
 exports.getStatisticsV2 = async (buildingId, month, year) => {
 	let result;
@@ -211,10 +212,20 @@ exports.upLoadDepositTermFile = async (buildingId, depositTermFile) => {
 exports.getFinanceSettlementConditionInfo = async (buildingId) => {
 	const currentPeriod = await getCurrentPeriod(buildingId);
 	const result = await Services.buildings.getPrepareFinanceSettlementV2(buildingId, currentPeriod.currentMonth, currentPeriod.currentYear);
-	const { checkoutCostsUnpaid, depositRefundsUnpaid, invoicesUnpaid, receiptsUnpaid, pendingTransactions } = result;
-	const { pass } = checkFinnaceSettlementCondition({ checkoutCostsUnpaid, depositRefundsUnpaid, pendingTransactions });
+	const {
+		rooms,
+		checkoutCostsUnpaid,
+		depositRefundsUnpaid,
+		invoices,
+		invoicesUnpaid,
+		receiptsUnpaid,
+		pendingTransactions,
+		//
+	} = result;
+	const { pass } = checkFinnaceSettlementCondition({ checkoutCostsUnpaid, depositRefundsUnpaid, pendingTransactions, invoices, rooms });
 	const response = {
 		buildingId: result._id,
+		isMissingInvoice: isMissingInvoice(rooms, invoices),
 		checkoutCostsUnpaid: checkoutCostsUnpaid.length || 0,
 		depositRefundsUnpaid: depositRefundsUnpaid.length || 0,
 		invoicesUnpaid: invoicesUnpaid.length || 0,
@@ -235,13 +246,15 @@ exports.prepareFinanceSettlement = async (buildingId, userId) => {
 
 	const currentPeriod = await getCurrentPeriod(buildingId);
 
-	const { depositRefundsUnpaid, checkoutCostsUnpaid, invoicesUnpaid, receiptsUnpaid, pendingTransactions } =
+	const { rooms, invoices, depositRefundsUnpaid, checkoutCostsUnpaid, invoicesUnpaid, receiptsUnpaid, pendingTransactions } =
 		await Services.buildings.getPrepareFinanceSettlementV2(buildingId, currentPeriod.currentMonth, currentPeriod.currentYear);
 
 	const { pass, reason, items } = checkFinnaceSettlementCondition({
 		checkoutCostsUnpaid,
 		depositRefundsUnpaid,
 		pendingTransactions,
+		rooms,
+		invoices,
 	});
 
 	if (!pass) {
@@ -265,115 +278,54 @@ exports.prepareFinanceSettlement = async (buildingId, userId) => {
 	};
 };
 
-// exports.prepareFinanceSettlementV2 = idempotent(async (buildingId, userId) => {
-// 	const ttl = 10 * 60 * 1000;
-// 	const createdAt = new Date();
-// 	const expiredAt = new Date(createdAt.getTime() + ttl);
-// 	const queryId = crypto.randomUUID();
-
-// 	const currentPeriod = await getCurrentPeriod(buildingId);
-
-// 	const { depositRefundsUnpaid, checkoutCostsUnpaid, invoicesUnpaid, receiptsUnpaid, pendingTransactions } =
-// 		await Services.buildings.getPrepareFinnaceSettlementDataV2(buildingId, currentPeriod.currentMonth, currentPeriod.currentYear, session);
-
-// 	const { pass, reason, items } = checkFinnaceSettlementCondition({
-// 		checkoutCostsUnpaid,
-// 		depositRefundsUnpaid,
-// 		pendingTransactions,
-// 	});
-
-// 	if (!pass) {
-// 		return {
-// 			passed: false,
-// 			reason,
-// 			items,
-// 		};
-// 	}
-
-// 	await Services.rooms.lockAllRoomsForSettlement(buildingId, userId, session, expiredAt);
-
-// 	return {
-// 		passed: true,
-// 		invoicesUnpaid: invoicesUnpaid || [],
-// 		receiptsUnpaid: receiptsUnpaid || [],
-// 		queryId,
-// 		createdAt,
-// 		expiredAt,
-// 	};
-
-// 	// return {
-// 	// 	...result,
-// 	// 	queryId,
-// 	// 	createdAt,
-// 	// 	expiredAt,
-// 	// };
-// });
-
+// Cần truyền queryId đã tạo từ prepareFinanceSettlement => tránh chạy lại logic check
 exports.financeSettlement = async (buildingId, userId) => {
-	let result;
-	let session;
-	try {
-		session = await mongoose.startSession();
-		await session.withTransaction(async () => {
-			const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
+	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
 
-			await Services.rooms.lockAllRoomsForSettlement(buildingId, userId, session);
-			const building = await Services.buildings.findById(buildingId).session().lean().exec();
-			if (!building) throw new BadRequestError('Tòa nhà không tồn tại');
+	await Services.rooms.lockAllRoomsForSettlement(buildingId, userId);
+	const building = await Services.buildings.findById(buildingId).lean().exec();
+	if (!building) throw new BadRequestError('Tòa nhà không tồn tại');
 
-			const currentPeriod = await getCurrentPeriod(buildingId);
-			const { currentMonth, currentYear } = currentPeriod;
+	const currentPeriod = await getCurrentPeriod(buildingId);
+	const { currentMonth, currentYear } = currentPeriod;
 
-			const settlementData = await Services.buildings.getFinanceSettlementData(buildingObjectId, currentMonth, currentYear, session);
-			const { receipts, invoices, expenditures, periodicExpenditures, incidentalRevenues, rooms } = settlementData;
+	const settlementData = await Services.buildings.getFinanceSettlementData(buildingObjectId, currentMonth, currentYear);
+	const { receipts, invoices, expenditures, periodicExpenditures, incidentalRevenues, includeDepositRevenue } = settlementData;
 
-			const isInvoiceMissing = isMissingInvoice(rooms, invoices);
-			if (isInvoiceMissing) throw new BadRequestError('Mọi hóa đơn tiền phòng phải được gửi trước khi chốt sổ !');
+	// const isInvoiceMissing = isMissingInvoice(rooms, invoices);
+	// if (isInvoiceMissing) throw new BadRequestError('Mọi hóa đơn tiền phòng phải được gửi trước khi chốt sổ !');
 
-			const getAllTransactions = await Services.transactions.getAllTransactionsInPeriod(buildingObjectId, currentMonth, currentYear, session);
-			const existTransactionUnConfirmedInPeriod = existTransactionUnConfirmed(getAllTransactions);
-			if (existTransactionUnConfirmedInPeriod === true) {
-				throw new BadRequestError('Tồn tại giao dịch chưa xác nhận. Vui lòng xác nhận mọi giao dịch trước khi quyết toán.');
-			}
-
-			const { receiptUpdatingIds, receiptCarriedOverPaidAmountMap } = handleReceiptSettlement(receipts, currentMonth, currentYear);
-			const receiptDebts = generateDebtFromReceipts(receipts, currentMonth, currentYear);
-			const { debts: invoiceDebts, invoiceUpdatingIds } = generateDebtFromInvoices(invoices, currentMonth, currentYear);
-
-			const generateDebtsPayload = [...receiptDebts, ...invoiceDebts];
-			await Services.debts.generateDebts(generateDebtsPayload, session);
-			await Services.invoices.closeAllInvoices(invoiceUpdatingIds, session);
-			await Services.receipts.closeAllReceipts(receiptUpdatingIds, session);
-
-			const result = await Services.receipts.updateReceiptsCarriedOverPaidAmount(receiptCarriedOverPaidAmountMap, session);
-			console.log('result: ', result);
-
-			const periodicExpendituresPayload = formatPeriodicExpenditurePayload(periodicExpenditures, currentMonth, currentYear, buildingId, userId);
-			await Services.expenditures.generateExpenditures(periodicExpendituresPayload, session);
-			await Services.expenditures.lockAllExpenditures(buildingId, currentMonth, currentYear, session);
-			if (incidentalRevenues.length > 0) await Services.revenues.lockAllIncidentalRevenues(buildingId, currentMonth, currentYear, session);
-
-			const getStatistics = await Services.statistics.getStatistics(buildingObjectId, currentMonth, currentYear, session);
-			const currentStatistics = getStatistics[getStatistics.statistics.length - 1];
-
-			await Services.statistics.createStatistics({
-				month: currentMonth === 12 ? 1 : currentMonth + 1,
-				year: currentMonth === 12 ? currentYear + 1 : currentYear,
-				building: buildingId,
-				revenue: currentStatistics.revenue,
-				revenueComparisonRate: currentStatistics.revenueComparisonRate,
-			});
-
-			throw new BadRequestError('Stop here for testing');
-			// return true;
-		});
-
-		return;
-	} catch (error) {
-		throw error;
-	} finally {
-		if (session) session.endSession();
+	const getAllTransactions = await Services.transactions.getAllTransactionsInPeriod(buildingObjectId, currentMonth, currentYear);
+	const existTransactionUnConfirmedInPeriod = existTransactionUnConfirmed(getAllTransactions);
+	if (existTransactionUnConfirmedInPeriod === true) {
+		throw new BadRequestError('Tồn tại giao dịch chưa xác nhận. Vui lòng xác nhận mọi giao dịch trước khi quyết toán.');
 	}
+
+	const { receiptUpdatingIds, depositReceiptCarriedOverPaidAmountMap } = handleReceiptSettlement(receipts, currentMonth, currentYear);
+	const receiptDebts = generateDebtFromReceipts(receipts, currentMonth, currentYear);
+	const { debts: invoiceDebts, invoiceUpdatingIds } = generateDebtFromInvoices(invoices, currentMonth, currentYear);
+
+	const generateDebtsPayload = [...receiptDebts, ...invoiceDebts];
+	await Services.debts.generateDebts(generateDebtsPayload);
+	await Services.invoices.closeAllInvoices(invoiceUpdatingIds);
+	await Services.receipts.closeAllReceipts(receiptUpdatingIds);
+
+	if (includeDepositRevenue === true) {
+		const result = await Services.receipts.updateDepositReceiptsCarriedOverPaidAmount(depositReceiptCarriedOverPaidAmountMap);
+	}
+
+	const periodicExpendituresPayload = formatPeriodicExpenditurePayload(periodicExpenditures, currentMonth, currentYear, buildingId, userId);
+	await Services.expenditures.generateExpenditures(periodicExpendituresPayload);
+	await Services.expenditures.lockAllExpenditures(buildingId, currentMonth, currentYear);
+	if (incidentalRevenues.length > 0) await Services.revenues.lockAllIncidentalRevenues(buildingId, currentMonth, currentYear);
+
+	// piece of shit !
+	// const getStatistics = await Services.statistics.getStatistics(buildingObjectId, currentMonth, currentYear);
+	// const currentStatistics = getStatistics[getStatistics.statistics.length - 1];
+
+	const statisticGenerated = await generateStatisticDocument({ buildingId, currentMonth, currentYear });
+
+	throw new BadRequestError('Stop here for testing');
 };
 
 exports.getContractTermUrl = async (buildingId) => {

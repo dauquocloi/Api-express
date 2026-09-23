@@ -204,8 +204,9 @@ exports.updateInvoicePaidStatusWithVersion = async ({ invoiceId, paidAmount, inv
 	return result;
 };
 
-exports.closeAllInvoices = async (invoiceIds, session) => {
-	await Entity.InvoicesEntity.updateMany({ _id: { $in: invoiceIds } }, { $set: { locked: true }, $inc: { version: 1 } }, { session });
+exports.closeAllInvoices = async (invoiceIds) => {
+	const result = await Entity.InvoicesEntity.updateMany({ _id: { $in: invoiceIds } }, { $set: { locked: true }, $inc: { version: 1 } });
+	if (result.matchedCount !== invoiceIds.length) throw new NotFoundError('Hóa đơn không tồn tại !');
 	return true;
 };
 

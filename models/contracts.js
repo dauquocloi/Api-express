@@ -82,7 +82,7 @@ const ContractsSchema = new Schema(
 		depositReceiptId: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity', required: false },
 		depositId: { type: Schema.Types.ObjectId, ref: 'DepositsEntity' },
 		user: { type: Schema.Types.ObjectId, ref: 'UsersEntity', required: true }, //owner A
-		customer: { type: Schema.Types.ObjectId, ref: 'CustomersEntity', required: true }, // owner B
+		customer: { type: Schema.Types.ObjectId, ref: 'CustomersEntity' }, // owner B
 
 		rent: { type: Number, required: true },
 

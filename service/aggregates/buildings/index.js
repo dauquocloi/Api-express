@@ -1,8 +1,3 @@
-// const { vehicleStatus } = require('../../../constants/vehicle');
-// const { debtStatus } = require('../../../constants/debts');
-// const { invoiceStatus } = require('../../../constants/invoices');
-// const { receiptStatus } = require('../../../constants/receipt');
-// const { contractStatus } = require('../../../constants/contracts');
 const {
 	vehicleStatus,
 	debtStatus,
@@ -475,7 +470,7 @@ const getFinanceSettlementData = (buildingObjectId, currentMonth, currentYear) =
 									},
 									{
 										$not: {
-											$in: ['$status', ['terminated', 'pending']],
+											$in: ['$status', [invoiceStatus['TERMINATED'], invoiceStatus['PENDING']]],
 										},
 									},
 									{
@@ -520,7 +515,7 @@ const getFinanceSettlementData = (buildingObjectId, currentMonth, currentYear) =
 									},
 									{
 										$not: {
-											$in: ['$status', ['terminated', 'pending']],
+											$in: ['$status', [receiptStatus['TERMINATED'], receiptStatus['PENDING']]],
 										},
 									},
 									{
@@ -896,6 +891,9 @@ const getPrepareFinanceSettlementV2 = (buildingObjectId, month, year) => {
 			$project: {
 				_id: 1,
 				buildingName: 1,
+				includeDepositRevenue: 1,
+				invoices: 1,
+				rooms: 1,
 				invoicesUnpaid: {
 					$filter: {
 						input: '$invoices',

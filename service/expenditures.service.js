@@ -36,13 +36,8 @@ exports.generateExpenditure = async ({ month, year, content, amount, type, build
 	return result;
 };
 
-exports.lockAllExpenditures = async (buildingId, month, year, session) => {
-	const result = await Entity.ExpendituresEntity.updateMany(
-		{ building: buildingId, month: month, year: year },
-		{ $set: { locked: true }, $inc: { version: 1 } },
-		{ session },
-	);
-	return result;
+exports.lockAllExpenditures = async (buildingId, month, year) => {
+	await Entity.ExpendituresEntity.updateMany({ building: buildingId, month: month, year: year }, { $set: { locked: true }, $inc: { version: 1 } });
 };
 
 exports.modifyExpenditure = async ({ amount, content, spender, date, expenditureId, version }) => {
