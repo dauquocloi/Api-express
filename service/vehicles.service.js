@@ -1,12 +1,18 @@
 const { vehicleStatus } = require('../constants/vehicle');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
-const { NotFoundError, InternalError } = require('../AppError');
+const { NotFoundError, InternalError, ConflictError } = require('../AppError');
 
 exports.findById = (vehicleId) => Entity.VehiclesEntity.findById(vehicleId);
 
 exports.getAllVehicles = async (buildingObjectId, status) => {
-	const [vehicles] = await Entity.BuildingsEntity.aggregate(Pipelines.vehicles.getAllVehicles(buildingObjectId, status));
+	let pipeline;
+	if (status === 'active') {
+		pipeline = Pipelines.vehicles.getAllVehicles(buildingObjectId);
+	} else {
+		pipeline = Pipelines.vehicles.getAllTerminatedVehicles(buildingObjectId);
+	}
+	const [vehicles] = await Entity.BuildingsEntity.aggregate(pipeline);
 
 	return vehicles?.rooms ?? [];
 };
@@ -36,12 +42,12 @@ exports.importVehicles = async (vehiclesData) => {
 	return result;
 };
 
-exports.modifyVehicle = async ({ vehicleId, licensePlate, fromDate, status, image }, sesison = null) => {
-	const result = await Entity.VehiclesEntity.updateOne(
-		{ _id: vehicleId },
+exports.modifyVehicle = async ({ vehicleId, licensePlate, fromDate, status, image, version }) => {
+	const result = await Entity.VehiclesEntity.findOneAndUpdate(
+		{ _id: vehicleId, version },
 		{ $set: { licensePlate, fromDate, status, image }, $inc: { version: 1 } },
-		{ sesison },
+		{ new: true },
 	);
-	if (!result || result.matchedCount === 0) throw new NotFoundError('Dữ liệu không tồn tại');
-	return true;
+	if (!result) throw new ConflictError('Dữ liệu đã bị thay đổi, vui lòng tải lại trang !');
+	return result;
 };

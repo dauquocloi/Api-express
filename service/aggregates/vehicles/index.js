@@ -1,8 +1,7 @@
 const mongoose = require('mongoose');
-const { vehicleStatus } = require('../../../constants/vehicle');
+const { vehicleStatus, roomState, CUSTOMER_STATUS } = require('../../../constants');
 
-const getAllVehicles = (buildingObjectId, status) => {
-	console.log('Log of status from getAllVehicles: ', status);
+const getAllVehicles = (buildingObjectId) => {
 	return [
 		{
 			$match: {
@@ -36,13 +35,13 @@ const getAllVehicles = (buildingObjectId, status) => {
 										$expr: {
 											$and: [
 												{
-													$ne: ['$$roomState', 0],
+													$ne: ['$$roomState', roomState['UN_HIRED']],
 												},
 												{
 													$eq: ['$$roomId', '$room'],
 												},
 												{
-													$in: ['$status', [1, 2]],
+													$in: ['$status', [CUSTOMER_STATUS['ACTIVE'], CUSTOMER_STATUS['SUSPENDED']]],
 												},
 											],
 										},
@@ -57,10 +56,7 @@ const getAllVehicles = (buildingObjectId, status) => {
 											{
 												$match: {
 													status: {
-														$in:
-															status === vehicleStatus['ACTIVE']
-																? [vehicleStatus['ACTIVE'], vehicleStatus['SUSPENDED']]
-																: [vehicleStatus['TERMINATED']],
+														$in: [vehicleStatus['ACTIVE'], vehicleStatus['SUSPENDED']],
 													},
 												},
 											},
@@ -115,6 +111,92 @@ const getAllVehicles = (buildingObjectId, status) => {
 	];
 };
 
+const getAllTerminatedVehicles = (buildingId) => {
+	return [
+		{
+			$match: {
+				_id: new mongoose.Types.ObjectId(buildingId),
+			},
+		},
+		{
+			$lookup: {
+				from: 'rooms',
+				let: {
+					buildingId: '$_id',
+				},
+				pipeline: [
+					{
+						$match: {
+							$expr: {
+								$eq: ['$$buildingId', '$building'],
+							},
+						},
+					},
+					{
+						$lookup: {
+							from: 'vehicles',
+							localField: '_id',
+							foreignField: 'room',
+							pipeline: [
+								{
+									$match: {
+										status: vehicleStatus['TERMINATED'],
+									},
+								},
+								{
+									$lookup: {
+										from: 'customers',
+										localField: 'owner',
+										foreignField: '_id',
+										pipeline: [
+											{
+												$project: {
+													_id: 1,
+													fullName: 1,
+												},
+											},
+										],
+										as: 'owner',
+									},
+								},
+								{
+									$set: {
+										owner: {
+											$ifNull: [{ $first: '$owner' }, null],
+										},
+									},
+								},
+							],
+							as: 'vehicles',
+						},
+					},
+					{
+						$project: {
+							_id: 0,
+							roomId: '$_id',
+							roomIndex: 1,
+							roomState: 1,
+							data: '$vehicles',
+						},
+					},
+					{
+						$sort: {
+							roomIndex: 1,
+						},
+					},
+				],
+				as: 'rooms',
+			},
+		},
+		{
+			$project: {
+				_id: 1,
+				rooms: 1,
+			},
+		},
+	];
+};
+
 const getVehicleDetail = (vehicleObjectId) => {
 	return [
 		{
@@ -144,6 +226,7 @@ const getVehicleDetail = (vehicleObjectId) => {
 				licensePlate: 1,
 				fromDate: 1,
 				image: 1,
+				version: 1,
 				ownerInfo: {
 					_id: '$ownerInfo._id',
 					fullName: '$ownerInfo.fullName',
@@ -154,4 +237,4 @@ const getVehicleDetail = (vehicleObjectId) => {
 	];
 };
 
-module.exports = { getAllVehicles, getVehicleDetail };
+module.exports = { getAllVehicles, getVehicleDetail, getAllTerminatedVehicles };

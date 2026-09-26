@@ -91,6 +91,8 @@ exports.modifyInvoice = async (data) => {
 
 	const changedFeeMap = getChangedFeeIndexes(currentInvoice.fee, formatFees);
 
+	console.log('changedFeeMap', changedFeeMap);
+
 	if (changedFeeMap.size > 0) {
 		const changedFees = [];
 
@@ -123,6 +125,8 @@ exports.modifyInvoice = async (data) => {
 		version: version,
 	});
 
+	throw new InternalError('Stop for testing');
+
 	return modifedInvoice;
 };
 
@@ -152,11 +156,11 @@ exports.deleteInvoice = async (invoiceId, userId, invoiceVersion) => {
 	const invoice = await Services.invoices.findById(invoiceObjectId).lean().exec();
 	if (!invoice) throw new NotFoundError('Hóa đơn không tồn tại');
 	if (invoice.invoiceType === invoiceType['FIRST_INVOICE']) throw new BadRequestError('Không thể xóa hóa đơn tháng đầu tiên !');
-
+	const unConfirmedTransactions = Services.transactions.findUnConfirmedTransactions(invoiceId, billType['INVOICE']);
+	if (unConfirmedTransactions.length > 0)
+		throw new BadRequestError('Hóa đơn tồn tại giao dịch chưa được xác nhận, Vui lòng xác nhận Gd trước khi thực hiện xóa HĐ !');
 	await Services.rooms.assertRoomWritable({ roomId: invoice.room, userId });
 	await Services.invoices.terminateInvoice({ invoiceId: invoiceId, version: invoiceVersion });
-
-	const { fee } = invoice;
 
 	// =========================================================
 	// ROLLBACK FEE INDEX
@@ -171,6 +175,8 @@ exports.deleteInvoice = async (invoiceId, userId, invoiceVersion) => {
 		const currentFees = await Services.fees.findByRoomIdAndFeeKey(invoice.room, feeKeys);
 
 		const rollbackFeeMap = getFeeIndexesForRollback(invoice.feeIndexSnapshot, currentFees);
+
+		console.log('log of rollbackFeeMap: ', rollbackFeeMap);
 
 		if (rollbackFeeMap.size > 0) {
 			const updateFeeIndexValueData = [];
@@ -199,8 +205,6 @@ exports.deleteInvoice = async (invoiceId, userId, invoiceVersion) => {
 	}
 
 	await Services.rooms.bumpRoomVersionBlind(invoice.room);
-
-	throw new InternalError('Stop for testing ');
 
 	return 'Success';
 };

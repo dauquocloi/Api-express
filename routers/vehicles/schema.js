@@ -24,5 +24,6 @@ module.exports = {
 			.valid(...Object.values(vehicleStatus))
 			.required(),
 		image: Joi.string().allow('', null).optional(),
+		version: Joi.number().integer().min(1).required(),
 	}),
 };

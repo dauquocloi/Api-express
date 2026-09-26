@@ -323,6 +323,7 @@ exports.getFeeIndexRecords = async ({ roomId, feeId }) => {
 	const result = await Entity.FeeIndexRecordsEntity.find({ room: roomId, fee: feeId })
 		.populate({ path: 'fee' })
 		.populate({ path: 'editor', select: 'fullName' })
+		.sort({ createdAt: -1 })
 		.lean()
 		.exec();
 	return result || [];

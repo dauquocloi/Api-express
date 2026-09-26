@@ -267,9 +267,9 @@ exports.terminateCheckoutCost = async (checkoutCostId, version) => {
 
 //should Generate incidental revenue deposit receipt amount
 exports.generateCheckoutCost = async (data) => {
-	const { roomId, contractId, creatorId, feeIndexValues, feesOther, stayDays, roomVersion } = data;
+	const { roomId, contractId, feeIndexValues, feesOther, stayDays, roomVersion, userId } = data;
 	const roomObjectId = new mongoose.Types.ObjectId(roomId);
-	const currentRoom = await Services.rooms.assertRoomWritable({ roomId, userId: creatorId });
+	const currentRoom = await Services.rooms.assertRoomWritable({ roomId, userId });
 	const currentPeriod = await getCurrentPeriod(currentRoom.building);
 
 	const contractOwner = await Services.customers.findIsContractOwnerByRoomId(roomObjectId).lean().exec();
@@ -309,7 +309,7 @@ exports.generateCheckoutCost = async (data) => {
 			receiptType: receiptTypes['CHECKOUT'],
 			initialStatus: receiptStatus['UNPAID'],
 			contract: contractId,
-			creater: creatorId,
+			creater: userId,
 		});
 	}
 
@@ -319,7 +319,7 @@ exports.generateCheckoutCost = async (data) => {
 		roomId: roomId,
 		contractId: contractId,
 		buildingId: currentRoom.building,
-		creatorId: creatorId,
+		creatorId: userId,
 
 		customerName: contractOwner.fullName,
 		receiptsUnpaid: receiptsUnpaid,
@@ -333,10 +333,13 @@ exports.generateCheckoutCost = async (data) => {
 		stayDays: stayDays,
 	});
 
+	console.log('Log of newCheckoutCost: ', newCheckoutCost);
+
 	const building = await Services.buildings.findById(currentRoom.building).lean().exec();
-	console.log('building: ', building);
+
 	if (building.includeDepositRevenue === false) {
 		const ownerInfo = building.management.find((m) => m.role === Roles['OWNER']);
+
 		const incidentalRevenue = await Services.revenues.createIncidentalRevenue({
 			month: currentPeriod.currentMonth,
 			year: currentPeriod.currentYear,
@@ -368,6 +371,7 @@ exports.generateCheckoutCost = async (data) => {
 	}
 
 	const changedFeeMap = getChangedFeeIndexes(fees, formatRoomFees);
+	console.log('Log of changedFeeMap: ', changedFeeMap);
 	if (changedFeeMap.size > 0) {
 		const changedFees = [];
 
@@ -383,7 +387,7 @@ exports.generateCheckoutCost = async (data) => {
 
 		const feeIndexRecordsGenerated = await createFeeIndexRecordsFromChangedFees({
 			changedFeeMap,
-			editorId: creatorId,
+			editorId: userId,
 			roomId: roomId,
 			fromSource: UPDATE_FEE_INDEX_SOURCE['CHECKOUT_COST'],
 		});

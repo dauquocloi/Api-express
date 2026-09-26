@@ -5,6 +5,9 @@ const { PAYMENT_METHOD, CREATED_BY, OWNER_CONFIRMED_STATUS, billType } = require
 
 exports.findById = (transactionId) => Entity.TransactionsEntity.findById(transactionId);
 
+exports.findUnConfirmedTransactions = (billId, type) =>
+	Entity.TransactionsEntity.findOne({ [type]: billId, ownerConfirmed: OWNER_CONFIRMED_STATUS['PENDING'] });
+
 exports.getTransactionsByUserId = async (userObjectId) => {
 	const [result] = await Entity.UsersEntity.aggregate(Pipelines.transactions.getTransactionsByUserId(userObjectId));
 	if (!result) throw new NotFoundError('User không tồn tại');

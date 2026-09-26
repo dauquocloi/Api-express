@@ -47,7 +47,7 @@ exports.updateDebtsStatus = async (debtIds, status) => {
 };
 
 exports.rollBackDebtsBySourceIds = async (sourceIds, status) => {
-	const result = await Entity.DebtsEntity.updateMany({ sourceId: { $in: sourceIds } }, { $set: { status, sourceId: null } });
+	const result = await Entity.DebtsEntity.updateMany({ sourceId: { $in: sourceIds } }, { $set: { status, sourceId: null }, $inc: { version: 1 } });
 	if (result.matchedCount === 0 || result.matchedCount !== debtIds.length) throw new NotFoundError('Không tìm thấy bản ghi');
 	return true;
 };

@@ -84,7 +84,7 @@ router.get(
 	'/:contractId/debts-receipts-unpaid',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
-	validator(schema.getDebtsAndReceiptsUnpaid, ValidateSource.BODY),
+	validator(schema.getDebtsAndReceiptsUnpaid, ValidateSource.QUERY),
 
 	checkResourceAccess(RESOURCES['contracts']),
 	checkIdempotency,

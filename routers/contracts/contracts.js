@@ -159,7 +159,7 @@ exports.getDebtsAndReceiptsUnpaid = asyncHandler(async (req, res) => {
 			usedFor: req.body.usedFor,
 		}),
 		resourceId: req.params.contractId,
-		execute: () => UseCase.getDebtsAndReceiptsUnpaid(req.params.contractId, req.user._id, req.body.usedFor),
+		execute: () => UseCase.getDebtsAndReceiptsUnpaid(req.params.contractId, req.user._id, req.query.usedFor),
 	});
 	return new SuccessResponse('Success', result).send(res);
 });
