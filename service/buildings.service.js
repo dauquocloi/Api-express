@@ -21,8 +21,8 @@ const getAllBuildingsByManagementId = async (userId) => {
 	return result;
 };
 
-const getOwnerInfo = (buildingId) => {
-	return Entity.BuildingsEntity.findOne(
+const getOwnerInfo = async ({ buildingId }) => {
+	const result = await Entity.BuildingsEntity.findOne(
 		{
 			_id: buildingId,
 		},
@@ -32,7 +32,18 @@ const getOwnerInfo = (buildingId) => {
 			_id: 1,
 			buildingAddress: 1,
 		},
-	);
+	)
+		.lean()
+		.exec();
+
+	if (!result || !result?.management?.length) throw new NotFoundError('Không tìm thấy dữ liệu chủ nhà !');
+
+	return {
+		_id: result._id,
+		ownerId: result.management[0].user,
+		buildingName: result.buildingName,
+		buildingAddress: result.buildingAddress,
+	};
 };
 
 const getAllBills = async (buildingId, month, year) => {
@@ -207,10 +218,8 @@ const importPaymentInfo = async (buildingId, bankAccountId) => {
 	return result;
 };
 
-const getAllInvoicesInPeriod = async (buildingObjectId, month, year, session) => {
-	const [result] = await Entity.BuildingsEntity.aggregate(Pipelines.buildings.getAllInvoicesInPeriod(buildingObjectId, month, year)).session(
-		session,
-	);
+const getAllInvoicesInPeriod = async (buildingObjectId, month, year) => {
+	const [result] = await Entity.BuildingsEntity.aggregate(Pipelines.buildings.getAllInvoicesInPeriod(buildingObjectId, month, year));
 	if (!result) throw new NotFoundError('Id tòa nhà không tồn tại');
 	return result.invoices;
 };

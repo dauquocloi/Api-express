@@ -24,6 +24,35 @@ exports.getDebtsAndReceiptsUnpaid = (contractId, usedFor) => {
 				from: 'receipts',
 				localField: 'depositReceiptId',
 				foreignField: '_id',
+				pipeline: [
+					{
+						$lookup: {
+							from: 'transactions',
+							localField: '_id',
+							foreignField: 'receipt',
+							pipeline: [
+								{
+									$match: {
+										ownerConfirmed: OWNER_CONFIRMED_STATUS['PENDING'],
+										isTransactionDetected: true,
+									},
+								},
+								{
+									$project: {
+										_id: 1,
+										ownerConfirmed: 1,
+										invoice: 1,
+										receipt: 1,
+										amount: 1,
+										createdBy: 1,
+										paymentMethod: 1,
+									},
+								},
+							],
+							as: 'transactionsUnconfirmed',
+						},
+					},
+				],
 				as: 'depositReceipt',
 			},
 		},

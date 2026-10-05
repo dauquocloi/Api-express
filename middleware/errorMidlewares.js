@@ -18,6 +18,7 @@ const errorMidlewares = (err, req, res, next) => {
 
 	if (err.code === 11000 || err.name === 'ValidationError' || err.name === 'CastError') {
 		const mongoErr = parseMongoError(err);
+		console.log('log of mongoErr from errorMidlewares: ', mongoErr);
 
 		return res.status(mongoErr.statusCode).json({
 			message: mongoErr.message,

@@ -116,12 +116,12 @@ exports.updateNoteRoom = async (roomId, note) => {
 	return true;
 };
 
-exports.deleteDebts = async (roomId) => {
-	await Services.rooms.assertRoomWritable({ roomId });
+exports.deleteDebts = async (roomId, userId) => {
+	await Services.rooms.assertRoomWritable({ roomId, userId });
 	const findDebts = await Services.debts.findPendingDebts(roomId).lean().exec();
 	if (!findDebts || findDebts.length === 0) throw new NotFoundError('Nợ không tồn tại');
 
-	await Services.debts.setDebtsStatus(
+	await Services.debts.updateDebtsStatus(
 		findDebts.map((item) => item._id),
 		debtStatus['TERMINATED'],
 	);

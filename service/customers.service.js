@@ -34,7 +34,7 @@ exports.expiredCustomers = async ({ roomId, contractId }) => {
 		{ room: roomId, contract: contractId },
 		{ $set: { status: CUSTOMER_STATUS['TERMINATED'] }, $inc: { version: 1 } },
 	);
-	if (result.matchedCount === 0) throw new NotFoundError('Không tìm thấy bản ghi');
+	if (result.matchedCount === 0) throw new NotFoundError('Không tìm thấy dữ liệu khách hàng !');
 	return result;
 };
 

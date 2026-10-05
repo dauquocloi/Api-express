@@ -5,7 +5,6 @@ const generateContractCode = require('../utils/generateContractCode');
 const { contractStatus } = require('../constants/contracts');
 const Pipelines = require('./aggregates');
 const getFileUrl = require('../utils/getFileUrl');
-const deepMutate = require('../utils/deepMutate');
 
 exports.findById = (contractId) => {
 	return Entity.ContractsEntity.findById(contractId);
@@ -76,9 +75,11 @@ exports.generateContract = async ({
 	depositReceiptId,
 	depositId,
 	depositAmount,
+	ownerId,
 }) => {
 	const contractCode = await generateContractCode(process.env.CONTRACT_CODE_LENGTH);
 	const createContract = await Entity.ContractsEntity.create({
+		user: ownerId,
 		createdAt: new Date(),
 		rent: rent,
 		fees: roomFees,
@@ -105,6 +106,8 @@ exports.generateContract = async ({
 				customerConfirmed: false,
 				status: contractStatus['PENDING'],
 				fees: roomFees,
+				contractCode: contractCode,
+				contractTerm: contractTerm,
 			},
 		],
 	});
@@ -114,6 +117,7 @@ exports.generateContract = async ({
 
 exports.createContractDraft = async ({
 	room,
+	building,
 	rent,
 	depositAmount,
 	depositId = null,
@@ -130,6 +134,7 @@ exports.createContractDraft = async ({
 }) => {
 	const contractDraft = await Entity.ContractDraftsEntity.create({
 		room,
+		building,
 		rent,
 		depositAmount,
 		interiors,

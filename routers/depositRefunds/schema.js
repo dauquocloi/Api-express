@@ -1,5 +1,5 @@
 const Joi = require('joi');
-const { JoiObjectId } = require('../../utils/validator');
+const { JoiObjectId, JoiFile } = require('../../utils/validator');
 
 const feeIndexValuesSchema = Joi.object({
 	firstIndex: Joi.number().required(),
@@ -26,6 +26,8 @@ module.exports = {
 			}),
 		),
 		roomVersion: Joi.number().integer().min(1).required(),
+		debtsData: Joi.array().required(),
+		stayDays: Joi.number().min(0).required(),
 	}),
 	modifyDepositRefund: Joi.object().keys({
 		version: Joi.number().integer().min(1).required(),
@@ -36,8 +38,11 @@ module.exports = {
 				amount: Joi.number().required(),
 			}),
 		),
+		stayDays: Joi.number().min(0).required(),
+		debtsData: Joi.array().required(),
 	}),
 	confirmDepositRefund: Joi.object().keys({
 		version: Joi.number().integer().min(1).required(),
 	}),
+	confirmImage: JoiFile('image', ['image/jpeg', 'image/png', 'image/jpg']).optional(),
 };

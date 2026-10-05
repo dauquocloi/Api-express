@@ -140,7 +140,11 @@ exports.modifyReceipt = async ({ receiptObjectId, receiptVersion, receiptAmount,
 };
 
 exports.modifyDepositReceipt = async ({ receiptId, amount, status }) => {
-	const result = await Entity.ReceiptsEntity.findOneAndUpdate({ _id: receiptId }, { $set: { amount, status } }, { new: true });
+	const result = await Entity.ReceiptsEntity.findOneAndUpdate(
+		{ _id: receiptId },
+		{ $set: { amount, status }, $inc: { version: 1 } },
+		{ new: true },
+	);
 	if (!result) throw new NotFoundError('Hóa đơn đặt cọc không tồn tại');
 	return result;
 };

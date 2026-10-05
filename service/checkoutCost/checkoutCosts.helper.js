@@ -1,6 +1,9 @@
+const { NotFoundError } = require('../../AppError');
+const Services = require('../index');
 const { calculateTotalFeeAmount } = require('../../utils/calculateFeeTotal');
-const { checkoutCostStatus } = require('../../constants');
-const calculateTotalCheckoutCostAmount = (roomFees, debts, receiptsUnpaid, invoicesUnpaid, feesOther) => {
+const { checkoutCostStatus, receiptStatus } = require('../../constants');
+
+exports.calculateTotalCheckoutCostAmount = (roomFees, debts, receiptsUnpaid, invoicesUnpaid, feesOther) => {
 	let totalCost = 0;
 	totalCost += calculateTotalFeeAmount(roomFees);
 
@@ -15,7 +18,7 @@ const calculateTotalCheckoutCostAmount = (roomFees, debts, receiptsUnpaid, invoi
 	return Math.max(totalCost, 0);
 };
 
-const calculateCheckoutCostStatus = (checkoutCostAmount, checkoutCostPaidAmount) => {
+exports.calculateCheckoutCostStatus = (checkoutCostAmount, checkoutCostPaidAmount) => {
 	if (checkoutCostPaidAmount >= checkoutCostAmount) {
 		return checkoutCostStatus.PAID;
 	}
@@ -27,7 +30,18 @@ const calculateCheckoutCostStatus = (checkoutCostAmount, checkoutCostPaidAmount)
 	return checkoutCostStatus.PARTIAL;
 };
 
-module.exports = {
-	calculateTotalCheckoutCostAmount,
-	calculateCheckoutCostStatus,
+exports.modifyCheckoutCostByReceipt = async ({ checkoutCostId, receiptInfo }) => {
+	const { oldReceiptAamount, newReceiptAmount, receiptId, newReceiptStatus } = receiptInfo;
+	const checkoutCost = await Services.checkoutCosts.findById(checkoutCostId).populate('checkoutCostReceipt').lean().exec();
+	if (!checkoutCost) throw new NotFoundError('Dữ liệu trả phòng không tồn tại !');
+	if (!checkoutCost.checkoutCostReceipt) throw new NotFoundError('');
+	const { receiptsUnpaid } = checkoutCost;
+
+	if (newReceiptStatus === receiptStatus['PAID']) {
+		const newReceiptsUnpaid = receiptsUnpaid.filter((receipt) => receipt._id.toString() !== receiptUpdatedInfo.receiptId.toString());
+		const newCheckoutCostTotal = checkoutCost.total - oldReceiptAamount + newReceiptAmount;
+		const newCheckoutCostStatus = this.calculateCheckoutCostStatus(newCheckoutCostTotal, checkoutCost.checkoutCostReceipt.paidAmount);
+
+		// return await Services.checkoutCosts.
+	}
 };

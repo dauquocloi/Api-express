@@ -16,8 +16,9 @@ exports.prepareGenerateContract = asyncHandler(async (req, res) => {
 		interiors,
 		customers,
 		contractPeriod,
-		note: note.trim() ?? '',
+		note: note?.trim() ?? '',
 		stayDays: Number(stayDays),
+		createrId: req.user._id,
 	};
 
 	console.log('log of data from prepareGenerateContract: ', data);
@@ -44,16 +45,16 @@ exports.prepareGenerateContract = asyncHandler(async (req, res) => {
 });
 
 exports.generateContract = asyncHandler(async (req, res) => {
-	console.log('log of data from create: ', req.params);
+	console.log('log of data from generateContract: ', req.body);
 	await executeIdempotent({
 		key: req.get('Idempotency-Key'),
 		userId: req.user._id,
 		endPoint: `${req.method}:${req.route.path}`,
 		requestHash: generateRequestHash({
-			contractDraftId: data.contractDraftId,
+			contractDraftId: req.body.contractDraftId,
 		}),
-		resourceId: data.contractDraftId,
-		execute: () => UseCase.generateContract(req.params.contractDraftId, req.user._id),
+		resourceId: req.body.contractDraftId,
+		execute: () => UseCase.generateContract(req.body.contractDraftId, req.user._id),
 	});
 	return new SuccessMsgResponse('Success').send(res);
 });

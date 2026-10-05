@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Services = require('../service');
 const { NotFoundError, ConflictError, BadRequestError, InternalError } = require('../AppError');
 const { formatDebts } = require('../service/debts.helper');
-const { generateInvoiceFees } = require('../service/invoices.helper');
+const { generateInvoiceFees, getInvoiceStatus } = require('../service/invoices.helper');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
 const {
 	sourceType,
@@ -75,6 +75,7 @@ exports.getModifyCheckoutCostInfo = async (checkoutCostId) => {
 	return checkoutCost;
 };
 
+// the F is this ?
 exports.finishModifyCheckoutCost = async (checkoutCostId) => {
 	let session;
 	try {
@@ -100,28 +101,44 @@ exports.finishModifyCheckoutCost = async (checkoutCostId) => {
 	}
 };
 
+// not used
 exports.removeDebtsFromCheckoutCost = async (checkoutCostId) => {
-	const currentCheckOutCost = await Services.checkoutCosts.findById(checkoutCostId);
-	if (currentCheckOutCost) throw new NotFoundError('Phiếu trả phòng không tồn tại !');
-	if (!currentCheckOutCost.debts || currentCheckOutCost.debts.length === 0) throw new NotFoundError('khoản nợ không tồn tại !');
+	const currentCheckoutCost = await Services.checkoutCosts.findById(checkoutCostId).populate('checkoutCostReceipt');
+	if (!currentCheckoutCost) throw new NotFoundError('Phiếu trả phòng không tồn tại !');
+	if (!currentCheckoutCost.debts || currentCheckoutCost.debts.length === 0) throw new NotFoundError('khoản nợ không tồn tại !');
 
-	const debts = await Services.debts.getDebtsByIds(currentCheckOutCost.debts).lean().exec();
+	const debts = await Services.debts.getDebtsByIds(currentCheckoutCost.debts).lean().exec();
 	if (!debts || debts.length === 0) throw new NotFoundError('Dữ liệu không tồn tại');
 
 	const totalDebts = formatDebts(debts).amount;
-	await Services.debts.updateDebtsStatus(currentCheckOutCost.debts, debtStatus['TERMINATED']);
+	const debtIds = debts.map((d) => d._id);
+	await Services.debts.updateDebtsStatus(debtIds, debtStatus['TERMINATED']);
 
-	const newCheckoutCostTotal = currentCheckOutCost.total - totalDebts;
-	currentCheckOutCost.total = newCheckoutCostTotal;
-	currentCheckOutCost.debts = [];
-	currentCheckOutCost.version += 1;
+	const newCheckoutCostTotal = currentCheckoutCost.total - totalDebts;
+	currentCheckoutCost.total = newCheckoutCostTotal;
+	currentCheckoutCost.debts = [];
+	currentCheckoutCost.version += 1;
 
-	await currentCheckOutCost.save();
-	return currentCheckOutCost;
+	await currentCheckoutCost.save();
+	console.log('currentCheckout: ', currentCheckoutCost);
+
+	const { checkoutCostReceipt } = currentCheckoutCost;
+	const newReceiptStatus = getInvoiceStatus(checkoutCostReceipt.paidAmount, newCheckoutCostTotal);
+	const receiptModified = await Services.receipts.modifyReceipt({
+		receiptObjectId: checkoutCostReceipt._id,
+		receiptVersion: checkoutCostReceipt.version,
+		receiptAmount: newCheckoutCostTotal,
+		status: newReceiptStatus,
+		date: checkoutCostReceipt.date,
+	});
+	console.log('log of receiptModified: ', receiptModified);
+	throw new InternalError('Stop for testing');
+	return currentCheckoutCost;
 };
 
 exports.modifyCheckoutCost = async (data) => {
-	const { checkoutCostId, version, feeIndexValues, stayDays, feesOther, userId } = data;
+	const { checkoutCostId, version, feeIndexValues, stayDays, feesOther, userId, debtsData } = data;
+
 	const currentCheckoutCost = await Services.checkoutCosts
 		.findById(checkoutCostId)
 		.populate('checkoutCostReceipt receiptsUnpaid invoicesUnpaid debts contractId');
@@ -147,12 +164,15 @@ exports.modifyCheckoutCost = async (data) => {
 
 	let formatRoomFees;
 	if (!invoicesUnpaid || invoicesUnpaid.length === 0) {
-		formatRoomFees = generateInvoiceFees(fees, lastestContractVersion?.rent, stayDays, feeIndexValues, true, 'modify');
+		formatRoomFees = generateInvoiceFees(fees, lastestContractVersion?.rent, stayDays, feeIndexValues, false, 'modify');
 	} else {
 		formatRoomFees = generateInvoiceFees(fees, 0, 0, feeIndexValues, false, 'modify');
 	}
 
-	const newTotalCheckoutCost = calculateTotalCheckoutCostAmount(formatRoomFees, debts, receiptsUnpaid, invoicesUnpaid, feesOther);
+	console.log('log of formatRoomFees: ', formatRoomFees);
+	let finalDebts = debtsData?.length ? debts : [];
+
+	const newTotalCheckoutCost = calculateTotalCheckoutCostAmount(formatRoomFees, finalDebts, receiptsUnpaid, invoicesUnpaid, feesOther);
 
 	if (!checkoutCostReceipt) {
 		if (newTotalCheckoutCost > 0) {
@@ -173,12 +193,14 @@ exports.modifyCheckoutCost = async (data) => {
 			currentCheckoutCost.checkoutCostReceipt = checkoutCostReceiptCreated._id;
 		}
 	} else {
-		await Services.receipts.modifyReceipt({
+		const receiptModified = await Services.receipts.modifyReceipt({
 			receiptObjectId: checkoutCostReceipt._id,
 			receiptAmount: newTotalCheckoutCost,
 			receiptContent: checkoutCostReceipt.receiptContent,
 			receiptVersion: checkoutCostReceipt.version,
 		});
+
+		console.log('log of receiptModified: ', receiptModified);
 	}
 
 	const changedFeeMap = getChangedFeeIndexes(fees, formatRoomFees);
@@ -199,20 +221,23 @@ exports.modifyCheckoutCost = async (data) => {
 			changedFeeMap,
 			editorId: userId,
 			roomId: currentCheckoutCost.roomId,
-			fromSource: UPDATE_FEE_INDEX_SOURCE['CHECKOUT_COST'],
+			fromSource: UPDATE_FEE_INDEX_SOURCE['MODIFY_CHECKOUT_COST'],
 		});
 
 		console.log('feeIndexRecordsGenerated', feeIndexRecordsGenerated);
 	}
 
-	await Services.checkoutCosts.modifyCheckoutCost({
+	const result = await Services.checkoutCosts.modifyCheckoutCost({
 		checkoutCostId,
 		fees: formatRoomFees,
 		feesOther,
 		newTotal: newTotalCheckoutCost,
 		stayDays,
 		version,
+		debts: finalDebts,
 	});
+
+	console.log('result: ', result);
 
 	throw new BadRequestError('Stop for testing');
 	return 'Success';
@@ -267,7 +292,7 @@ exports.terminateCheckoutCost = async (checkoutCostId, version) => {
 
 //should Generate incidental revenue deposit receipt amount
 exports.generateCheckoutCost = async (data) => {
-	const { roomId, contractId, feeIndexValues, feesOther, stayDays, roomVersion, userId } = data;
+	const { roomId, contractId, feeIndexValues, feesOther, stayDays, roomVersion, userId, debtsData } = data;
 	const roomObjectId = new mongoose.Types.ObjectId(roomId);
 	const currentRoom = await Services.rooms.assertRoomWritable({ roomId, userId });
 	const currentPeriod = await getCurrentPeriod(currentRoom.building);
@@ -293,8 +318,9 @@ exports.generateCheckoutCost = async (data) => {
 	} else {
 		formatRoomFees = generateInvoiceFees(fees, contract.rent, stayDays, feeIndexValues, true);
 	}
+	let finalDebts = debtsData?.length ? debts : [];
 	console.log('log of formatRoomFees: ', formatRoomFees);
-	const totalCost = calculateTotalCheckoutCostAmount(formatRoomFees, debts, receiptsUnpaid, invoicesUnpaid, feesOther);
+	const totalCost = calculateTotalCheckoutCostAmount(formatRoomFees, finalDebts, receiptsUnpaid, invoicesUnpaid, feesOther);
 	console.log('log of totalCost: ', totalCost);
 
 	let checkoutCostReceipt = null;
@@ -324,7 +350,7 @@ exports.generateCheckoutCost = async (data) => {
 		customerName: contractOwner.fullName,
 		receiptsUnpaid: receiptsUnpaid,
 		invoicesUnpaid: invoicesUnpaid,
-		debts: debts,
+		debts: debts.length > 0 ? debts.map((d) => d._id.toString()) : [],
 		roomFees: formatRoomFees,
 		currentPeriod: currentPeriod,
 		checkoutCostReceipt: checkoutCostReceipt,
@@ -352,12 +378,16 @@ exports.generateCheckoutCost = async (data) => {
 		console.log('incidentalRevenue: ', incidentalRevenue);
 	}
 
-	if (Array.isArray(newCheckoutCost.debts) && newCheckoutCost.debts?.length > 0) {
-		await Services.debts.closeAndSetSourceInfo({
-			contractId: contractId,
-			sourceId: newCheckoutCost._id,
-			sourceType: sourceType['CHECKOUT_COST'],
-		});
+	if (Array.isArray(debts) && debts?.length > 0) {
+		if (debtsData?.length > 0) {
+			await Services.debts.closeAndSetSourceInfo({
+				contractId: contractId,
+				sourceId: newCheckoutCost._id,
+				sourceType: sourceType['CHECKOUT_COST'],
+			});
+		} else {
+			await Services.debts.closeDebts(roomId);
+		}
 	}
 	if (newCheckoutCost.invoicesUnpaid?.length > 0) {
 		await Services.invoices.closeAndSetDetuctedInvoice({
@@ -414,7 +444,7 @@ exports.generateCheckoutCost = async (data) => {
 	await Services.customers.expiredCustomers({ roomId: roomObjectId, contractId: contractId });
 	await Services.contracts.expiredContract(contractId);
 
-	throw new InternalError('Stop for testing');
+	// throw new InternalError('Stop for testing');
 
 	return newCheckoutCost;
 };

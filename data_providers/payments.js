@@ -11,7 +11,7 @@ const { getTransactionManager } = require('../instance');
 const { TRANS_STATUS } = require('../constants/transactions');
 const { billType: BILL_TYPE } = require('../constants/bills');
 const { checkoutCostStatus: CHECKOUT_COST_STATUS, receiptToCheckoutCostStatusMap } = require('../constants/checkoutCosts');
-const { receiptToDepositRefundStatusMap } = require('../constants/deposits');
+const { receiptToDepositRefundStatusMap, receiptToDepositStatus } = require('../constants/deposits');
 const { SepayError, sepayErrorTypes } = require('../infrastructure/Sepay/SepayError');
 const { notificationJob } = require('../jobs/notification/notification.job');
 const { NOTI_PAYMENT } = require('../jobs/constant/jobNames');
@@ -34,6 +34,8 @@ const { NOTI_PAYMENT } = require('../jobs/constant/jobNames');
 }
  */
 }
+
+// Should refactor
 exports.webhookPayment = async (sepayData) => {
 	let session;
 	let result;
@@ -224,9 +226,9 @@ exports.webhookPayment = async (sepayData) => {
 					newCheckoutCostStatus = receiptToCheckoutCostStatusMap[getNewReceiptStatus];
 					await Services.checkoutCosts.updateCheckoutCostPaymentStatusByReceiptId(_id, newCheckoutCostStatus, session);
 				} else if (receiptType === RECEIPT_TYPES['DEPOSIT']) {
-					let newDepositRefundStatus;
-					newDepositRefundStatus = receiptToDepositRefundStatusMap[getNewReceiptStatus];
-					await Services.depositRefunds.updateDepositRefundStatusByReceiptId(_id, newDepositRefundStatus, session);
+					let newDepositStatus;
+					newDepositStatus = receiptToDepositStatus[getNewReceiptStatus];
+					await Services.deposits.updateDepositStatusByReceiptId(_id, newDepositStatus);
 				}
 
 				//=====NOTIFICATION======//

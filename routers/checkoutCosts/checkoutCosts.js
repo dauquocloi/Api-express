@@ -43,7 +43,7 @@ exports.removeDebtsFromCheckoutCost = asyncHandler(async (req, res) => {
 
 exports.modifyCheckoutCost = asyncHandler(async (req, res) => {
 	const { checkoutCostId } = req.params;
-	const { version, feeIndexValues, stayDays, feesOther } = req.body;
+	const { version, feeIndexValues, stayDays, feesOther, debtsData } = req.body;
 
 	const data = {
 		checkoutCostId,
@@ -52,6 +52,7 @@ exports.modifyCheckoutCost = asyncHandler(async (req, res) => {
 		stayDays,
 		feesOther,
 		userId: req.user._id,
+		debtsData,
 	};
 	console.log('log of data from modifyCheckoutCost: ', data);
 
@@ -81,7 +82,7 @@ exports.terminateCheckoutCost = asyncHandler(async (req, res) => {
 });
 
 exports.generateCheckoutCost = asyncHandler(async (req, res) => {
-	const { roomId, contractId, feeIndexValues, feesOther, stayDays, roomVersion } = req.body;
+	const { roomId, contractId, feeIndexValues, feesOther, stayDays, roomVersion, debtsData } = req.body;
 	const data = {
 		roomId,
 		contractId,
@@ -90,6 +91,7 @@ exports.generateCheckoutCost = asyncHandler(async (req, res) => {
 		stayDays,
 		roomVersion,
 		userId: req.user._id,
+		debtsData,
 	};
 	console.log('log of data from generateCheckoutCost: ', data);
 

@@ -41,6 +41,7 @@ const InteriorSchema = new Schema({
 const ContractDraftsSchema = new Schema(
 	{
 		room: { type: Schema.Types.ObjectId, ref: 'RoomsEntity', required: true },
+		building: { type: Schema.Types.ObjectId, ref: 'BuildingsEntity' },
 		depositReceiptId: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity', required: true },
 		firstInvoiceId: { type: Schema.Types.ObjectId, ref: 'InvoicesEntity', required: true },
 		depositId: { type: Schema.Types.ObjectId, ref: 'DepositsEntity', default: null },

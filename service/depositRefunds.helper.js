@@ -4,9 +4,9 @@ const calculateDepositRefundAmount = (
 	receiptsUnpaidAmount,
 	invoiceUnpaidAmount,
 	feesOtherAmount,
-	feeIndexValuesAmount,
+	totalRoomFeeAmount,
 ) => {
-	return depositPaidAmount - (debtsAmount + receiptsUnpaidAmount + invoiceUnpaidAmount + feesOtherAmount + feeIndexValuesAmount);
+	return depositPaidAmount - (debtsAmount + receiptsUnpaidAmount + invoiceUnpaidAmount + feesOtherAmount + totalRoomFeeAmount);
 };
 
 module.exports = { calculateDepositRefundAmount };

@@ -1,5 +1,5 @@
 const Services = require('../service');
-const { CUSTOMER_STATUS, vehicleStatus, feeUnit } = require('../constants');
+const { CUSTOMER_STATUS, vehicleStatus, feeUnit, receiptStatus } = require('../constants');
 const { ConflictError } = require('../AppError');
 const listFeeInitial = require('../utils/getListFeeInital');
 
@@ -81,4 +81,10 @@ exports.processImportCustomersAndVehicles = async ({ customers, contractEndDate,
 
 		await Services.vehicles.importVehicles(vehicles);
 	}
+};
+
+exports.formatDepositReceiptStatus = (paidAmount, amount) => {
+	if (paidAmount >= amount) return receiptStatus['PAID'];
+	if (paidAmount === 0) return receiptStatus['PENDING'];
+	return receiptStatus['PARTIAL'];
 };

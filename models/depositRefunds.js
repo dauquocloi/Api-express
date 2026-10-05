@@ -9,6 +9,8 @@ const feesIndexSchema = new Schema({
 	feeKey: { type: String },
 	firstIndex: { type: Number },
 	lastIndex: { type: Number },
+	quantity: { type: Number },
+	unit: { type: String },
 });
 
 const DepositRefundsSchema = new Schema(
@@ -18,8 +20,10 @@ const DepositRefundsSchema = new Schema(
 		contract: { type: Schema.Types.ObjectId, ref: 'ContractsEntity' },
 		status: { type: String, enum: Object.values(depositRefundStatus), default: depositRefundStatus['PENDING'] },
 		feesIndex: [feesIndexSchema],
+		stayDays: { type: Number, required: true },
 		feesOther: [
 			{
+				_id: false,
 				feeContent: { type: String },
 				feeContentDetail: { type: String },
 				amount: { type: Number },

@@ -59,8 +59,8 @@ exports.executeIdempotent = async ({ key, userId, endPoint, requestHash, resourc
 
 			await Services.idempotencyRecords.complete({
 				recordId: acquisition.record._id,
-				responseCode: result.statusCode ?? 200,
-				responseBody: result.body ?? result,
+				responseCode: result?.statusCode ?? 200,
+				responseBody: result?.body ?? result,
 			});
 
 			return result;

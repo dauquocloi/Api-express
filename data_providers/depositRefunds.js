@@ -1,11 +1,7 @@
 const { AppError, InvalidInputError, NotFoundError, BadRequestError, NoDataError, ConflictError, InternalError } = require('../AppError');
-const Entity = require('../models');
 const mongoose = require('mongoose');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
-const Pipelines = require('../service/aggregates');
 const Services = require('../service');
-const { client: redis } = require('../config').redisDb;
-const { calculateTotalDebts } = require('../service/debts.helper');
 const { calculateTotalReceipts } = require('../service/receipts.helper');
 const { generateInvoiceFees } = require('../service/invoices.helper');
 const { calculateTotalFeeAmount, calculateTotalFeesOther, calculateInvoiceUnpaidAmount } = require('../utils/calculateFeeTotal');
@@ -18,7 +14,6 @@ const {
 	feeUnit,
 	debtStatus,
 	CHECKOUT_TYPES,
-	DETUCTED_TYPE,
 	roomState,
 	expenditureType,
 	UPDATE_FEE_INDEX_SOURCE,
@@ -28,23 +23,14 @@ const {
 const { formatDebts } = require('../service/debts.helper');
 const { checkExistPendingTransactions } = require('./depositRefunds.util');
 const { getChangedFeeIndexes, createFeeIndexRecordsFromChangedFees } = require('../service/fees.helper');
+const uploadFile = require('../utils/uploadFile');
+const deleteFileFromS3 = require('../utils/deleteFileFromS3');
+const getFileUrl = require('../utils/getFileUrl');
+const { isValidImage } = require('../utils/checkIsValidImage');
+const deepMutate = require('../utils/deepMutate');
 
 exports.getDepositRefunds = async (buildingId, mode) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
-	let checkBuilding = await Entity.BuildingsEntity.exists({ _id: buildingObjectId });
-	if (!checkBuilding) throw new InvalidInputError('Dữ liệu đầu vào không hợp lệ');
-
-	// let depositRefundData = [];
-	// if (mode === 'pending') {
-	// 	depositRefundData = await Entity.DepositRefundsEntity.aggregate(
-	// 		Pipelines.depositRefunds.getDepositRefundsModePendingPipeline(buildingObjectId),
-	// 	);
-	// } else {
-	// 	depositRefundData = await Entity.DepositRefundsEntity.aggregate(
-	// 		Pipelines.depositRefunds.getDepositRefundsModeRefundedPipeline(buildingObjectId),
-	// 	);
-	// }
-
 	const result = await Services.depositRefunds.getDepositRefunds(buildingObjectId, mode);
 
 	return result;
@@ -52,19 +38,18 @@ exports.getDepositRefunds = async (buildingId, mode) => {
 
 exports.getDepositRefundDetail = async (depositRefundId) => {
 	const depositRefundObjectId = new mongoose.Types.ObjectId(depositRefundId);
-	const [depositRefund] = await Entity.DepositRefundsEntity.aggregate(
-		Pipelines.depositRefunds.getDepositRefundDetailPipeline(depositRefundObjectId),
-	);
-	if (!depositRefund) throw new NotFoundError('Không có dữ liệu');
+	const depositRefund = await Services.depositRefunds.getDepositRefundDetail(depositRefundObjectId);
+	if (depositRefund.image && depositRefund.image !== '') {
+		await deepMutate(depositRefund, (key, value, parent) => key === 'image', getFileUrl);
+	}
+
 	return depositRefund;
 };
 
 exports.getModifyDepositRefundInfo = async (depositRefundId) => {
 	const depositRefundObjectId = new mongoose.Types.ObjectId(depositRefundId);
-	const [depositRefund] = await Entity.DepositRefundsEntity.aggregate(
-		Pipelines.depositRefunds.getDepositRefundDetailPipeline(depositRefundObjectId),
-	);
-	if (!depositRefund) throw new NotFoundError('Không có dữ liệu');
+	const depositRefund = await Services.depositRefunds.getDepositRefundDetail(depositRefundObjectId);
+
 	if (depositRefund.invoiceUnpaid !== null && depositRefund.invoiceUnpaid) await Services.invoices.unLockInvoice(depositRefund.invoiceUnpaid._id);
 	if (depositRefund.receiptsUnpaid && depositRefund.receiptsUnpaid.length > 0)
 		await Services.receipts.unlockManyReceipts(depositRefund.receiptsUnpaid.map((receipt) => receipt._id));
@@ -72,65 +57,71 @@ exports.getModifyDepositRefundInfo = async (depositRefundId) => {
 };
 
 exports.confirmDepositRefund = async (data) => {
-	const { depositRefundId, spenderId, version } = data;
-	const depositRefundObjectId = new mongoose.Types.ObjectId(depositRefundId);
+	let paymentImage = null;
+	try {
+		const { depositRefundId, spenderId, version, image } = data;
 
-	const currentDepositRefund = await Services.depositRefunds.findById(depositRefundObjectId).lean().exec();
-	if (!currentDepositRefund) throw new NotFoundError('Phiếu hoàn cọc không tồn tại');
-	if (currentDepositRefund.version !== version) throw new ConflictError('Dữ liệu đã bị thay đổi, vui lòng tải lại trang');
+		const currentDepositRefund = await Services.depositRefunds
+			.findById(depositRefundId)
+			.populate([
+				{ path: 'building', select: '_id includeDepositRevenue' },
+				{ path: 'room', select: '_id roomIndex' },
+			])
+			.lean()
+			.exec();
+		if (!currentDepositRefund) throw new NotFoundError('Phiếu hoàn cọc không tồn tại');
+		if (currentDepositRefund.version !== version) throw new ConflictError('Dữ liệu đã bị thay đổi, vui lòng tải lại trang');
 
-	const { room, building, contract } = currentDepositRefund;
-	const currentPeriod = await getCurrentPeriod(building);
+		const { room, building, contract } = currentDepositRefund;
+		const currentPeriod = await getCurrentPeriod(building);
 
-	// Update Phòng, Hợp đồng,
-	// const updatedContract = await Entity.ContractsEntity.findOneAndUpdate({ _id: contract }, { $set: { status: 'expired' } }, { session });
-	// if (!updatedContract) throw new NotFoundError('Hợp đồng không tồn tại');
-	await Services.contracts.expiredContract(contract);
-	const updateRoomState = await Services.rooms.updateRoomState({ roomId: room, roomState: roomState['UN_HIRED'] });
+		if (image && isValidImage(image)) {
+			try {
+				const imageUploaded = await uploadFile(image, false);
+				paymentImage = imageUploaded.Key;
+			} catch (error) {
+				console.log(error);
+			}
+		}
 
-	if (!!currentDepositRefund.invoiceUnpaid) {
-		await Services.invoices.closeAndSetDetuctedInvoice({
-			invoiceIds: [currentDepositRefund.invoiceUnpaid],
-			detuctedType: DETUCTED_TYPE['DEPOSIT_REFUND'],
-			detuctedId: depositRefundId,
+		const depositRefundConfirmation = await Services.depositRefunds.confirmDepositRefund({
+			depositRefundId,
+			version,
+			month: currentPeriod.currentMonth,
+			year: currentPeriod.currentYear,
+			status: depositRefundStatus['PAID'],
+			image: paymentImage,
 		});
+
+		if (building?.includeDepositRevenue === true) {
+			const newIncidentalExpenditure = await Services.expenditures.generateExpenditure({
+				month: currentPeriod.currentMonth,
+				year: currentPeriod.currentYear,
+				content: `Hoàn cọc phòng ${room.roomIndex}`,
+				amount: currentDepositRefund.depositRefundAmount,
+				type: expenditureType['INCIDENTAL'],
+				building: building,
+				spender: spenderId, // Owner only
+			});
+
+			console.log('newIncidentalExpenditure: ', newIncidentalExpenditure);
+		}
+
+		return depositRefundConfirmation;
+	} catch (error) {
+		if (paymentImage)
+			try {
+				await deleteFileFromS3(paymentImage);
+			} catch (error) {
+				console.log('delete image failed: ', error);
+			}
+
+		throw error;
 	}
-	if (currentDepositRefund.receiptsUnpaid?.length > 0) {
-		await Services.receipts.closeAndSetDetucted(currentDepositRefund.receiptsUnpaid, DETUCTED_TYPE['DEPOSIT_REFUND'], depositRefundId);
-	}
-
-	// currentDepositRefund.status = 'paid';
-	// currentDepositRefund.month = currentPeriod.currentMonth;
-	// currentDepositRefund.year = currentPeriod.currentYear;
-	// //Chèn ảnh giao dịch chuyển khoản vào đây;
-	// await currentDepositRefund.save({ session });
-
-	await Services.depositRefunds.confirmDepositRefund({
-		depositRefundId,
-		version,
-		month: currentPeriod.currentMonth,
-		year: currentPeriod.currentYear,
-		status: depositRefundStatus['PAID'],
-	});
-
-	//Tạo expenditure hoàn cọc
-	await Services.expenditures.generateExpenditure({
-		month: currentPeriod.currentMonth,
-		year: currentPeriod.currentYear,
-		content: `Hoàn cọc phòng ${updateRoomState.roomIndex}`,
-		amount: currentDepositRefund.depositRefundAmount,
-		type: expenditureType['INCIDENTAL'],
-		building: building,
-		spender: spenderId, // Owner only
-	});
-
-	throw new InternalError('StopForTesting');
-
-	return;
 };
 
 exports.generateDepositRefund = async (data) => {
-	const { contractId, roomVersion, feeIndexValues, feesOther, userId } = data;
+	const { contractId, roomVersion, feeIndexValues, feesOther, userId, debtsData, stayDays } = data;
 
 	const currentContract = await Services.contracts
 		.findById(contractId)
@@ -143,10 +134,13 @@ exports.generateDepositRefund = async (data) => {
 
 	const debtsReceiptsUnpaid = await Services.contracts.getDebtsAndReceiptsUnpaid(contractId, getDebtsReceiptsUnpaidUsedFor['DEPOSIT_REFUND']);
 	const { invoicesUnpaid, receiptsUnpaid, debts, contract, depositReceipt, fees, room } = debtsReceiptsUnpaid;
-	checkExistPendingTransactions(receiptsUnpaid, invoicesUnpaid);
+
+	checkExistPendingTransactions([...(receiptsUnpaid ?? []), ...(depositReceipt ?? [])], invoicesUnpaid);
+
 	const currentPeriod = await getCurrentPeriod(currentContract.room.building._id);
 
-	const totalDebts = formatDebts(debts).amount;
+	let finalDebts = debtsData?.length ? debts : [];
+	const totalDebts = formatDebts(finalDebts).amount;
 	const totalReceiptsUnpaid = calculateTotalReceipts(receiptsUnpaid);
 
 	// Lý do invoices có 1 và chỉ 1 phần tử vì hoàn cọc không thể tồn tại invoice tháng đầu tiên !
@@ -154,15 +148,17 @@ exports.generateDepositRefund = async (data) => {
 	const totalFeesOther = calculateTotalFeesOther(feesOther);
 
 	const roomFeeIndex = fees.filter((f) => f.unit === feeUnit['INDEX']);
+	const roomFeeIndexIds = roomFeeIndex.map((fee) => fee._id.toString()) || [];
+	if (roomFeeIndexIds.length > 0) validateFeeIndexMatch(roomFeeIndexIds, feeIndexValues);
 
-	let feeIndexTotalAmount = 0;
-	const formatRoomFeeIndex = generateInvoiceFees(roomFeeIndex, 0, 0, feeIndexValues, false);
-	if (roomFeeIndex.length > 0) {
-		const roomFeeIndexIds = roomFeeIndex.map((f) => f._id?.toString()) || [];
-		validateFeeIndexMatch(roomFeeIndexIds, feeIndexValues);
-
-		feeIndexTotalAmount = calculateTotalFeeAmount(formatRoomFeeIndex);
+	let formatRoomFees;
+	if (invoicesUnpaid.length > 0) {
+		formatRoomFees = generateInvoiceFees(roomFeeIndex, 0, 0, feeIndexValues, false);
+	} else {
+		formatRoomFees = generateInvoiceFees(fees, contract.rent, stayDays, feeIndexValues, true);
 	}
+
+	const totalRoomFeeAmount = calculateTotalFeeAmount(formatRoomFees);
 
 	const depositRefundAmount = calculateDepositRefundAmount(
 		depositReceipt.paidAmount,
@@ -170,14 +166,14 @@ exports.generateDepositRefund = async (data) => {
 		totalReceiptsUnpaid,
 		totalInvoiceUnpaid,
 		totalFeesOther,
-		feeIndexTotalAmount,
+		totalRoomFeeAmount,
 	);
 
-	const debtIds = debts.map((d) => d._id.toString());
+	const debtIds = finalDebts?.map((d) => d._id.toString()) || [];
 	const receiptIds = receiptsUnpaid.map((r) => r._id.toString());
 	const createdDepositRefund = await Services.depositRefunds.createDepositRefund({
 		roomId: room._id,
-		fees: formatRoomFeeIndex,
+		fees: formatRoomFees,
 		feesOther,
 		depositRefundAmount,
 		invoiceUnpaid: invoicesUnpaid?.length ? invoicesUnpaid[0]._id : null,
@@ -189,7 +185,10 @@ exports.generateDepositRefund = async (data) => {
 		receiptIds,
 		currentPeriod,
 		creatorId: userId,
+		stayDays,
 	});
+
+	console.log('log of createdDepositRefund', createdDepositRefund);
 
 	await Services.receipts.closeReceiptDeposit({ receiptId: depositReceipt._id });
 	if (receiptsUnpaid.length) {
@@ -245,7 +244,7 @@ exports.generateDepositRefund = async (data) => {
 	// CHECK CHANGED FEE INDEX
 	// =========================================================
 
-	const changedFeeMap = getChangedFeeIndexes(fees, formatRoomFeeIndex);
+	const changedFeeMap = getChangedFeeIndexes(fees, formatRoomFees);
 
 	if (changedFeeMap.size > 0) {
 		const changedFees = [];
@@ -270,13 +269,10 @@ exports.generateDepositRefund = async (data) => {
 		console.log('feeIndexRecordsGenerated', feeIndexRecordsGenerated);
 	}
 
-	console.log('Successfully: ', createdDepositRefund);
-
-	throw new InternalError('Stop for testing');
 	return createdDepositRefund;
 };
 
-// un tested
+// Not used
 exports.removeDebtsFromDepositRefund = async (depositRefundId) => {
 	let session;
 	try {
@@ -304,39 +300,104 @@ exports.removeDebtsFromDepositRefund = async (depositRefundId) => {
 };
 
 // Note: Khi chủ nhà sửa phiếu hoàn cọc => unLock: hóa đơn unpaid để thu tiền.
-//======= UN REFACTED =======//
 exports.modifyDepositRefund = async (data) => {
-	const { feesOther = [], fees = [], depositRefundId, feeIndexValues } = data;
-	const depositRefundObjectId = new mongoose.Types.ObjectId(depositRefundId);
+	const { depositRefundId, feesOther = [], feeIndexValues, stayDays, debtsData, version, userId } = data;
 
-	session = await mongoose.startSession();
-	session.startTransaction();
-
-	const currentDepositRefund = await Entity.DepositRefundsEntity.findOne({ _id: depositRefundObjectId });
+	const currentDepositRefund = await Services.depositRefunds
+		.findById(depositRefundId)
+		.populate('contract depositReceipt invoiceUnpaid receiptsUnpaid debts')
+		.lean()
+		.exec();
 	if (!currentDepositRefund) throw new NotFoundError('Phiếu hoàn cọc không tồn tại');
+	if (currentDepositRefund.version !== version) throw new ConflictError('Dữ liệu đã bị thay đổi, vui lòng tải lại trang');
 
-	// ---- Helper tính tiền ----
-	const calcIndexFees = (list) =>
-		(list ?? []).reduce((sum, fee) => {
-			return sum + (fee.lastIndex - fee.firstIndex) * fee.feeAmount;
-		}, 0);
+	const {
+		feesIndex,
+		feesOther: oldFeesOther,
+		depositRefundAmount,
+		receiptsUnpaid,
+		invoiceUnpaid,
+		debts,
 
-	const calcOtherFees = (list) => (list ?? []).reduce((sum, fee) => sum + fee.amount, 0);
+		contract,
+		depositReceipt,
+	} = currentDepositRefund;
 
-	// ---- 1. Tính tổng fee hiện tại ----
-	const currentTotalFee = calcIndexFees(currentDepositRefund.feesIndex) + calcOtherFees(currentDepositRefund.feesOther);
+	const currentFeeIndexIds = feesIndex.map((f) => (f.unit === feeUnit['INDEX'] ? f._id.toString() : null)).filter(Boolean);
+	if (currentFeeIndexIds.length > 0) validateFeeIndexMatch(currentFeeIndexIds, feeIndexValues);
 
-	// ---- 2. Tính tổng fee mới ----
-	const newTotalFee = calcIndexFees(fees) + calcOtherFees(feesOther);
+	const lastestContractVersion = contract.versions?.length ? contract.versions.reduce((max, v) => (v.version > max.version ? v : max)) : null;
 
-	// ---- 3. Update số tiền hoàn cọc ----
-	currentDepositRefund.depositRefundAmount = currentDepositRefund.depositRefundAmount + currentTotalFee - newTotalFee;
+	let formatRoomFees;
+	if (!invoiceUnpaid) {
+		formatRoomFees = generateInvoiceFees(feesIndex, lastestContractVersion?.rent, stayDays, feeIndexValues, false, 'modify');
+	} else {
+		formatRoomFees = generateInvoiceFees(feesIndex, 0, 0, feeIndexValues, false, 'modify');
+	}
 
-	// ---- 4. Update danh sách fee ----
-	currentDepositRefund.feesIndex = fees;
-	currentDepositRefund.feesOther = feesOther;
+	let finalDebts = debtsData?.length ? debts : [];
 
-	await currentDepositRefund.save();
+	const totalRoomFeeAmount = calculateTotalFeeAmount(formatRoomFees);
+	const totalDebts = formatDebts(finalDebts).amount;
+	const totalReceiptsUnpaid = calculateTotalReceipts(receiptsUnpaid);
+	const totalInvoiceUnpaid = invoiceUnpaid ? calculateInvoiceUnpaidAmount(invoiceUnpaid.amount, invoiceUnpaid.paidAmount) : 0;
+	const totalFeesOther = calculateTotalFeesOther(feesOther);
 
-	return currentDepositRefund;
+	const newDepositRefundAmount = calculateDepositRefundAmount(
+		depositReceipt.paidAmount,
+		totalDebts,
+		totalReceiptsUnpaid,
+		totalInvoiceUnpaid,
+		totalFeesOther,
+		totalRoomFeeAmount,
+	);
+
+	const result = await Services.depositRefunds.modifyDepositRefund({
+		depositRefundId,
+		feesOther,
+		feesIndex: formatRoomFees,
+		stayDays,
+		debtIds: finalDebts?.map((d) => d._id.toString()) || [],
+		newDepositRefundAmount,
+		version,
+		creator: userId,
+	});
+
+	if (debts?.length > 0 && debtsData?.length === 0) {
+		await Services.debts.updateDebtsStatus(
+			debts.map((d) => d._id.toString()),
+			debtStatus['TERMINATED'],
+		);
+	}
+	const changedFeeMap = getChangedFeeIndexes(feesIndex, formatRoomFees);
+	if (changedFeeMap.size > 0) {
+		const changedFees = [];
+
+		for (const [feeKey, { toIndex }] of changedFeeMap) {
+			changedFees.push({
+				feeKey,
+				roomId: currentDepositRefund.room,
+				lastIndex: toIndex,
+			});
+		}
+
+		await Services.fees.setFeesIndexValue(changedFees);
+
+		const feeIndexRecordsGenerated = await createFeeIndexRecordsFromChangedFees({
+			changedFeeMap,
+			editorId: userId,
+			roomId: currentDepositRefund.room,
+			fromSource: UPDATE_FEE_INDEX_SOURCE['MODIFY_DEPOSIT_REFUND'],
+		});
+
+		console.log('feeIndexRecordsGenerated', feeIndexRecordsGenerated);
+	}
+
+	console.log('result: ', result);
+
+	console.log('newDepositRefundAmount: ', newDepositRefundAmount);
+
+	// throw new InternalError('Stop for testing');
+
+	return result;
 };

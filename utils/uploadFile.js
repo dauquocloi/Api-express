@@ -3,13 +3,13 @@ const optimizedImage = require('./optimizeImage');
 const { PutObjectCommand } = require('@aws-sdk/client-s3');
 const { client: s3, bucketName, region } = require('../config').S3;
 
-const uploadFile = async (filePath) => {
+const uploadFile = async (filePath, optimized = true) => {
 	console.log('log of filePath in uploadFile util: ', filePath);
 	try {
 		let randomFileName = generateRandomFileName(filePath.originalname);
 		let fileBuffer;
 
-		if (filePath.mimetype?.startsWith('image/')) {
+		if (filePath.mimetype?.startsWith('image/') && optimized) {
 			fileBuffer = await optimizedImage(filePath.buffer); // giảm kích thước và độ nét
 		} else {
 			fileBuffer = filePath.buffer;

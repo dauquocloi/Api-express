@@ -199,6 +199,8 @@ const getDepositRefundDetailPipeline = (depositRefundId) => {
 					{
 						$project: {
 							_id: 1,
+							amount: 1,
+							receiptContent: 1,
 							paidAmount: 1,
 							version: 1,
 						},

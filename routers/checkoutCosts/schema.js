@@ -20,6 +20,7 @@ module.exports = {
 			}),
 		),
 		stayDays: Joi.number().optional(),
+		debtsData: Joi.array().required(),
 	}),
 	terminateCheckoutCost: Joi.object().keys({
 		version: Joi.number().integer().min(1).required(),
@@ -34,5 +35,6 @@ module.exports = {
 		feeIndexValues: Joi.object().pattern(JoiObjectId(), indexValueSchema).optional(),
 
 		roomVersion: Joi.number().integer().min(1).required(),
+		debtsData: Joi.array().required(),
 	}),
 };

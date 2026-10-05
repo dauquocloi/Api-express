@@ -85,7 +85,7 @@ exports.modifyRent = asyncHandler(async (req, res) => {
 exports.deleteDebts = asyncHandler(async (req, res) => {
 	const data = req.params;
 	console.log('log of data from deleteDebts: ', data);
-	await UseCase.deleteDebts(data.roomId);
+	await UseCase.deleteDebts(data.roomId, req.user._id);
 	return new SuccessMsgResponse('Success').send(res);
 });
 

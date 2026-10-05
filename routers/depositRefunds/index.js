@@ -9,6 +9,7 @@ const ROLES = require('../../constants/userRoles');
 const router = express.Router();
 const { checkIdempotency } = require('../../middleware/idempotency');
 const { RESOURCES, VALIDATE_SOURCE: RESOURCE_VS } = require('../../constants/resources');
+const upload = require('../../middleware/multer');
 
 //================//
 router.use(authentication);
@@ -41,8 +42,10 @@ router.post(
 router.post(
 	'/:depositRefundId/confirm',
 	authorization(ROLES['OWNER']),
+	upload.single('image', 1),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.confirmDepositRefund, ValidateSource.BODY),
+	validator(schema.confirmImage, ValidateSource.FILE),
 	checkResourceAccess(RESOURCES['depositRefunds']),
 	checkIdempotency,
 	DepositRefunds.confirmDepositRefund,
@@ -52,6 +55,7 @@ router.patch(
 	'/:depositRefundId',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
+	validator(schema.modifyDepositRefund, ValidateSource.BODY),
 	checkResourceAccess(RESOURCES['depositRefunds']),
 	checkIdempotency,
 	DepositRefunds.modifyDepositRefund,

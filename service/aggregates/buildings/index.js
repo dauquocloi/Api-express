@@ -39,6 +39,16 @@ const getAllBuildingsByManagementId = (userId) => {
 							year: 1,
 						},
 					},
+					{
+						$set: {
+							month: {
+								$cond: [{ $eq: ['$month', 12] }, 1, { $add: ['$month', 1] }],
+							},
+							year: {
+								$cond: [{ $eq: ['$month', 12] }, { $add: ['$year', 1] }, '$year'],
+							},
+						},
+					},
 				],
 				as: 'period',
 			},

@@ -64,8 +64,8 @@ const findById = (checkoutCostId) => {
 	return Entity.CheckoutCostsEntity.findById(checkoutCostId);
 };
 
-const modifyCheckoutCost = async ({ checkoutCostId, version, fees, feesOther, newTotal, stayDays }) => {
-	const result = await Entity.CheckoutCostsEntity.updateOne(
+const modifyCheckoutCost = async ({ checkoutCostId, version, fees, feesOther, newTotal, stayDays, debts }) => {
+	const result = await Entity.CheckoutCostsEntity.findOneAndUpdate(
 		{ _id: checkoutCostId, version: version },
 		{
 			$set: {
@@ -73,15 +73,15 @@ const modifyCheckoutCost = async ({ checkoutCostId, version, fees, feesOther, ne
 				feesOther: feesOther,
 				total: newTotal,
 				stayDays,
+				debts,
 			},
 			$inc: { version: 1 },
 		},
-		{
-			session,
-		},
+		{ new: true },
 	);
 
-	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu này đã bị thay đổi, vui lòng tải lại trang.');
+	if (!result) throw new ConflictError('Dữ liệu này đã bị thay đổi, vui lòng tải lại trang.');
+	return result;
 };
 
 const terminateCheckoutCost = async (checkoutCostId, version, session) => {

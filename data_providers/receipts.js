@@ -236,7 +236,7 @@ exports.deleteReceipt = async (data) => {
 	const { receiptId, userId, version } = data;
 	const currentReceipt = await Services.receipts.findById(receiptId).lean().exec();
 	if (!currentReceipt) throw new NotFoundError('Hóa đơn không tồn tại');
-	if (currentReceipt.locked === true) throw new BadRequestError('Bạn không thể sửa hóa đơn đã khóa !');
+	if (currentReceipt.locked === true) throw new BadRequestError('Bạn không thể xóa hóa đơn đã khóa !');
 	if (currentReceipt.receiptType === receiptTypes['DEPOSIT']) throw new BadRequestError('Không thể xóa hóa đơn đặt cọc !');
 	if (currentReceipt.receiptType === receiptTypes['CHECKOUT']) throw new BadRequestError('Không thể xóa hóa đơn trả phòng !');
 	if (currentReceipt.version !== version) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');

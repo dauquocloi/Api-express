@@ -138,3 +138,16 @@ exports.closeDeposit = async ({ depositId }) => {
 	const result = await Entity.DepositsEntity.updateOne({ _id: depositId }, { $set: { status: depositStatus['CLOSED'] }, $inc: { version: 1 } });
 	if (result.matchedCount === 0) throw new NotFoundError('Dữ liệu đặt cọc không tồn tại');
 };
+
+exports.updateDepositStatusByReceiptId = async (receiptId, status) => {
+	const result = await Entity.DepositsEntity.findOneAndUpdate(
+		{ receipt: receiptId },
+		{
+			$set: { status: status },
+			$inc: { version: 1 },
+		},
+		{ new: true },
+	);
+	if (!result) throw new NotFoundError('Dữ liệu phiếu cọc không tồn tại!');
+	return result;
+};

@@ -11,6 +11,7 @@ const getFieldUrl = require('../utils/getFileUrl');
 const { roomState, invoiceStatus, invoiceType, feeUnit, receiptTypes, receiptStatus, depositStatus } = require('../constants');
 const { compareFees, getChangedFeeIndexes } = require('../service/fees.helper');
 const { processImportCustomersAndVehicles, formatInitialFees } = require('./contracts.util');
+const { getInvoiceStatus } = require('../service/invoices.helper');
 
 exports.prepareGenerateContract = async (data) => {
 	const {
@@ -34,11 +35,14 @@ exports.prepareGenerateContract = async (data) => {
 
 	const getRoomFees = formatInitialFees(fees);
 
+	console.log('log of getRoomFees: ', getRoomFees);
+
 	let formatRoomFees = [];
 	if (getRoomFees.length > 0) {
 		formatRoomFees = generateInvoiceFeesFromReq(getRoomFees, finance.rent, stayDays);
 	}
 	const totalInvoice = calculateTotalFeeAmount(formatRoomFees);
+	console.log('totalInvoice: ', totalInvoice);
 	console.log('formatRoomFees: ', formatRoomFees);
 
 	const firstInvoice = await Services.invoices.createInvoice({
@@ -54,7 +58,7 @@ exports.prepareGenerateContract = async (data) => {
 		invoiceType: invoiceType['FIRST_INVOICE'],
 	});
 
-	const existedDeposit = await Services.deposits.findDepositByRoomId(roomId).lean().exec();
+	const existedDeposit = await Services.deposits.findDepositByRoomId(roomId).populate('receipt').lean().exec();
 	console.log('log of existedDeposit: ', existedDeposit);
 	let depositReceiptId;
 	if (!existedDeposit) {
@@ -70,16 +74,25 @@ exports.prepareGenerateContract = async (data) => {
 		});
 		depositReceiptId = createDepositReceipt._id;
 	} else {
-		depositReceiptId = existedDeposit.receipt;
-		await Services.receipts.modifyDepositReceipt({
-			receiptObjectId: existedDeposit.receipt,
-			receiptAmount: finance.depositAmount,
-		});
+		const { receipt } = existedDeposit;
+		depositReceiptId = receipt._id;
+		if (receipt?.amount !== finance.depositAmount) {
+			let newReceiptStatus;
+			if (receipt.paidAmount === 0) newReceiptStatus = receiptStatus['PENDING'];
+			else newReceiptStatus = getInvoiceStatus(receipt.paidAmount, finance.depositAmount);
+
+			await Services.receipts.modifyDepositReceipt({
+				receiptObjectId: existedDeposit.receipt,
+				receiptAmount: finance.depositAmount,
+				status: newReceiptStatus,
+			});
+		}
 	}
 
 	const formatFeesForContractDraft = fees.map((fee) => ({ feeAmount: fee.feeAmount, feeKey: fee.feeKey, lastIndex: fee.secondIndex ?? 0 }));
 	const contractDraftData = {
 		room: currentRoom._id,
+		building: buildingId,
 		rent: finance.rent,
 		depositAmount: finance.depositAmount, // nếu deposit đã tồn tại ?
 		depositReceiptId: depositReceiptId,
@@ -97,6 +110,8 @@ exports.prepareGenerateContract = async (data) => {
 
 	const contractDraft = await Services.contracts.createContractDraft(contractDraftData);
 
+	console.log('log of contractDraft: ', contractDraft);
+
 	await Services.rooms.bumpRoomVersionBlind(roomId);
 
 	const result = {
@@ -105,7 +120,6 @@ exports.prepareGenerateContract = async (data) => {
 		receiptId: depositReceiptId,
 	};
 	console.log('log of result from prepareGenerateContract: ', result);
-	throw new InternalError('StopForTesting');
 	return result;
 };
 
@@ -124,7 +138,6 @@ exports.generateContract = async (contractDraftId, userId) => {
 		roomPice: contractDraft.rent,
 		roomDeposit: contractDraft.depositAmount,
 		interiors: contractDraft.interiors,
-		version: contractDraft.version,
 	});
 
 	const currentRoomFees = await Services.fees.findByRoomId(contractDraft.room).lean().exec();
@@ -149,6 +162,8 @@ exports.generateContract = async (contractDraftId, userId) => {
 		await Services.deposits.closeDeposit({ depositId: contractDraft.depositId });
 	}
 
+	const ownerInfo = await Services.buildings.getOwnerInfo({ buildingId: contractDraft.building });
+
 	const feeInitialMaps = new Map(listFeeInitial.map((fee) => [fee.feeKey, fee]));
 	const formatContractFeesData = contractDraft.fees.map((fee) => ({
 		feeAmount: fee.feeAmount,
@@ -157,7 +172,9 @@ exports.generateContract = async (contractDraftId, userId) => {
 		iconPath: feeInitialMaps.get(fee.feeKey).iconPath,
 		feeName: feeInitialMaps.get(fee.feeKey).feeName,
 	}));
+
 	const contractCreated = await Services.contracts.generateContract({
+		ownerId: ownerInfo.ownerId,
 		rent: contractDraft.rent,
 		roomFees: formatContractFeesData,
 		contractSignDate: contractDraft.contractSignDate,
@@ -168,6 +185,8 @@ exports.generateContract = async (contractDraftId, userId) => {
 		depositAmount: contractDraft.depositAmount,
 		depositReceiptId: contractDraft.depositReceiptId,
 	});
+
+	console.log('contract created: ', contractCreated);
 
 	const { _id: depositReceiptId, status: currentReceiptStatus } = contractDraft.depositReceiptId;
 	if (!depositReceiptId) throw new NotFoundError(`Hóa đơn đặt cọc không tồn tại !`);
@@ -187,7 +206,7 @@ exports.generateContract = async (contractDraftId, userId) => {
 		roomId: contractDraft.room,
 	});
 
-	await Services.rooms.bumpRoomVersionBlind(contractDraft.room);
+	// await Services.rooms.bumpRoomVersionBlind(contractDraft.room);
 	await Services.rooms.unLockedRoom(contractDraft.room);
 
 	result = {
@@ -198,7 +217,7 @@ exports.generateContract = async (contractDraftId, userId) => {
 		contractTerm: contractCreated.contractTerm,
 		depositAmount: contractDraft.depositAmount,
 		rent: contractDraft.rent,
-		feesData,
+		feesData: formatContractFeesData,
 		interiors: contractDraft.interiors ?? [],
 	};
 

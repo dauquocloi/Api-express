@@ -1,4 +1,4 @@
-const { NotFoundError } = require('../AppError');
+const { NotFoundError, ConflictError } = require('../AppError');
 const { depositRefundStatus } = require('../constants');
 const Entity = require('../models');
 const Pipelines = require('./aggregates');
@@ -23,6 +23,7 @@ const createDepositRefund = async ({
 	receiptIds,
 	currentPeriod,
 	creatorId,
+	stayDays,
 }) => {
 	const newDepositRefund = await Entity.DepositRefundsEntity.create({
 		room: roomId,
@@ -41,52 +42,38 @@ const createDepositRefund = async ({
 		month: currentPeriod.currentMonth,
 		year: currentPeriod.currentYear,
 		debts: debtIds,
+		stayDays,
 	});
 	newDepositRefund.toObject();
 
 	return newDepositRefund;
 };
 
-const getDepositRefundByContractId = async (contractId, session) => {
+const getDepositRefundByContractId = async (contractId) => {
 	return await Entity.DepositRefundsEntity.findOne({
 		contract: contractId,
 		status: { $in: [depositRefundStatus['PAID'], depositRefundStatus['PENDING']] },
-	}).session(session);
+	});
 };
 
 const findByBuildingId = (buildingId, month, year) => {
 	return Entity.DepositRefundsEntity.find({ building: buildingId, month, year });
 };
 
-const updateDepositRefundStatusByReceiptId = async (receiptId, status, session) => {
-	const result = await Entity.DepositRefundsEntity.updateOne(
-		{ depositReceipt: receiptId },
-		{
-			$set: { status: status },
-			$inc: { version: 1 },
-		},
-		{ new: true, session },
-	);
-	if (result.matchedCount === 0) throw new NotFoundError('Dữ liệu phiếu cọc không tồn tại!');
-	return result;
-};
-
-const getDepositRefunds = async (buildingId, mode, session) => {
+const getDepositRefunds = async (buildingId, mode) => {
 	let result = [];
 	if (mode === depositRefundStatus['PENDING']) {
-		result = await Entity.DepositRefundsEntity.aggregate(Pipelines.depositRefunds.getDepositRefundsModePendingPipeline(buildingId, mode), {
-			session,
-		});
+		result = await Entity.DepositRefundsEntity.aggregate(Pipelines.depositRefunds.getDepositRefundsModePendingPipeline(buildingId, mode));
 	} else {
-		result = await Entity.DepositRefundsEntity.aggregate(Pipelines.depositRefunds.getDepositRefundsModeRefundedPipeline(buildingId), { session });
+		result = await Entity.DepositRefundsEntity.aggregate(Pipelines.depositRefunds.getDepositRefundsModeRefundedPipeline(buildingId));
 	}
 	return result;
 };
 
-const confirmDepositRefund = async ({ depositRefundId, version, month, year, status }) => {
-	const result = await Entity.DepositRefundsEntity.updateOne(
+const confirmDepositRefund = async ({ depositRefundId, version, month, year, status, image }) => {
+	const result = await Entity.DepositRefundsEntity.findOneAndUpdate(
 		{
-			depositRefundId,
+			_id: depositRefundId,
 			version,
 		},
 		{
@@ -94,11 +81,49 @@ const confirmDepositRefund = async ({ depositRefundId, version, month, year, sta
 				month,
 				year,
 				status,
+				image: image ?? null,
 			},
+			$inc: { version: 1 },
+		},
+		{
+			new: true,
 		},
 	);
 
-	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu đã bị thay đổi, vui lòng tải lại trang !');
+	if (!result) throw new ConflictError('Dữ liệu đã bị thay đổi, vui lòng tải lại trang !');
+	return result;
+};
+
+const modifyDepositRefund = async (data) => {
+	const { depositRefundId, feesOther = [], feesIndex, stayDays, debtIds, newDepositRefundAmount, version, creator } = data;
+	const result = await Entity.DepositRefundsEntity.findOneAndUpdate(
+		{
+			_id: depositRefundId,
+			version,
+		},
+		{
+			$set: {
+				feesOther,
+				feesIndex,
+				stayDays,
+				debts: debtIds,
+				depositRefundAmount: newDepositRefundAmount,
+				creator,
+			},
+			$inc: { version: 1 },
+		},
+		{
+			new: true,
+		},
+	);
+	if (!result) throw new ConflictError('Dữ liệu hoàn cọc đã bị thay đổi, vui lòng tải lại trang !');
+	return result;
+};
+
+const getDepositRefundDetail = async (depositRefundId) => {
+	const [result] = await Entity.DepositRefundsEntity.aggregate(Pipelines.depositRefunds.getDepositRefundDetailPipeline(depositRefundId));
+	if (!result) throw new NotFoundError('Không có dữ liệu');
+	return result;
 };
 
 module.exports = {
@@ -106,9 +131,10 @@ module.exports = {
 	getDepositRefundByContractId,
 	findById,
 	findByBuildingId,
-	updateDepositRefundStatusByReceiptId,
 	findByInvoiceUnpaidId,
 	findByReceiptsUnpaid,
 	getDepositRefunds,
 	confirmDepositRefund,
+	modifyDepositRefund,
+	getDepositRefundDetail,
 };

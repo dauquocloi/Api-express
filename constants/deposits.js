@@ -19,4 +19,11 @@ const receiptToDepositRefundStatusMap = {
 	terminated: 'terminated',
 };
 
-module.exports = { depositStatus, depositRefundStatus, receiptToDepositRefundStatusMap };
+const receiptToDepositStatus = {
+	unpaid: depositStatus['PENDING'],
+	paid: depositStatus['PAID'],
+	partial: depositStatus['PARTIAL'],
+	terminated: depositStatus['CANCELLED'],
+};
+
+module.exports = { depositStatus, depositRefundStatus, receiptToDepositRefundStatusMap, receiptToDepositStatus };
