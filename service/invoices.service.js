@@ -129,7 +129,7 @@ exports.modifyInvoice = async ({ total, fee, status, stayDays, invoiceId, versio
 			new: true,
 		},
 	);
-	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
+	if (!result) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
 	return result;
 };
 

@@ -15,6 +15,9 @@ const Roles = require('../constants/userRoles');
 const { znsNewInvoiceNotiJob } = require('../jobs/ZNS/zns.job');
 const { notificationJob } = require('../jobs/notification/notification.job');
 const { NOTI_MANAGER_COLLECT_CASH_RECEIPT } = require('../jobs/constant/jobNames');
+const { updateDepositFromPayment } = require('../service/deposits.helper');
+const { updateCheckoutCostFromPayment } = require('../service/checkoutCost/checkoutCosts.helper');
+const { updateDetuctedInfo } = require('./receipts.util');
 
 exports.getListReceiptPaymentStatus = async (buildingId, month, year) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -52,6 +55,8 @@ exports.createDepositReceipt = async (roomId, buildingId, receipAmount, payerNam
 		creater: userId,
 	};
 	const depositReceiptCreated = await Services.receipts.createReceipt(newReceipt);
+
+	console.log('log of depositReceiptCreated: ', depositReceiptCreated);
 
 	await Services.rooms.bumpRoomVersion(roomId, roomVersion);
 
@@ -143,7 +148,6 @@ exports.checkout = async (data) => {
 				select: '_id',
 			},
 		})
-
 		.lean()
 		.exec();
 	if (currentReceipt.version !== version) throw new ConflictError('Dữ liệu hóa đơn đã bị thay đổi !');
@@ -166,7 +170,7 @@ exports.checkout = async (data) => {
 			createdBy: collectorInfo.role,
 		});
 
-		//=========NOTIFICATION===============//
+		//============NOTIFICATION===============//
 
 		if (collectorInfo.role !== Roles['OWNER']) {
 			await notificationJob({
@@ -189,43 +193,54 @@ exports.checkout = async (data) => {
 		});
 	}
 
-	const receiptUnpaidAmount = calculateInvoiceUnpaidAmount(currentReceipt.amount, currentReceipt.paidAmount);
-	const appliedAmount = Math.min(createTransaction.amount, receiptUnpaidAmount);
-
 	const updatedTotalPaid = currentReceipt.paidAmount + createTransaction.amount;
 	const newReceiptStatus = getInvoiceStatus(updatedTotalPaid, currentReceipt.amount);
 	await Services.receipts.updateReceiptPaidStatusWithVersion({ receiptId, paidAmount: updatedTotalPaid, version, receiptStatus: newReceiptStatus });
 
 	if (!!currentReceipt.detuctedInfo) {
-		const { detuctedType } = currentReceipt.detuctedInfo;
-		if (detuctedType === DETUCTED_TYPE['DEPOSIT_REFUND']) {
-			const depositRefundInfo = await Services.depositRefunds.findByReceiptsUnpaid(receiptObjectId);
-			if (!depositRefundInfo) throw new NotFoundError('Phiếu hoàn cọc không tồn tại');
+		// const receiptUnpaidAmount = calculateInvoiceUnpaidAmount(currentReceipt.amount, currentReceipt.paidAmount);
+		// const appliedAmount = Math.min(createTransaction.amount, receiptUnpaidAmount);
 
-			depositRefundInfo.depositRefundAmount += appliedAmount;
-			if (newReceiptStatus === receiptStatus['PAID']) {
-				depositRefundInfo.receiptsUnpaid = depositRefundInfo.receiptsUnpaid.filter(
-					(receipt) => receipt.toString() !== receiptObjectId.toString(),
-				);
-				await Services.receipts.removeDetuctedInfo(receiptObjectId);
-			}
-			depositRefundInfo.version += 1;
-			await depositRefundInfo.save();
-		}
+		// const { detuctedType } = currentReceipt.detuctedInfo;
+		// if (detuctedType === DETUCTED_TYPE['DEPOSIT_REFUND']) {
+		// 	const depositRefundInfo = await Services.depositRefunds.findByReceiptsUnpaid(receiptObjectId);
+		// 	if (!depositRefundInfo) throw new NotFoundError('Phiếu hoàn cọc không tồn tại');
 
-		if (detuctedType === DETUCTED_TYPE['TERMINATE_CONTRACT_EARLY']) {
-			const checkoutCost = await Services.checkoutCosts.findByReceiptUnpaidId(receiptObjectId);
-			if (!checkoutCost) throw new NotFoundError('Phiếu trả phòng không tồn tại');
+		// 	depositRefundInfo.depositRefundAmount += appliedAmount;
+		// 	if (newReceiptStatus === receiptStatus['PAID']) {
+		// 		depositRefundInfo.receiptsUnpaid = depositRefundInfo.receiptsUnpaid.filter(
+		// 			(receipt) => receipt.toString() !== receiptObjectId.toString(),
+		// 		);
+		// 		await Services.receipts.removeDetuctedInfo(receiptObjectId);
+		// 	}
+		// 	depositRefundInfo.version += 1;
+		// 	await depositRefundInfo.save();
+		// }
 
-			checkoutCost.total -= appliedAmount;
-			if (newReceiptStatus === receiptStatus['PAID']) {
-				checkoutCost.receiptsUnpaid = checkoutCost.receiptsUnpaid.filter((receipt) => receipt.toString() !== receiptObjectId.toString());
-				await Services.receipts.removeDetuctedInfo(receiptObjectId);
-			}
-			checkoutCost.version += 1;
-			await checkoutCost.save();
-		}
+		// if (detuctedType === DETUCTED_TYPE['TERMINATE_CONTRACT_EARLY']) {
+		// 	const checkoutCost = await Services.checkoutCosts.findByReceiptUnpaidId(receiptObjectId);
+		// 	if (!checkoutCost) throw new NotFoundError('Phiếu trả phòng không tồn tại');
+
+		// 	checkoutCost.total -= appliedAmount;
+		// 	if (newReceiptStatus === receiptStatus['PAID']) {
+		// 		checkoutCost.receiptsUnpaid = checkoutCost.receiptsUnpaid.filter((receipt) => receipt.toString() !== receiptObjectId.toString());
+		// 		await Services.receipts.removeDetuctedInfo(receiptObjectId);
+		// 	}
+		// 	checkoutCost.version += 1;
+		// 	await checkoutCost.save();
+		// }
+
+		await updateDetuctedInfo({ receiptInfo: currentReceipt, newReceiptStatus, transactionAmount: createTransaction.amount });
 	}
+
+	if (currentReceipt.receiptType === receiptTypes['DEPOSIT'] && currentReceipt.status !== receiptStatus['PENDING']) {
+		await updateDepositFromPayment({ depositReceiptId: receiptId, newReceiptStatus: newReceiptStatus, newPaidAmount: updatedTotalPaid });
+	}
+	if (currentReceipt.receiptType === receiptTypes['CHECKOUT']) {
+		await updateCheckoutCostFromPayment({ checkoutCostReceiptId: receiptId, newReceiptStatus: newReceiptStatus });
+	}
+
+	throw new InternalError('Stop for testing');
 
 	return {
 		transactionId: createTransaction._id.toString(),

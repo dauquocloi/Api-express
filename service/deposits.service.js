@@ -31,7 +31,6 @@ exports.cancelledDeposit = async (depositId, version) => {
 		{ $set: { status: depositStatus['CANCELLED'] }, $inc: { version: 1 } },
 	);
 	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu đặt cọc đã bị thay đổi!');
-	return result;
 };
 
 exports.generateDeposit = async ({
@@ -71,11 +70,10 @@ exports.generateDeposit = async ({
 	return result;
 };
 
-exports.updateActualDepositAmountByReceiptId = async ({ receiptId, actualDepositAmount, status, version }) => {
+exports.updateDepositByPayment = async ({ receiptId, actualDepositAmount, status }) => {
 	const result = await Entity.DepositsEntity.updateOne(
 		{
 			receipt: receiptId,
-			// version: version,
 		},
 		{
 			$set: { actualDepositAmount, status },
@@ -83,8 +81,7 @@ exports.updateActualDepositAmountByReceiptId = async ({ receiptId, actualDeposit
 		},
 	);
 
-	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu đặt cọc đã bị thay đổi!');
-	return result;
+	if (result.matchedCount === 0) throw new NotFoundError('Dữ liệu đặt cọc không tồn tại !');
 };
 
 exports.getDepositInfoForModifyDeposit = async ({ depositId }) => {
@@ -108,7 +105,7 @@ exports.modifyDeposit = async ({
 	numberOfOccupants,
 	version,
 }) => {
-	const result = await Entity.DepositsEntity.updateOne(
+	const result = await Entity.DepositsEntity.findOneAndUpdate(
 		{
 			_id: depositId,
 			version: version,
@@ -129,9 +126,12 @@ exports.modifyDeposit = async ({
 			},
 			$inc: { version: 1 },
 		},
+		{ new: true },
 	);
 
-	if (result.matchedCount === 0) throw new ConflictError('Dữ liệu đặt cọc đã bị thay đổi !');
+	if (!result) throw new ConflictError('Dữ liệu đặt cọc đã bị thay đổi !');
+
+	return result;
 };
 
 exports.closeDeposit = async ({ depositId }) => {

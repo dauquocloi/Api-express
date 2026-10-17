@@ -48,6 +48,9 @@ const getAllRevenues = (buildingId, month, year) => {
 											$in: ['$status', [invoiceStatus['TERMINATED'], invoiceStatus['PENDING']]],
 										},
 									},
+									{
+										$ne: [{ $type: '$contract' }, 'missing'],
+									},
 								],
 							},
 						},

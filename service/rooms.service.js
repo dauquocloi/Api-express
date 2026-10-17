@@ -70,9 +70,8 @@ const getRoomInfo = async (roomId, session) => {
 };
 
 const bumpRoomVersion = async (roomId, version) => {
-	const bumpRoomVersion = await Entity.RoomsEntity.updateOne({ _id: roomId, version: version }, { $inc: { version: 1 } }, { new: true });
-	if (bumpRoomVersion.matchedCount === 0) throw new ConflictError('Dữ liệu đã bị thay đổi, vui lòng reload trang');
-	return bumpRoomVersion;
+	const bumpRoomVersion = await Entity.RoomsEntity.updateOne({ _id: roomId, version: version }, { $inc: { version: 1 } });
+	if (bumpRoomVersion.matchedCount === 0) throw new ConflictError('Dữ liệu đã bị ai đó thay đổi, vui lòng tải lại trang !');
 };
 
 const bumpRoomVersionBlind = async (roomId) => {

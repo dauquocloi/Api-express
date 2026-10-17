@@ -8,8 +8,8 @@ const Docxtemplater = require('docxtemplater');
 const Services = require('../service');
 const expressionParser = require('docxtemplater/expressions.js');
 const getOriginalFile = require('./getOriginalFile');
-const uploadFile = require('./uploadFile');
 const moment = require('moment');
+const crypto = require('crypto');
 
 const execPromise = util.promisify(exec);
 
@@ -70,16 +70,17 @@ async function generatePdfContract(data, buildingObjectId) {
 		// 5. Convert DOCX sang PDF
 		const pdfBuffer = await convertDocxToPdfCLI(docxBuffer);
 
-		//6. upload s3
-		const originalName = `hop-dong-${moment().format('YYYYMMDD-HHmmss')}.pdf`;
+		//6. Filename
+		const unitId = crypto.randomUUID();
+		const originalName = `${unitId}.pdf`;
 
 		const fileObject = {
 			buffer: pdfBuffer,
 			mimetype: 'application/pdf',
 			originalname: originalName,
 		};
-		const uploadResult = await uploadFile(fileObject);
-		return uploadResult;
+
+		return fileObject;
 	} catch (error) {
 		// Xử lý lỗi từ docxtemplater
 		if (error.properties && error.properties.errors) {

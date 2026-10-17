@@ -7,29 +7,45 @@ const contractStatus = {
 	PENDING: 'pending', //Chờ khách xác nhận.
 };
 
-const CONTRACT_DOCUMENT_FORM = {
+const CUSTOMER_FORM = Object.freeze({
+	FULLNAME: 'FULLNAME',
+	DOB: 'DOB',
+	ADDRESS: 'ADDRESS',
+	CCCD: 'CCCD',
+	CCCD_DATE: 'CCCD_DATE',
+	CCCD_AT: 'CCCD_AT',
+	PHONE: 'PHONE',
+});
+
+const CONTRACT_DOCUMENT_FIELDS = Object.freeze({
 	CREATED_DATE: 'CREATED_DATE',
-	PARTY_A: {
-		FULLNAME: 'FULLNAME',
-		DOB: 'DOB',
-		ADDRESS: 'ADDRESS',
-		CCCD: 'CCCD',
-		CCCD_DATE: 'CCCD_DATE',
-		CCCD_AT: 'CCCD_AT',
-		PHONE: 'PHONE',
-	},
-	FEES: 'FEES',
-	INTERIORS: 'INTERIORS',
+	ROOM_INDEX: 'ROOM_INDEX',
+
+	PARTY_A: CUSTOMER_FORM,
+
+	FEES: Object.freeze({
+		NAME: 'NAME',
+		AMOUNT: 'AMOUNT',
+		TYPE: 'TYPE',
+	}),
+	INTERIORS: Object.freeze({
+		NAME: 'NAME',
+		QUANT: 'QUANT',
+	}),
 	DEPOSIT: 'DEPOSIT',
 	SIGN_DATE: 'SIGN_DATE',
 	END_DATE: 'END_DATE',
 	CONTRACT_TERM: 'CONTRACT_TERM',
 	ROOM_PRICE: 'ROOM_PRICE',
-};
+	ROOM_MATES: CUSTOMER_FORM,
+	NOTE: 'NOTE',
+});
 
 const getDebtsReceiptsUnpaidUsedFor = {
 	TERMINATE_CONTRACT_EARLY: 'terminateContractEarly',
 	DEPOSIT_REFUND: 'depositRefund',
 };
 
-module.exports = { contractStatus, CONTRACT_DOCUMENT_FORM, getDebtsReceiptsUnpaidUsedFor };
+const previewContractPdfExp = 30 * 60 * 1000;
+
+module.exports = { contractStatus, CONTRACT_DOCUMENT_FIELDS, getDebtsReceiptsUnpaidUsedFor, previewContractPdfExp };

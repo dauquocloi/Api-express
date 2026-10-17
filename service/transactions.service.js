@@ -29,6 +29,7 @@ exports.createCashTransaction = async ({ amount, date, type, collectorId, create
 		idempotencyKey: idempotencyKey,
 		ownerConfirmed: createdBy === CREATED_BY['MANAGER'] ? OWNER_CONFIRMED_STATUS['PENDING'] : OWNER_CONFIRMED_STATUS['CONFIRMED'],
 		isTransactionDetected: true,
+		confirmedDate: createdBy === CREATED_BY['MANAGER'] ? null : new Date(),
 	});
 	if (!result) throw new InternalError('Create cash transaction fail');
 	return result;
@@ -147,9 +148,7 @@ exports.generateUnDetectedTransaction = async (
 	return result;
 };
 
-exports.checkExistedTransaction = async (transactionid) => {
-	return await Entity.TransactionsEntity.findOne({ transactionId: transactionid });
-};
+exports.checkExistedTransaction = (transactionid) => Entity.TransactionsEntity.findOne({ transactionId: transactionid });
 
 exports.importCashTransactions = async (data) => {
 	const transactionData = data.map((data) => ({

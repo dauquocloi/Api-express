@@ -40,7 +40,7 @@ function processInvoiceAllocation(invoice, fees) {
 	const sortedFees = sortFeesByPriority(fees);
 
 	for (const fee of sortedFees) {
-		if (remaining <= 0) break;
+		// if (remaining <= 0) break;
 
 		const allocated = Math.min(remaining, fee.amount);
 
@@ -262,11 +262,13 @@ function processInvoicesReceipts(revenues, month, year) {
 				// Allocate paid amount to fees and debts
 				const { periodicRevenue } = processInvoiceAllocation(invoice, invoice.fee);
 
+				console.log('periodicRevenue: ', periodicRevenue);
+
 				periodicRevenueList.push(...periodicRevenue);
 
 				// Add to total based on invoice total
-				// Use paidAmount if deducted, otherwise use total
-				const amountToCount = !invoice.deductedInfo || !invoice.deductedInfo.deductedId ? invoice.total || 0 : invoice.paidAmount || 0;
+				// Use paidAmount if detucted, otherwise use total
+				const amountToCount = !invoice.detuctedInfo || !invoice.detuctedInfo.detuctedId ? invoice.total || 0 : invoice.paidAmount || 0;
 
 				totalPeriodicRequired += amountToCount;
 			}

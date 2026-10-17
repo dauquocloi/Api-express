@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-var Entity = require('../models');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const { NotFoundError, BadRequestError, ConflictError } = require('../AppError');
 const Services = require('../service');

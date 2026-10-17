@@ -66,7 +66,16 @@ exports.executeIdempotent = async ({ key, userId, endPoint, requestHash, resourc
 			return result;
 		});
 	} catch (error) {
+		console.log('==== IDEMPOTENT ERROR =====: ', error);
+		console.log('==== NAME: ', error.name);
+		console.log('==== RETRYABLE: ', error.retryable);
+		console.log('==== STATUS_CODE: ', error.statusCode);
+		console.log('==== STATUS: ', error.status);
+		console.log('==== TYPE: ', error.type);
+
 		const retryable = isRetryableError(error);
+
+		console.log('==== isRetryable: ', retryable);
 
 		const responseCode = error.statusCode ?? 500;
 

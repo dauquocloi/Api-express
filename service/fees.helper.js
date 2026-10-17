@@ -1,12 +1,11 @@
 const { feeUnit } = require('../constants/');
 const Services = require('./index');
-const { ConflictError } = require('../AppError');
+const { ConflictError, BadRequestError } = require('../AppError');
+
 /**
  * @param {Array} feeIndexIds - Array of fee IDs
  * @param {Object} feeIndexValues - Object with fee IDs as keys
  */
-const { BadRequestError } = require('../AppError');
-
 exports.validateFeeIndexMatch = (feeIndexIds, feeIndexValues) => {
 	// Check if feeIndexIds is array and not empty
 	if (!Array.isArray(feeIndexIds) || feeIndexIds.length === 0) {
@@ -14,7 +13,7 @@ exports.validateFeeIndexMatch = (feeIndexIds, feeIndexValues) => {
 	}
 
 	// Check if feeIndexValues is object and not empty
-	if (!feeIndexValues || typeof feeIndexValues !== 'object' || Object.keys(feeIndexValues).length === 0) {
+	if (!feeIndexValues || typeof feeIndexValues !== 'object' || Object.keys(feeIndexValues).length === 0 || Array.isArray(feeIndexValues)) {
 		throw new BadRequestError('feeIndexValues must be a non-empty object');
 	}
 
@@ -39,7 +38,7 @@ exports.validateFeeIndexMatch = (feeIndexIds, feeIndexValues) => {
 		if (!value || typeof value !== 'object') {
 			throw new BadRequestError(`feeIndexValues[${key}] must be an object`);
 		}
-		if (value.secondIndex === undefined || value.secondIndex === null) {
+		if (value.secondIndex === undefined || value.secondIndex === null || value.secondIndex === NaN || value.secondIndex === '') {
 			throw new BadRequestError(`feeIndexValues[${key}] is missing secondIndex`);
 		}
 	});
@@ -71,6 +70,38 @@ exports.getChangedFeeIndexes = (oldFees = [], newFees = []) => {
 
 		if (!oldFee) continue;
 
+		if (oldFee.lastIndex !== newFee.lastIndex) {
+			changedFeeMap.set(newFee.feeKey, {
+				fromIndex: oldFee.lastIndex,
+				toIndex: newFee.lastIndex,
+			});
+		}
+	}
+
+	return changedFeeMap;
+};
+
+exports.getChangedFeeIndexesForGenerateContract = (oldFees = [], newFees = []) => {
+	const oldFeeMap = new Map(oldFees.filter((fee) => fee.unit === feeUnit['INDEX']).map((fee) => [fee.feeKey, fee]));
+
+	const changedFeeMap = new Map();
+
+	for (const newFee of newFees) {
+		if (newFee.unit !== feeUnit['INDEX']) continue;
+
+		const oldFee = oldFeeMap.get(newFee.feeKey);
+
+		// Fee INDEX mới được thêm
+		if (!oldFee) {
+			changedFeeMap.set(newFee.feeKey, {
+				fromIndex: newFee.lastIndex,
+				toIndex: newFee.lastIndex,
+			});
+
+			continue;
+		}
+
+		// Fee INDEX cũ nhưng lastIndex thay đổi
 		if (oldFee.lastIndex !== newFee.lastIndex) {
 			changedFeeMap.set(newFee.feeKey, {
 				fromIndex: oldFee.lastIndex,
@@ -136,6 +167,7 @@ exports.getFeeIndexesForRollback = (feeIndexSnapshot = [], currentFees = []) => 
 };
 
 exports.compareFees = (currentFees = [], newFees = []) => {
+	console.log('data from compareFees: ', currentFees, newFees);
 	const currentFeeMap = new Map(currentFees.map((fee) => [fee.feeKey, fee]));
 
 	const newFeeMap = new Map(newFees.map((fee) => [fee.feeKey, fee]));
@@ -155,12 +187,17 @@ exports.compareFees = (currentFees = [], newFees = []) => {
 		}
 
 		// Đã tồn tại nhưng feeAmount thay đổi
-		if (currentFee.feeAmount !== newFee.feeAmount) {
+		const amountChanged = currentFee.feeAmount !== newFee.feeAmount;
+		const indexChanged = currentFee.unit === feeUnit['INDEX'] && currentFee.lastIndex !== newFee.lastIndex;
+
+		if (amountChanged || indexChanged) {
 			feesToUpdate.push({
 				feeId: currentFee._id,
 				feeKey: currentFee.feeKey,
-				oldFeeAmount: currentFee.feeAmount,
-				newFeeAmount: newFee.feeAmount,
+				feeAmount: newFee.feeAmount,
+				...(currentFee.unit === feeUnit['INDEX'] && {
+					lastIndex: newFee.lastIndex,
+				}),
 			});
 		}
 	}

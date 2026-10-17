@@ -42,8 +42,8 @@ const ContractDraftsSchema = new Schema(
 	{
 		room: { type: Schema.Types.ObjectId, ref: 'RoomsEntity', required: true },
 		building: { type: Schema.Types.ObjectId, ref: 'BuildingsEntity' },
-		depositReceiptId: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity', required: true },
-		firstInvoiceId: { type: Schema.Types.ObjectId, ref: 'InvoicesEntity', required: true },
+		depositReceiptId: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity' },
+		firstInvoiceId: { type: Schema.Types.ObjectId, ref: 'InvoicesEntity' },
 		depositId: { type: Schema.Types.ObjectId, ref: 'DepositsEntity', default: null },
 		rent: { type: Number, required: true },
 		depositAmount: { type: Number, required: true },
@@ -53,7 +53,7 @@ const ContractDraftsSchema = new Schema(
 		customers: [PersonSchema],
 
 		contractSignDate: { type: Date, required: true },
-		contractEndDate: { type: Date },
+		contractEndDate: { type: Date, required: true },
 
 		additionalTerms: { type: String }, // Điều khoản bổ sung (nếu có)
 		status: {
@@ -62,6 +62,13 @@ const ContractDraftsSchema = new Schema(
 		},
 		contractTerm: { type: String, required: true },
 		note: { type: String, default: '' },
+		contractDocument: {
+			filePath: { type: String },
+			previewId: { type: String, required: true },
+			createdAt: { type: Date, default: Date.now() },
+			expAt: { type: Date, required: true },
+			size: { type: Number },
+		},
 	},
 	{ timestamps: true },
 );

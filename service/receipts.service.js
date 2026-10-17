@@ -55,7 +55,7 @@ exports.createReceipt = async ({
 }) => {
 	const receiptCode = await generatePaymentContent(process.env.PAYMENT_CONTENT_LENGTH);
 	const paymentContent = await generatePaymentContent(process.env.INVOICE_CODE_LENGTH);
-	const result = await Entity.ReceiptsEntity.create({
+	const payload = {
 		room: roomObjectId,
 		receiptContent: receiptContent,
 		receiptContentDetail: receiptContentDetail,
@@ -66,15 +66,19 @@ exports.createReceipt = async ({
 		receiptType: receiptType,
 		status: initialStatus,
 		isContractCreated: false,
-		month: currentPeriod.currentMonth || null,
-		year: currentPeriod.currentYear || null,
+
 		locked: false,
 		receiptCode,
 		paymentContent,
 		date: date ?? new Date(),
 		contract,
 		creater,
-	});
+	};
+	if (currentPeriod) {
+		payload.month = currentPeriod.currentMonth;
+		payload.year = currentPeriod.currentYear;
+	}
+	const result = await Entity.ReceiptsEntity.create(payload);
 	if (!result) throw new InternalError('Can not create receipt');
 	return result.toObject();
 };

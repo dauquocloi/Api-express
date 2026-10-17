@@ -6,9 +6,7 @@ const { contractStatus } = require('../constants/contracts');
 const Pipelines = require('./aggregates');
 const getFileUrl = require('../utils/getFileUrl');
 
-exports.findById = (contractId) => {
-	return Entity.ContractsEntity.findById(contractId);
-};
+exports.findById = (contractId) => Entity.ContractsEntity.findById(contractId);
 
 exports.findByRoomId = (roomId) => Entity.ContractsEntity.findOne({ room: roomId, status: contractStatus['ACTIVE'] });
 
@@ -97,7 +95,7 @@ exports.generateContract = async ({
 				version: 0,
 				rent: rent,
 				depositAmount: depositAmount,
-				contractSingDate: contractSignDate,
+				contractSignDate: contractSignDate,
 				contractEndDate: contractEndDate,
 				contractPdfUrl: null,
 				contractPdfFile: null,
@@ -131,6 +129,7 @@ exports.createContractDraft = async ({
 	contractEndDate,
 	contractTerm,
 	note,
+	contractDocument,
 }) => {
 	const contractDraft = await Entity.ContractDraftsEntity.create({
 		room,
@@ -147,6 +146,13 @@ exports.createContractDraft = async ({
 		firstInvoiceId,
 		depositReceiptId,
 		note,
+		contractDocument: {
+			filePath: contractDocument.filePath,
+			previewId: contractDocument.previewId,
+			size: contractDocument.size,
+			createdAt: contractDocument.createdAt,
+			expAt: contractDocument.expAt,
+		},
 	});
 	if (!contractDraft) throw new InternalError('Có lỗi trong quá trình tạo hợp đồng mới !');
 	return contractDraft;
@@ -177,13 +183,13 @@ exports.importContracts = async (contractsData) => {
 
 exports.importContractPdfUrlAndContractFile = async (contractId, contractPdfUrl, contractFile) => {
 	const result = await Entity.ContractsEntity.findOneAndUpdate(
-		{ _id: contractId, 'versions.status': contractStatus['ACTIVE'] },
+		{ _id: contractId },
 		{
 			$set: {
-				contractPdfUrl: contractPdfUrl,
+				contractPdfUrl,
 				contractPdfFile: contractFile,
-				'versions.$.contractPdfUrl': contractPdfUrl,
-				'versions.$.contractPdfFile': contractFile,
+				'versions.0.contractPdfUrl': contractPdfUrl,
+				'versions.0.contractPdfFile': contractFile,
 			},
 			$inc: { version: 1 },
 		},
@@ -387,3 +393,5 @@ exports.cancelEarlyTermination = async ({ contractId }) => {
 	);
 	if (!result) throw new NotFoundError(`Hợp đồng với không tồn tại`);
 };
+
+exports.findContractDraftById = (contractDraftId) => Entity.ContractDraftsEntity.findById(contractDraftId);

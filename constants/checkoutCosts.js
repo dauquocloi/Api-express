@@ -1,3 +1,5 @@
+const { receiptStatus } = require('./receipt');
+
 const checkoutCostStatus = {
 	PAID: 'paid',
 	PARTIAL: 'partial',
@@ -6,10 +8,11 @@ const checkoutCostStatus = {
 };
 
 const receiptToCheckoutCostStatusMap = {
-	unpaid: 'pending',
-	paid: 'paid',
-	partial: 'partial',
-	terminated: 'terminated',
+	[receiptStatus['PENDING']]: 'pending',
+	[receiptStatus['UNPAID']]: 'pending',
+	[receiptStatus['PAID']]: 'paid',
+	[receiptStatus['PARTIAL']]: 'partial',
+	[receiptStatus['TERMINATED']]: 'terminated',
 };
 
 module.exports = { checkoutCostStatus, receiptToCheckoutCostStatusMap };

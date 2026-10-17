@@ -18,6 +18,9 @@ const customerSchema = Joi.object().keys({
 });
 
 module.exports = {
+	contractDraftId: Joi.object().keys({
+		contractDraftId: JoiObjectId().required(),
+	}),
 	id: Joi.object().keys({
 		contractId: JoiObjectId().required(),
 	}),
@@ -35,55 +38,6 @@ module.exports = {
 	}),
 	createContract: Joi.object().keys({
 		contractDraftId: JoiObjectId().required(),
-		// roomId: JoiObjectId().required(),
-		// buildingId: JoiObjectId().required(),
-		// depositReceiptId: JoiObjectId().allow(null).optional(),
-		// depositId: JoiObjectId().allow(null).optional(),
-
-		// depositVersion: Joi.number().when('depositId', {
-		// 	is: JoiObjectId(),
-		// 	then: Joi.required().messages({
-		// 		'any.required': 'depositVersion là bắt buộc khi có depositId',
-		// 	}),
-		// 	otherwise: Joi.optional(),
-		// }),
-
-		// invoiceId: JoiObjectId().required(),
-		// contractEndDate: Joi.date().required(),
-		// contractSignDate: Joi.date().required(),
-		// contractTerm: Joi.number().required(),
-		// room: Joi.object().keys({
-		// 	rent: Joi.number().required(),
-		// 	depositAmount: Joi.number().required(),
-		// 	depositCompletionDate: Joi.date().required(),
-		// 	checkinDate: Joi.date().required(),
-		// 	rentalTerm: Joi.string().empty().optional(),
-		// 	numberOfOccupants: Joi.number().optional(),
-		// }),
-		// interiors: Joi.array().items(
-		// 	Joi.object().keys({
-		// 		interiorName: Joi.string().required(),
-		// 		quantity: Joi.number().required(),
-		// 	}),
-		// ),
-		// customers: Joi.array().items(
-		// 	Joi.object().keys({
-		// 		fullName: Joi.string().required(),
-		// 		phone: Joi.string().required(),
-		// 		cccd: Joi.string().required(),
-		// 		cccdIssueDate: Joi.date().required(),
-		// 		cccdIssueAt: Joi.string().required(),
-		// 		address: Joi.string().required(),
-		// 		birthday: Joi.date().required(),
-		// 		gender: Joi.string().required(),
-		// 	}),
-		// ),
-		// vehicle: Joi.array().items(
-		// 	Joi.object().keys({
-		// 		licensePlate: Joi.string().required(),
-		// 		ownerPhone: Joi.string().required(),
-		// 	}),
-		// ),
 	}),
 	generatePrepareContract: Joi.object().keys({
 		roomId: JoiObjectId().required(),
@@ -117,16 +71,47 @@ module.exports = {
 			contractEndDate: Joi.date().required(),
 			contractTerm: Joi.string().optional(),
 		}),
-		contractExtention: Joi.object().keys({
-			newRent: Joi.number().min(0).required(),
-			newDepositAmount: Joi.number().min(0).required(),
-			extentionDate: Joi.date().required(),
-			version: Joi.number().integer().min(1).required(),
-		}),
 	}),
 	getDebtsAndReceiptsUnpaid: Joi.object().keys({
 		usedFor: Joi.string()
 			.valid(...Object.values(getDebtsReceiptsUnpaidUsedFor))
 			.required(),
+	}),
+	contractExtention: Joi.object().keys({
+		newRent: Joi.number().min(0).required(),
+		newDepositAmount: Joi.number().min(0).required(),
+		extentionDate: Joi.date().required(),
+		version: Joi.number().integer().min(1).required(),
+	}),
+
+	generateContractDraft: Joi.object().keys({
+		roomId: JoiObjectId().required(),
+		finance: Joi.object().keys({
+			rent: Joi.number().min(0).required(),
+			depositAmount: Joi.number().min(0).required(),
+		}),
+		fees: Joi.array().items(
+			Joi.object().keys({
+				feeName: Joi.string().optional(),
+				feeAmount: Joi.number().min(0).required(),
+				feeKey: Joi.string()
+					.valid(...initialFeeKeys)
+					.required(),
+				unit: Joi.string().optional(),
+			}),
+		),
+		interiors: Joi.array().items(
+			Joi.object().keys({
+				interiorName: Joi.string().required(),
+				quantity: Joi.number().required(),
+			}),
+		),
+		customers: Joi.array().items(customerSchema),
+		note: Joi.string().allow(''),
+		contractPeriod: Joi.object().keys({
+			contractSignDate: Joi.date().required(),
+			contractEndDate: Joi.date().required(),
+			contractTerm: Joi.string().optional(),
+		}),
 	}),
 };

@@ -1,8 +1,7 @@
-const AWS = require('aws-sdk');
-const fs = require('fs');
+const { S3 } = require('aws-sdk');
 
 const getOriginalFile = async (Key) => {
-	const s3 = new AWS.S3({
+	const s3 = new S3({
 		credentials: {
 			accessKeyId: process.env.ACCESS_KEY,
 			secretAccessKey: process.env.SECRET_ACCESS_KEY,

@@ -1,7 +1,96 @@
 const Services = require('../service');
-const { CUSTOMER_STATUS, vehicleStatus, feeUnit, receiptStatus } = require('../constants');
+const { CUSTOMER_STATUS, vehicleStatus, feeUnit, FEE_UNIT_TYPE, receiptStatus, CONTRACT_DOCUMENT_FIELDS } = require('../constants');
 const { ConflictError } = require('../AppError');
 const listFeeInitial = require('../utils/getListFeeInital');
+const moment = require('moment');
+const generateContractDocument = require('../utils/generateContract');
+const path = require('path');
+const fs = require('fs');
+const { previewContractPdfExp } = require('../constants');
+
+const formatDate = (date) => {
+	const value = moment(date).utcOffset('+07:00');
+
+	return {
+		DAY: value.format('DD'),
+		MONTH: value.format('MM'),
+		YEAR: value.format('YYYY'),
+	};
+};
+
+const formatCustomer = (customer = {}) => {
+	const { FULLNAME, DOB, ADDRESS, CCCD, CCCD_DATE, CCCD_AT, PHONE } = CONTRACT_DOCUMENT_FIELDS.PARTY_A;
+
+	return {
+		[FULLNAME]: customer.fullName ?? '',
+		[DOB]: customer.birthdate ? moment(customer.birthdate).format('DD/MM/YYYY') : '',
+		[ADDRESS]: customer.permanentAddress ?? '',
+		[CCCD]: customer.cccd ?? '',
+		[CCCD_DATE]: customer.cccdIssueDate ? moment(customer.cccdIssueDate).format('DD/MM/YYYY') : '',
+		[CCCD_AT]: customer.cccdIssueAt ?? '',
+		[PHONE]: customer.phone ?? '',
+	};
+};
+
+const formatFees = (fees = []) => {
+	const { NAME, AMOUNT, TYPE } = CONTRACT_DOCUMENT_FIELDS.FEES;
+
+	return fees.map((fee) => ({
+		[NAME]: fee.feeName ?? '',
+		[AMOUNT]: String(fee.feeAmount ?? ''),
+		[TYPE]: FEE_UNIT_TYPE[fee.unit] || '',
+	}));
+};
+
+const formatInteriors = (interiors = []) => {
+	const { NAME, QUANT } = CONTRACT_DOCUMENT_FIELDS.INTERIORS;
+
+	return interiors.map((item) => ({
+		[NAME]: item.interiorName ?? '',
+		[QUANT]: String(item.quantity ?? ''),
+	}));
+};
+
+exports.formatContractDocument = ({
+	roomIndex,
+	customerInfo = {},
+	fees = [],
+	interiors = [],
+	depositAmount,
+	contractSignDate,
+	contractEndDate,
+	contractTerm,
+	rent,
+	roomMates = [],
+	note,
+}) => {
+	const fields = CONTRACT_DOCUMENT_FIELDS;
+
+	return {
+		[fields.ROOM_INDEX]: roomIndex ?? '',
+		[fields.CREATED_DATE]: formatDate(new Date()),
+
+		[fields.PARTY_A]: formatCustomer(customerInfo),
+
+		[fields.FEES]: formatFees(fees),
+
+		[fields.INTERIORS]: formatInteriors(interiors),
+
+		[fields.DEPOSIT]: String(depositAmount ?? ''),
+
+		[fields.SIGN_DATE]: formatDate(contractSignDate),
+
+		[fields.END_DATE]: formatDate(contractEndDate),
+
+		[fields.CONTRACT_TERM]: contractTerm ?? '',
+
+		[fields.ROOM_PRICE]: String(rent ?? 0),
+
+		[fields.ROOM_MATES]: roomMates.map(formatCustomer),
+
+		[fields.NOTE]: note ?? '',
+	};
+};
 
 exports.formatInitialFees = (fees) =>
 	fees.map((fee) => {
@@ -87,4 +176,28 @@ exports.formatDepositReceiptStatus = (paidAmount, amount) => {
 	if (paidAmount >= amount) return receiptStatus['PAID'];
 	if (paidAmount === 0) return receiptStatus['PENDING'];
 	return receiptStatus['PARTIAL'];
+};
+
+exports.generatePreviewContractDocument = async ({ contractDocument, buildingId }) => {
+	const generatedContractDoc = await generateContractDocument(contractDocument, buildingId);
+	console.log('log of generatedContractDoc: ', generatedContractDoc);
+
+	const tempDir = path.join(process.cwd(), 'files', 'temp');
+
+	await fs.promises.mkdir(tempDir, { recursive: true });
+
+	const filePath = path.join(tempDir, generatedContractDoc.originalname);
+
+	await fs.promises.writeFile(filePath, generatedContractDoc.buffer);
+
+	return {
+		originalname: generatedContractDoc.originalname,
+		mimetype: 'application/pdf',
+		path: filePath,
+		previewId: generatedContractDoc.originalname,
+		size: generatedContractDoc.buffer.length,
+		buffer: generatedContractDoc.buffer,
+		createdAt: new Date(),
+		expAt: new Date(Date.now() + previewContractPdfExp),
+	};
 };

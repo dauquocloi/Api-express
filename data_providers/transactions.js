@@ -103,7 +103,7 @@ exports.denyTransaction = async (transactionId, reason, buildingId, version, use
 			const currentDeposit = await Services.deposits.findByReceiptId(receipt._id).lean().exec();
 			if (!currentDeposit) throw new NotFoundError('Khoản đặt cọc không tồn tại !');
 			if ([depositStatus['PARTIAL'], depositStatus['PAID']].includes(currentDeposit.status)) {
-				await Services.deposits.updateActualDepositAmountByReceiptId({
+				await Services.deposits.updateDepositByPayment({
 					receiptId: receipt._id,
 					actualDepositAmount: newReceiptPaidAmount,
 					status: calculateDepositStatus(receipt.amount, newReceiptPaidAmount),

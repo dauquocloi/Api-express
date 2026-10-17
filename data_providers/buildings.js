@@ -382,8 +382,8 @@ exports.getBuildingContractPdfUrl = async (buildingId) => {
 	if (!building) throw new BadRequestError('Tòa nhà không tồn tại');
 	if (!building.contractPdfUrl) return { contractPdfUrl: '' };
 	const result = await getFileUrl(building.contractPdfUrl);
-	if (!result || !result.url) return { contractTermFileUrl: '' };
-	return { contractTermFileUrl: result.url };
+	if (!result) return { contractTermFileUrl: '' };
+	return { contractTermFileUrl: result };
 };
 
 exports.getBankAccount = async (buildingId) => {

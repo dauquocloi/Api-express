@@ -288,14 +288,14 @@ const setWriteLockedBuilding = async ({ buildingId, lockReason, lockOwner }) => 
 
 const assertBuildingWritable = async ({ buildingId, userId }) => {
 	const now = new Date();
-	const building = await Entity.RoomsEntity.findById(buildingId).lean().exec();
+	const building = await Entity.BuildingsEntity.findById(buildingId).lean().exec();
 
-	if (!building || !building._id) throw new NotFoundError('Phòng không tồn tại');
+	if (!building || !building._id) throw new NotFoundError('Tòa nhà không tồn tại !');
 
 	const { locked, expAt, ownerId } = building.writeLock || {};
 
 	if (locked === true && expAt > now && String(ownerId) !== String(userId)) {
-		throw new ConflictError('Tòa nhà hiện đang được ai đó cập nhật, vui lòng thử lại sau !');
+		throw new ConflictError('Tòa nhà hiện đang được ai đó cập nhật, vui lòng thử lại sau ít phút !');
 	}
 
 	return building;

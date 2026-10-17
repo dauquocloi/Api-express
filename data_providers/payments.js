@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const { AppError, BadRequestError, InternalError } = require('../AppError');
 const { errorCodes } = require('../constants/errorCodes');
 const Services = require('../service');
 const { receiptStatus, receiptTypes: RECEIPT_TYPES } = require('../constants/receipt');
@@ -15,6 +14,8 @@ const { receiptToDepositRefundStatusMap, receiptToDepositStatus } = require('../
 const { SepayError, sepayErrorTypes } = require('../infrastructure/Sepay/SepayError');
 const { notificationJob } = require('../jobs/notification/notification.job');
 const { NOTI_PAYMENT } = require('../jobs/constant/jobNames');
+const { updateDepositFromPayment } = require('../service/deposits.helper');
+const { updateCheckoutCostFromPayment } = require('../service/checkoutCost/checkoutCosts.helper');
 
 {
 	/*
@@ -37,21 +38,13 @@ const { NOTI_PAYMENT } = require('../jobs/constant/jobNames');
 
 // Should refactor
 exports.webhookPayment = async (sepayData) => {
-	let session;
-	let result;
-	let redisIdempo;
+	const { id, accountNumber } = sepayData;
 	try {
-		session = await mongoose.startSession();
-		return await session.withTransaction(async () => {
-			const existedTransaction = await Services.transactions.checkExistedTransaction(sepayData.id, session);
+		return await mongoose.connection.transaction(async () => {
+			const existedTransaction = await Services.transactions.checkExistedTransaction(sepayData.id).lean().exec();
 			if (existedTransaction) return;
 
-			const bankAccount = await Services.bankAccounts
-				.findBankAccountByAccountNumber(sepayData.accountNumber)
-				.populate('user')
-				.session(session)
-				.lean()
-				.exec();
+			const bankAccount = await Services.bankAccounts.findBankAccountByAccountNumber(sepayData.accountNumber).populate('user').lean().exec();
 			if (!bankAccount)
 				throw new SepayError({
 					type: sepayErrorTypes['UNKNOWN_BANK_NUMBER'],
@@ -151,7 +144,6 @@ exports.webhookPayment = async (sepayData) => {
 			}
 
 			const findReceipt = await Services.receipts.findReceiptInfoByPaymentContent(sepayData.content, session);
-			console.log('log of findReceipt: ', findReceipt);
 			if (findReceipt) {
 				if (!findReceipt.paymentInfo || findReceipt.paymentInfo === null) return 'Success';
 				const {
@@ -220,15 +212,18 @@ exports.webhookPayment = async (sepayData) => {
 					session,
 				);
 
-				if (receiptType === RECEIPT_TYPES['CHECKOUT']) {
-					let newCheckoutCostStatus;
+				if (receiptType === RECEIPT_TYPES['CHECKOUT'] && findReceipt.status !== receiptStatus['PENDING']) {
+					// let newCheckoutCostStatus;
 
-					newCheckoutCostStatus = receiptToCheckoutCostStatusMap[getNewReceiptStatus];
-					await Services.checkoutCosts.updateCheckoutCostPaymentStatusByReceiptId(_id, newCheckoutCostStatus, session);
+					// newCheckoutCostStatus = receiptToCheckoutCostStatusMap[getNewReceiptStatus];
+					// await Services.checkoutCosts.updateCheckoutCostPaymentStatusByReceiptId(_id, newCheckoutCostStatus, session);
+					await updateCheckoutCostFromPayment({ checkoutCostReceiptId: _id, newReceiptStatus: getNewReceiptStatus });
 				} else if (receiptType === RECEIPT_TYPES['DEPOSIT']) {
-					let newDepositStatus;
-					newDepositStatus = receiptToDepositStatus[getNewReceiptStatus];
-					await Services.deposits.updateDepositStatusByReceiptId(_id, newDepositStatus);
+					// let newDepositStatus;
+					// newDepositStatus = receiptToDepositStatus[getNewReceiptStatus];
+					// await Services.deposits.updateDepositStatusByReceiptId(_id, newDepositStatus);
+
+					await updateDepositFromPayment({ depositReceiptId: _id, newReceiptStatus: getNewReceiptStatus, newPaidAmount: newPaidAmount });
 				}
 
 				//=====NOTIFICATION======//
@@ -284,9 +279,5 @@ exports.webhookPayment = async (sepayData) => {
 		});
 	} catch (error) {
 		throw error;
-	} finally {
-		if (session) {
-			session.endSession();
-		}
 	}
 };

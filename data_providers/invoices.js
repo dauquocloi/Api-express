@@ -30,6 +30,7 @@ const {
 	getFeeIndexesForRollback,
 } = require('../service/fees.helper');
 const { validateFeeIndexMatch } = require('../service/fees.helper');
+const { updateDetuctedInvoice } = require('./invoices.util');
 
 exports.getInvoicesPaymentStatus = async (buildingId, month, year) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -116,7 +117,7 @@ exports.modifyInvoice = async (data) => {
 		console.log('feeIndexRecordsGenerated', feeIndexRecordsGenerated);
 	}
 
-	const modifedInvoice = await Services.invoices.modifyInvoice({
+	const modifiedInvoice = await Services.invoices.modifyInvoice({
 		total: newTotalInvoice,
 		fee: formatFees,
 		status: invoiceStatus,
@@ -125,9 +126,11 @@ exports.modifyInvoice = async (data) => {
 		version: version,
 	});
 
+	console.log('Invoice modified: ', modifiedInvoice);
+
 	throw new InternalError('Stop for testing');
 
-	return modifedInvoice;
+	return modifiedInvoice;
 };
 
 exports.getInvoiceDetail = async (invoiceId, buildingId) => {
@@ -259,39 +262,41 @@ exports.checkout = async (data) => {
 		});
 	}
 
-	const unpaidAmount = calculateInvoiceUnpaidAmount(currentInvoice.total, currentInvoice.paidAmount);
-	const appliedAmount = Math.min(createTransaction.amount, unpaidAmount);
-
 	const updatedTotalPaid = currentInvoice.paidAmount + createTransaction.amount;
 	const newInvoiceStatus = getInvoiceStatus(updatedTotalPaid, currentInvoice.total);
 	await Services.invoices.updateInvoicePaidStatusWithVersion({ invoiceId, paidAmount: updatedTotalPaid, invoiceStatus: newInvoiceStatus, version });
 
 	if (!!currentInvoice.detuctedInfo) {
-		const { detuctedType } = currentInvoice.detuctedInfo;
-		if (detuctedType === DETUCTED_TYPE['DEPOSIT_REFUND']) {
-			const depositRefundInfo = await Services.depositRefunds.findByInvoiceUnpaidId(invoiceObjectId);
-			if (!depositRefundInfo) throw new NotFoundError('Phiếu hoàn cọc không tồn tại');
+		// const unpaidAmount = calculateInvoiceUnpaidAmount(currentInvoice.total, currentInvoice.paidAmount);
+		// const appliedAmount = Math.min(createTransaction.amount, unpaidAmount);
 
-			depositRefundInfo.depositRefundAmount += appliedAmount;
-			if (newInvoiceStatus === invoiceStatus['PAID']) {
-				depositRefundInfo.invoiceUnpaid = null;
-				await Services.invoices.removeDetuctedInfo(invoiceObjectId);
-			}
-			depositRefundInfo.version += 1;
-			await depositRefundInfo.save();
-		}
-		if (detuctedType === DETUCTED_TYPE['TERMINATE_CONTRACT_EARLY']) {
-			const checkoutCost = await Services.checkoutCosts.findByInvoiceId(invoiceObjectId);
-			if (!checkoutCost) throw new NotFoundError('Phiếu trả phòng không tồn tại');
+		// const { detuctedType } = currentInvoice.detuctedInfo;
+		// if (detuctedType === DETUCTED_TYPE['DEPOSIT_REFUND']) {
+		// 	const depositRefundInfo = await Services.depositRefunds.findByInvoiceUnpaidId(invoiceObjectId);
+		// 	if (!depositRefundInfo) throw new NotFoundError('Phiếu hoàn cọc không tồn tại');
 
-			checkoutCost.total -= appliedAmount;
-			if (newInvoiceStatus === invoiceStatus['PAID']) {
-				checkoutCost.invoicesUnpaid = null;
-				await Services.invoices.removeDetuctedInfo(invoiceObjectId);
-			}
-			checkoutCost.version += 1;
-			await checkoutCost.save();
-		}
+		// 	depositRefundInfo.depositRefundAmount += appliedAmount;
+		// 	if (newInvoiceStatus === invoiceStatus['PAID']) {
+		// 		depositRefundInfo.invoiceUnpaid = null;
+		// 		await Services.invoices.removeDetuctedInfo(invoiceObjectId);
+		// 	}
+		// 	depositRefundInfo.version += 1;
+		// 	await depositRefundInfo.save();
+		// }
+		// if (detuctedType === DETUCTED_TYPE['TERMINATE_CONTRACT_EARLY']) {
+		// 	const checkoutCost = await Services.checkoutCosts.findByInvoiceId(invoiceObjectId);
+		// 	if (!checkoutCost) throw new NotFoundError('Phiếu trả phòng không tồn tại');
+
+		// 	checkoutCost.total -= appliedAmount;
+		// 	if (newInvoiceStatus === invoiceStatus['PAID']) {
+		// 		checkoutCost.invoicesUnpaid = null;
+		// 		await Services.invoices.removeDetuctedInfo(invoiceObjectId);
+		// 	}
+		// 	checkoutCost.version += 1;
+		// 	await checkoutCost.save();
+		// }
+
+		await updateDetuctedInvoice({ invoiceInfo: currentInvoice, newInvoiceStatus, transactionAmount: createTransaction.amount });
 	}
 
 	return {

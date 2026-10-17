@@ -331,14 +331,7 @@ const getDepositInfoForModifyDeposit = (depositId) => {
 				as: 'roomInfo',
 			},
 		},
-		{
-			$lookup: {
-				from: 'receipts',
-				localField: 'receipt',
-				foreignField: '_id',
-				as: 'receipts',
-			},
-		},
+
 		{
 			$lookup: {
 				from: 'receipts',

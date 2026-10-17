@@ -41,6 +41,8 @@ exports.getRevenues = async (data) => {
 		queryYear,
 	);
 
+	// console.log('log of periodicRevenueList: ', periodicRevenueList);
+
 	// Aggregate periodic revenues
 	const periodicRevenue = aggregateRevenueByFeeKey(periodicRevenueList);
 

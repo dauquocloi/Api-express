@@ -67,7 +67,7 @@ const getAllBillsPipeline = (buildingId, month, year) => {
 	return [
 		{
 			$match: {
-				_id: buildingId,
+				_id: new mongoose.Types.ObjectId(buildingId),
 			},
 		},
 		{
@@ -100,14 +100,20 @@ const getAllBillsPipeline = (buildingId, month, year) => {
 									{
 										$in: ['$room', '$$roomIds'],
 									},
+
 									{
-										$ne: ['$status', 'cencelled'],
+										$not: {
+											$in: ['$status', [invoiceStatus['PENDING'], invoiceStatus['CANCELLED'], invoiceStatus['TERMINATED']]],
+										},
 									},
 									{
 										$eq: ['$month', '$$month'],
 									},
 									{
 										$eq: ['$year', '$$year'],
+									},
+									{
+										$ne: [{ $type: '$contract' }, 'missing'],
 									},
 								],
 							},
@@ -150,7 +156,9 @@ const getAllBillsPipeline = (buildingId, month, year) => {
 										$in: ['$room', '$$roomIds'],
 									},
 									{
-										$ne: ['$status', 'cencelled'],
+										$not: {
+											$in: ['$status', [receiptStatus['PENDING'], receiptStatus['TERMINATED'], receiptStatus['CANCELLED']]],
+										},
 									},
 									{
 										$eq: ['$month', '$$month'],
@@ -193,7 +201,7 @@ const getStatisticGeneral = (buildingObjectId, year) => {
 	return [
 		{
 			$match: {
-				building: buildingObjectId,
+				building: new mongoose.Types.ObjectId(buildingObjectId),
 				year: year,
 			},
 		},
@@ -985,7 +993,12 @@ const getAllInvoicesInPeriod = (buildingObjectId, month, year) => {
 										$eq: ['$year', year],
 									},
 									{
-										$in: ['$status', ['paid', 'partial', 'unpaid']],
+										$not: {
+											$in: ['$status', [invoiceStatus['TERMINATED'], invoiceStatus['PENDING']]],
+										},
+									},
+									{
+										$ne: [{ $type: '$contract' }, 'missing'],
 									},
 								],
 							},

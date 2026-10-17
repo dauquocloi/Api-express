@@ -51,6 +51,9 @@ const getInvoicePaymentStatus = (buildingId, month, year) => {
 											$in: ['$status', [INVOICE_STATUS['CANCELLED'], INVOICE_STATUS['TERMINATED'], INVOICE_STATUS['PENDING']]],
 										},
 									},
+									{
+										$ne: [{ $type: '$contract' }, 'missing'],
+									},
 								],
 							},
 						},

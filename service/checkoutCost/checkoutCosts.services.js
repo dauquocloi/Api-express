@@ -101,7 +101,7 @@ const findByBuildingId = (buildingId, month, year) => {
 	return Entity.CheckoutCostsEntity.find({ building: buildingId, month, year });
 };
 
-const updateCheckoutCostPaymentStatusByReceiptId = async (receiptId, newStatus, session) => {
+const updateCheckoutCostPaymentStatusByReceiptId = async (receiptId, newStatus) => {
 	const result = await Entity.CheckoutCostsEntity.updateOne(
 		{ checkoutCostReceipt: receiptId },
 		{

@@ -3,11 +3,13 @@ const asyncHandler = require('../../utils/asyncHandler');
 const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse');
 const { executeIdempotent } = require('../../utils/idempotent');
 const generateRequestHash = require('../../utils/generateRequestHash');
+const delay = require('../../utils/delay');
 
 exports.getDeposits = asyncHandler(async (req, res) => {
 	const data = req.query;
 	console.log('log of getDeposits', data);
 	const result = await UseCase.getDeposits(data.buildingId);
+
 	return new SuccessResponse('Success', result).send(res);
 });
 
@@ -40,6 +42,7 @@ exports.getDepositDetail = asyncHandler(async (req, res) => {
 	let data = req.params;
 	console.log('this is log of getDepositDetail: ', data);
 	const result = await UseCase.getDepositDetail(data.depositId, req.buildingId);
+	await delay(3000, false);
 	return new SuccessResponse('Success', result).send(res);
 });
 
@@ -89,11 +92,10 @@ exports.terminateDeposit = asyncHandler(async (req, res) => {
 		endPoint: `${req.method}:${req.route.path}`,
 		requestHash: generateRequestHash({
 			depositId: data.depositId,
-			// reason: data.reason,
 			version: data.version,
 		}),
 		resourceId: data.depositId,
-		execute: () => UseCase.terminateDeposit(data.depositId, data.version),
+		execute: () => UseCase.terminateDeposit(data.depositId, data.version, req.user._id),
 	});
 	return new SuccessMsgResponse('Success').send(res);
 });

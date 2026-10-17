@@ -1,3 +1,5 @@
+const { receiptStatus } = require('./receipt');
+
 const depositStatus = {
 	PENDING: 'pending', // Chờ thanh toán
 	PAID: 'paid',
@@ -20,10 +22,11 @@ const receiptToDepositRefundStatusMap = {
 };
 
 const receiptToDepositStatus = {
-	unpaid: depositStatus['PENDING'],
-	paid: depositStatus['PAID'],
-	partial: depositStatus['PARTIAL'],
-	terminated: depositStatus['CANCELLED'],
+	[receiptStatus['PENDING']]: depositStatus['PENDING'],
+	[receiptStatus['UNPAID']]: depositStatus['PENDING'],
+	[receiptStatus['PAID']]: depositStatus['PAID'],
+	[receiptStatus['PARTIAL']]: depositStatus['PARTIAL'],
+	[receiptStatus['CANCELLED']]: depositStatus['CANCELLED'],
 };
 
 module.exports = { depositStatus, depositRefundStatus, receiptToDepositRefundStatusMap, receiptToDepositStatus };

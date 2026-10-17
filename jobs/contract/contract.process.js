@@ -4,8 +4,11 @@ const Services = require('../../service');
 const generateContract = require('../../utils/generateContract');
 const { FEE_UNIT_TYPE } = require('../../constants/fees');
 const { contractStatus } = require('../../constants/contracts');
+const { formatContractDocument } = require('../../data_providers/contracts.util');
 
 const handleGenerateContractJob = async (payload) => {
+	console.log('3. Enter handleGenerateContractJob');
+
 	try {
 		const { buildingId, contractId } = payload;
 		const contract = await Services.contracts.findById(contractId).populate({ path: 'room', select: 'interior' }).lean().exec();
@@ -65,6 +68,19 @@ const handleGenerateContractJob = async (payload) => {
 			ROOM_PRICE: String(rent ?? 0),
 		};
 
+		const contractDoc = formatContractDocument({
+			customerInfo: customerInfo,
+			fees: fees,
+			interiors: room.interior,
+			depositAmount: depositAmount,
+			contractSignDate: contractSignDate,
+			contractEndDate: contractEndDate,
+			contractTerm: contractTerm,
+			rent: rent,
+		});
+
+		console.log('contractDoc: ', contractDoc);
+
 		console.time('generateContract take');
 		const contractPdfUrl = await generateContract(contractDocData, buildingObjectId);
 		console.timeEnd('generateContract take');
@@ -116,4 +132,21 @@ const handleModifyContractJob = async (payload) => {
 	}
 };
 
-module.exports = { handleGenerateContractJob, handleModifyContractJob };
+const handleGenerateContractFailedJob = async (payload) => {
+	try {
+		const { invoiceId, invoiceVersion, depositReceiptId, depositReceiptVersion } = payload;
+		await Services.invoices.terminateInvoice({ invoiceId: invoiceId, version: invoiceVersion });
+		if (depositReceiptId) {
+			await Services.receipts.terminateReceipt(depositReceiptId, depositReceiptVersion);
+		}
+		return {
+			invoiceId,
+			depositReceiptId: depositReceiptId ?? null,
+		};
+	} catch (error) {
+		console.error(' Worker error:', error);
+		throw error; // Bull will mark the job as failed
+	}
+};
+
+module.exports = { handleGenerateContractJob, handleModifyContractJob, handleGenerateContractFailedJob };

@@ -1,49 +1,87 @@
-// FILE: src/config/redisClient.js
 const Redis = require('ioredis');
-console.log('🚀', process.env.REDIS_HOST);
 
-var REDIS_CONFIG = {
-	host: process.env.REDIS_HOST,
-	port: process.env.REDIS_PORT,
-	user: process.env.REDIS_USER,
-	password: process.env.REDIS_PASSWORD,
-	maxRetriesPerRequest: null, // Since bull v4
-	enableReadyCheck: false, // Since bull v4
+const isTest = process.env.NODE_ENV === 'test';
+
+const REDIS_CONFIG = {
+	host: process.env.REDIS_HOST || '127.0.0.1',
+	port: Number(process.env.REDIS_PORT || 6379),
+	username: process.env.REDIS_USER || undefined,
+	password: process.env.REDIS_PASSWORD || undefined,
+
+	maxRetriesPerRequest: null,
+	enableReadyCheck: false,
+
+	// Chỉ áp dụng cho môi trường test.
+	...(isTest && {
+		lazyConnect: true,
+		retryStrategy: () => null,
+	}),
 };
-var client = new Redis(REDIS_CONFIG);
-var subscriber = new Redis(REDIS_CONFIG);
 
-client.on('connect', () => {
-	console.log(' Redis connected');
-});
+const client = new Redis(REDIS_CONFIG);
+const subscriber = new Redis(REDIS_CONFIG);
 
-client.on('ready', () => {
-	console.log('🚀 Redis ready');
-});
+const clients = new Set([client, subscriber]);
 
-client.on('error', (err) => {
-	console.error(' Redis error:', err);
-});
+function trackClient(redis) {
+	clients.add(redis);
+	return redis;
+}
 
-client.on('reconnecting', () => {
-	console.log('🔄 Redis reconnecting...');
-});
+function attachListeners(redis, name) {
+	redis.on('connect', () => {
+		if (!isTest) console.log(`${name}: Redis connected`);
+	});
 
-//Bull options
+	redis.on('ready', () => {
+		if (!isTest) console.log(`${name}: Redis ready`);
+	});
+
+	redis.on('error', (err) => {
+		if (!isTest) console.error(`${name}: Redis error:`, err);
+	});
+
+	redis.on('reconnecting', () => {
+		if (!isTest) console.log(`${name}: Redis reconnecting...`);
+	});
+}
+
+attachListeners(client, 'client');
+attachListeners(subscriber, 'subscriber');
+
 const opts = {
-	createClient: function (type) {
-		console.log('createClient:', type);
+	createClient(type) {
 		switch (type) {
 			case 'client':
 				return client;
+
 			case 'subscriber':
 				return subscriber;
 
 			default:
-				console.log('=> NEW Redis connection (bclient)');
-				return new Redis(REDIS_CONFIG);
+				return trackClient(new Redis(REDIS_CONFIG));
 		}
 	},
 };
 
-module.exports = { client, subscriber, opts };
+// Dùng khi teardown test hoặc shutdown ứng dụng.
+async function closeRedis() {
+	const closingClients = [...clients];
+
+	await Promise.all(
+		closingClients.map(async (redis) => {
+			if (redis.status === 'end') return;
+
+			redis.disconnect();
+		}),
+	);
+
+	clients.clear();
+}
+
+module.exports = {
+	client,
+	subscriber,
+	opts,
+	closeRedis,
+};

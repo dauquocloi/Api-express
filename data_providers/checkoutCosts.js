@@ -425,7 +425,7 @@ exports.generateCheckoutCost = async (data) => {
 		console.log('feeIndexRecordsGenerated', feeIndexRecordsGenerated);
 	}
 
-	await Services.rooms.generateRoomHistory({
+	const roomHistory = await Services.rooms.generateRoomHistory({
 		roomId: roomId,
 		contractId: contractId,
 		contractCode: contract.contractCode,
@@ -440,11 +440,10 @@ exports.generateCheckoutCost = async (data) => {
 		fees: fees,
 		rent: contract.rent,
 	});
+	console.log('roomHistory: ', roomHistory);
 	await Services.rooms.completeChangeRoomState({ roomId, roomVersion });
 	await Services.customers.expiredCustomers({ roomId: roomObjectId, contractId: contractId });
 	await Services.contracts.expiredContract(contractId);
-
-	// throw new InternalError('Stop for testing');
 
 	return newCheckoutCost;
 };

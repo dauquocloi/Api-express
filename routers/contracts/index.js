@@ -91,4 +91,20 @@ router.get(
 	Contracts.getDebtsAndReceiptsUnpaid,
 );
 
+router.post(
+	'/contract-draft',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	validator(schema.generateContractDraft, ValidateSource.BODY),
+	checkResourceAccess(RESOURCES['rooms'], null, RESOURCE_VS['BODY']),
+	checkIdempotency,
+	Contracts.generateContractDraft,
+);
+
+router.get(
+	'/contract-document/:contractDraftId',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	validator(schema.contractDraftId, ValidateSource.PARAM),
+	Contracts.getContractDraftDocument,
+);
+
 module.exports = router;

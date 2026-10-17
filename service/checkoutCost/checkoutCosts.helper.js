@@ -1,7 +1,7 @@
 const { NotFoundError } = require('../../AppError');
 const Services = require('../index');
 const { calculateTotalFeeAmount } = require('../../utils/calculateFeeTotal');
-const { checkoutCostStatus, receiptStatus } = require('../../constants');
+const { checkoutCostStatus, receiptStatus, receiptToCheckoutCostStatusMap } = require('../../constants');
 
 exports.calculateTotalCheckoutCostAmount = (roomFees, debts, receiptsUnpaid, invoicesUnpaid, feesOther) => {
 	let totalCost = 0;
@@ -44,4 +44,9 @@ exports.modifyCheckoutCostByReceipt = async ({ checkoutCostId, receiptInfo }) =>
 
 		// return await Services.checkoutCosts.
 	}
+};
+
+exports.updateCheckoutCostFromPayment = async ({ checkoutCostReceiptId, newReceiptStatus }) => {
+	const newCheckoutCostStatus = receiptToCheckoutCostStatusMap[newReceiptStatus];
+	await Services.checkoutCosts.updateCheckoutCostPaymentStatusByReceiptId(checkoutCostReceiptId, newCheckoutCostStatus);
 };

@@ -19,7 +19,7 @@ exports.isRetryableError = (error) => {
 	 * HTTP 5xx
 	 */
 
-	if (typeof error.statusCode === 'number' && error.statusCode >= 500) {
+	if (typeof error.status === 'number' && error.status >= 500) {
 		return true;
 	}
 

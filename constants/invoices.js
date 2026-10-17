@@ -16,9 +16,9 @@ const transformInvoiceStatus = {
 	[invoiceStatus.UNPAID]: 'Chưa thanh toán',
 	[invoiceStatus.PAID]: 'Đã thanh toán',
 	[invoiceStatus.PARTIAL]: 'Thanh toán một phần',
-	[invoiceStatus.CANCELLED]: 'Hóa đơn hóa',
-	[invoiceStatus.TERMINATED]: 'Hóa đơn hóa',
-	[invoiceStatus.PENDING]: 'Hóa đơn hóa',
+	[invoiceStatus.TERMINATED]: 'Đã hủy',
+	[invoiceStatus.PENDING]: 'Chờ thanh toán',
+	[invoiceStatus.CANCELLED]: 'Đã hủy',
 };
 
 const DETUCTED_TYPE = {

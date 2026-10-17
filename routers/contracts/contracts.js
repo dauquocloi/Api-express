@@ -1,5 +1,5 @@
 const UseCase = require('../../data_providers/contracts');
-const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse');
+const { SuccessResponse, SuccessMsgResponse, FileResponse } = require('../../utils/apiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
 const { client: redis } = require('../../config').redisDb;
 const { executeIdempotent } = require('../../utils/idempotent');
@@ -46,7 +46,8 @@ exports.prepareGenerateContract = asyncHandler(async (req, res) => {
 
 exports.generateContract = asyncHandler(async (req, res) => {
 	console.log('log of data from generateContract: ', req.body);
-	await executeIdempotent({
+
+	const result = await executeIdempotent({
 		key: req.get('Idempotency-Key'),
 		userId: req.user._id,
 		endPoint: `${req.method}:${req.route.path}`,
@@ -56,7 +57,8 @@ exports.generateContract = asyncHandler(async (req, res) => {
 		resourceId: req.body.contractDraftId,
 		execute: () => UseCase.generateContract(req.body.contractDraftId, req.user._id),
 	});
-	return new SuccessMsgResponse('Success').send(res);
+
+	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.getContractPdfSignedUrl = asyncHandler(async (req, res) => {
@@ -163,4 +165,48 @@ exports.getDebtsAndReceiptsUnpaid = asyncHandler(async (req, res) => {
 		execute: () => UseCase.getDebtsAndReceiptsUnpaid(req.params.contractId, req.user._id, req.query.usedFor),
 	});
 	return new SuccessResponse('Success', result).send(res);
+});
+
+exports.generateContractDraft = asyncHandler(async (req, res) => {
+	const { roomId, finance, fees, interiors, customers, contractPeriod, note } = req.body;
+
+	const data = {
+		roomId,
+
+		finance,
+		fees,
+		interiors,
+		customers,
+		contractPeriod,
+		note: note?.trim() ?? '',
+		createrId: req.user._id,
+	};
+
+	console.log('log of data from generateContractDocument: ', data);
+	const result = await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			roomId: roomId,
+
+			finance: finance,
+			fees: fees,
+			interiors: interiors,
+			customers: customers,
+			contractPeriod: contractPeriod,
+			note: note,
+		}),
+		resourceId: data.roomId,
+		execute: () => UseCase.generateContractDraft(data),
+	});
+
+	return new SuccessResponse(result, 'Success').send(res);
+});
+
+exports.getContractDraftDocument = asyncHandler(async (req, res) => {
+	const { contractDraftId } = req.params;
+	console.log('log of data from getContractDraftDocument: ', contractDraftId);
+	const result = await UseCase.getContractDraftDocument({ contractDraftId });
+	return new FileResponse(result, 'application/pdf', 'Success').send(res);
 });

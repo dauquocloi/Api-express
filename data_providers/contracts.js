@@ -1,17 +1,109 @@
 const mongoose = require('mongoose');
+const fs = require('fs/promises');
 const listFeeInitial = require('../utils/getListFeeInital');
 const { NotFoundError, BadRequestError, InternalError, ConflictError } = require('../AppError');
 const { contractJob } = require('../jobs/contract/contract.job');
-const { GENERATE_CONTRACT } = require('../jobs/constant/jobNames');
+const { GENERATE_CONTRACT, GENERATE_CONTRACT_FAILED } = require('../jobs/constant/jobNames');
 const Services = require('../service');
 const { calculateTotalFeeAmount } = require('../utils/calculateFeeTotal');
 const { generateInvoiceFeesFromReq } = require('../service/invoices.helper');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const getFieldUrl = require('../utils/getFileUrl');
-const { roomState, invoiceStatus, invoiceType, feeUnit, receiptTypes, receiptStatus, depositStatus } = require('../constants');
-const { compareFees, getChangedFeeIndexes } = require('../service/fees.helper');
-const { processImportCustomersAndVehicles, formatInitialFees } = require('./contracts.util');
+// const generateContractDocument = require('../utils/generateContract');
+const {
+	roomState,
+	invoiceStatus,
+	invoiceType,
+	feeUnit,
+	receiptTypes,
+	receiptStatus,
+	depositStatus,
+	UPDATE_FEE_INDEX_SOURCE,
+} = require('../constants');
+const {
+	compareFees,
+	getChangedFeeIndexes,
+	createFeeIndexRecordsFromChangedFees,
+	getChangedFeeIndexesForGenerateContract,
+	formatFeeIndexRecords,
+} = require('../service/fees.helper');
+const { processImportCustomersAndVehicles, formatInitialFees, formatContractDocument, generatePreviewContractDocument } = require('./contracts.util');
 const { getInvoiceStatus } = require('../service/invoices.helper');
+
+exports.generateContractDraft = async (data) => {
+	const {
+		roomId,
+
+		finance,
+		fees,
+		interiors,
+		customers,
+		contractPeriod,
+		note,
+	} = data;
+	const currentRoom = await Services.rooms.findById(roomId).lean().exec();
+
+	// if (currentRoom.roomState !== roomState['UN_HIRED']) throw new BadRequestError('Bạn không thể tạo hợp đồng mới cho phòng đang thuê !');
+
+	const contractDocument = formatContractDocument({
+		customerInfo: {
+			fullName: customers[0]?.fullName,
+			birthdate: customers[0]?.birthdate,
+			permanentAddress: customers[0]?.permanentAddress,
+			cccd: customers[0]?.cccd,
+			cccdIssueDate: customers[0]?.cccdIssueDate,
+			cccdIssueAt: customers[0]?.cccdIssueAt,
+			phone: customers[0]?.phone,
+		},
+		fees: fees,
+		interiors: interiors,
+		depositAmount: finance.depositAmount,
+		contractSignDate: contractPeriod.contractSignDate,
+		contractEndDate: contractPeriod.contractEndDate,
+		contractTerm: contractPeriod.contractTerm,
+		rent: finance.rent,
+		roomIndex: currentRoom.roomIndex,
+		note: note,
+	});
+
+	console.time('generateContract take');
+	const generatedContractDoc = await generatePreviewContractDocument({ contractDocument, buildingId: currentRoom.building });
+	console.timeEnd('generateContract take');
+
+	const formatFeesForContractDraft = fees.map((fee) => ({ feeAmount: fee.feeAmount, feeKey: fee.feeKey, lastIndex: fee.secondIndex ?? 0 }));
+
+	const contractDraftData = {
+		room: currentRoom._id,
+		building: currentRoom.building,
+		rent: finance.rent,
+		depositAmount: finance.depositAmount, // nếu deposit đã tồn tại ?
+		depositReceiptId: null,
+		firstInvoiceId: null,
+		depositId: null,
+
+		interiors: interiors,
+		fees: formatFeesForContractDraft,
+		customers: customers,
+		contractSignDate: contractPeriod.contractSignDate,
+		contractEndDate: contractPeriod.contractEndDate,
+		contractTerm: contractPeriod.contractTerm,
+		note: note,
+		contractDocument: {
+			filePath: generatedContractDoc.path,
+			previewId: generatedContractDoc.previewId,
+			size: generatedContractDoc.size,
+			createdAt: generatedContractDoc.createdAt,
+			expAt: generatedContractDoc.expAt,
+		},
+	};
+
+	const contractDraft = await Services.contracts.createContractDraft(contractDraftData);
+
+	return {
+		previewId: generatedContractDoc.previewId,
+		contractDraftId: contractDraft._id,
+	};
+};
 
 exports.prepareGenerateContract = async (data) => {
 	const {
@@ -45,6 +137,9 @@ exports.prepareGenerateContract = async (data) => {
 	console.log('totalInvoice: ', totalInvoice);
 	console.log('formatRoomFees: ', formatRoomFees);
 
+	const feeIndexSnapshot = formatFeeIndexRecords(formatRoomFees);
+	console.log('log of feeIndexSnapshot: ', feeIndexSnapshot);
+
 	const firstInvoice = await Services.invoices.createInvoice({
 		roomId: currentRoom._id,
 		listFees: formatRoomFees,
@@ -56,6 +151,7 @@ exports.prepareGenerateContract = async (data) => {
 		creater: createrId,
 		initialStatus: invoiceStatus['PENDING'],
 		invoiceType: invoiceType['FIRST_INVOICE'],
+		feeIndexSnapshot: feeIndexSnapshot,
 	});
 
 	const existedDeposit = await Services.deposits.findDepositByRoomId(roomId).populate('receipt').lean().exec();
@@ -124,107 +220,134 @@ exports.prepareGenerateContract = async (data) => {
 };
 
 exports.generateContract = async (contractDraftId, userId) => {
-	const contractDraft = await Services.contracts.getContractDraftById(contractDraftId).populate('depositReceiptId').lean().exec();
-	if (!contractDraft) throw new NotFoundError('Dữ liệu không tồn tại !');
-	const contractInvoice = await Services.invoices.findById(contractDraft.firstInvoiceId).lean().exec();
+	let billInfo = null;
+	try {
+		const contractDraft = await Services.contracts.getContractDraftById(contractDraftId).populate('depositReceiptId').lean().exec();
+		if (!contractDraft) throw new NotFoundError('Dữ liệu không tồn tại !');
 
-	if (!contractInvoice) throw new NotFoundError('Hóa đơn tiền nhà không tồn tại');
-	if (contractInvoice.status === invoiceStatus['PENDING'] || contractInvoice.status === invoiceStatus['UNPAID']) {
-		throw new BadRequestError('Cần thanh toán hóa đơn tiền nhà trước khi tạo hợp đồng');
-	}
+		const contractInvoice = await Services.invoices.findById(contractDraft.firstInvoiceId).lean().exec();
+		if (!contractInvoice) throw new NotFoundError('Hóa đơn tiền nhà không tồn tại');
+		if (contractInvoice.status === invoiceStatus['PENDING'] || contractInvoice.status === invoiceStatus['UNPAID']) {
+			throw new BadRequestError('Cần thanh toán hóa đơn tiền nhà trước khi tạo hợp đồng');
+		}
 
-	const updateRoom = await Services.rooms.updateRoomByGenerateContract({
-		roomId: contractDraft.room,
-		roomPice: contractDraft.rent,
-		roomDeposit: contractDraft.depositAmount,
-		interiors: contractDraft.interiors,
-	});
+		billInfo = {
+			invoiceId: contractInvoice._id,
+			invoiceVersion: contractInvoice.version,
+		};
+		if (!contractDraft.depositId) {
+			billInfo.depositReceiptId = contractDraft.depositReceiptId._id;
+			billInfo.depositReceiptVersion = contractDraft.depositReceiptId.version;
+		}
 
-	const currentRoomFees = await Services.fees.findByRoomId(contractDraft.room).lean().exec();
-
-	const { feesToUpdate, feesToCreate, feesToRemove } = compareFees(currentRoomFees, contractDraft.fees);
-	console.log('Log of comparison: ', feesToUpdate, feesToCreate, feesToRemove);
-
-	const changedFeeIndexes = getChangedFeeIndexes(currentRoomFees, contractDraft.fees);
-	console.log('log of changedFeeIndexes: ', changedFeeIndexes);
-	if (changedFeeIndexes.size > 0) {
-		const feeIndexRecordsGenerated = await createFeeIndexRecordsFromChangedFees({
-			changedFeeMap: changedFeeIndexes,
-			editorId: userId,
+		const updateRoom = await Services.rooms.updateRoomByGenerateContract({
 			roomId: contractDraft.room,
-			fromSource: UPDATE_FEE_INDEX_SOURCE['MODIFY_INVOICE'],
+			roomPice: contractDraft.rent,
+			roomDeposit: contractDraft.depositAmount,
+			interiors: contractDraft?.interiors || [],
 		});
-		console.log('feeIndexRecordsGenerated: ', feeIndexRecordsGenerated);
+
+		const currentRoomFees = await Services.fees.findByRoomId(contractDraft.room).lean().exec();
+
+		const { feesToUpdate, feesToCreate, feesToRemove } = compareFees(currentRoomFees, contractDraft.fees);
+		console.log('Log of comparison: ', feesToUpdate, feesToCreate, feesToRemove);
+
+		await Services.fees.generateAndUpdateFees({ feesToCreate, feesToUpdate, feesToRemove, roomId: contractDraft.room });
+
+		const latestRoomFees = await Services.fees.findByRoomId(contractDraft.room).lean().exec();
+
+		console.log('latestRoomFees', latestRoomFees);
+
+		const changedFeeIndexes = getChangedFeeIndexesForGenerateContract(currentRoomFees, latestRoomFees);
+		console.log('log of changedFeeIndexes: ', changedFeeIndexes);
+		if (changedFeeIndexes.size > 0) {
+			const feeIndexRecordsGenerated = await createFeeIndexRecordsFromChangedFees({
+				changedFeeMap: changedFeeIndexes,
+				editorId: userId,
+				roomId: contractDraft.room,
+				fromSource: UPDATE_FEE_INDEX_SOURCE['MODIFY_INVOICE'],
+			});
+			console.log('feeIndexRecordsGenerated: ', feeIndexRecordsGenerated);
+		}
+
+		if (contractDraft.depositId) {
+			await Services.deposits.closeDeposit({ depositId: contractDraft.depositId });
+		}
+
+		const ownerInfo = await Services.buildings.getOwnerInfo({ buildingId: contractDraft.building });
+
+		const feeInitialMaps = new Map(listFeeInitial.map((fee) => [fee.feeKey, fee]));
+		const formatContractFeesData = contractDraft.fees.map((fee) => ({
+			feeAmount: fee.feeAmount,
+			feeKey: fee.feeKey,
+			unit: feeInitialMaps.get(fee.feeKey).unit,
+			iconPath: feeInitialMaps.get(fee.feeKey).iconPath,
+			feeName: feeInitialMaps.get(fee.feeKey).feeName,
+		}));
+
+		const contractCreated = await Services.contracts.generateContract({
+			ownerId: ownerInfo.ownerId,
+			rent: contractDraft.rent,
+			roomFees: formatContractFeesData,
+			contractSignDate: contractDraft.contractSignDate,
+			contractEndDate: contractDraft.contractEndDate,
+			contractTerm: contractDraft.contractTerm,
+			roomId: contractDraft.room,
+			depositId: contractDraft.depositId ?? null,
+			depositAmount: contractDraft.depositAmount,
+			depositReceiptId: contractDraft.depositReceiptId,
+		});
+
+		console.log('contract created: ', contractCreated);
+
+		const { _id: depositReceiptId, status: currentReceiptStatus } = contractDraft.depositReceiptId;
+		if (!depositReceiptId) throw new NotFoundError(`Hóa đơn đặt cọc không tồn tại !`);
+
+		await Services.receipts.setContractId({
+			receiptId: contractDraft.depositReceiptId._id,
+			status: currentReceiptStatus === receiptStatus['PENDING'] ? receiptStatus['UNPAID'] : null,
+			contractId: contractCreated._id,
+		});
+
+		await Services.invoices.setContractId({ invoiceId: contractDraft.firstInvoiceId, contractId: contractCreated._id });
+
+		await processImportCustomersAndVehicles({
+			customers: contractDraft.customers,
+			contractEndDate: contractDraft.contractEndDate,
+			contractId: contractCreated._id,
+			roomId: contractDraft.room,
+		});
+
+		await Services.rooms.unLockedRoom(contractDraft.room);
+
+		result = {
+			buildingId: updateRoom.building,
+			contractId: contractCreated._id,
+			contractSignDate: contractCreated.contractSignDate,
+			contractEndDate: contractCreated.contractEndDate,
+			depositAmount: contractDraft.depositAmount,
+			rent: contractDraft.rent,
+			feesData: formatContractFeesData,
+			interiors: contractDraft.interiors ?? [],
+		};
+
+		// throw new InternalError('Stop for testing');
+
+		await contractJob({ contractId: contractCreated._id, buildingId: updateRoom.building, type: GENERATE_CONTRACT });
+		return result;
+	} catch (error) {
+		console.log('billInfo: ', billInfo);
+		if (billInfo) {
+			await contractJob({
+				invoiceId: billInfo.invoiceId,
+				invoiceVersion: billInfo.invoiceVersion,
+				depositReceiptId: billInfo?.depositReceiptId || null,
+				depositReceiptVersion: billInfo?.depositReceiptVersion || null,
+				type: GENERATE_CONTRACT_FAILED,
+			});
+		}
+		throw error;
 	}
-	await Services.fees.generateAndUpdateFees({ feesToCreate, feesToUpdate, feesToRemove, roomId: contractDraft.room });
-
-	if (contractDraft.depositId) {
-		await Services.deposits.closeDeposit({ depositId: contractDraft.depositId });
-	}
-
-	const ownerInfo = await Services.buildings.getOwnerInfo({ buildingId: contractDraft.building });
-
-	const feeInitialMaps = new Map(listFeeInitial.map((fee) => [fee.feeKey, fee]));
-	const formatContractFeesData = contractDraft.fees.map((fee) => ({
-		feeAmount: fee.feeAmount,
-		feeKey: fee.feeKey,
-		unit: feeInitialMaps.get(fee.feeKey).unit,
-		iconPath: feeInitialMaps.get(fee.feeKey).iconPath,
-		feeName: feeInitialMaps.get(fee.feeKey).feeName,
-	}));
-
-	const contractCreated = await Services.contracts.generateContract({
-		ownerId: ownerInfo.ownerId,
-		rent: contractDraft.rent,
-		roomFees: formatContractFeesData,
-		contractSignDate: contractDraft.contractSignDate,
-		contractEndDate: contractDraft.contractEndDate,
-		contractTerm: contractDraft.contractTerm,
-		roomId: contractDraft.room,
-		depositId: contractDraft.depositId ?? null,
-		depositAmount: contractDraft.depositAmount,
-		depositReceiptId: contractDraft.depositReceiptId,
-	});
-
-	console.log('contract created: ', contractCreated);
-
-	const { _id: depositReceiptId, status: currentReceiptStatus } = contractDraft.depositReceiptId;
-	if (!depositReceiptId) throw new NotFoundError(`Hóa đơn đặt cọc không tồn tại !`);
-
-	await Services.receipts.setContractId({
-		receiptId: contractDraft.depositReceiptId._id,
-		status: currentReceiptStatus === receiptStatus['PENDING'] ? receiptStatus['UNPAID'] : null,
-		contractId: contractCreated._id,
-	});
-
-	await Services.invoices.setContractId({ invoiceId: contractDraft.firstInvoiceId, contractId: contractCreated._id });
-
-	await processImportCustomersAndVehicles({
-		customers: contractDraft.customers,
-		contractEndDate: contractDraft.contractEndDate,
-		contractId: contractCreated._id,
-		roomId: contractDraft.room,
-	});
-
-	// await Services.rooms.bumpRoomVersionBlind(contractDraft.room);
-	await Services.rooms.unLockedRoom(contractDraft.room);
-
-	result = {
-		buildingId: updateRoom.building,
-		contractId: contractCreated._id,
-		contractSignDate: contractCreated.contractSignDate,
-		contractEndDate: contractCreated.contractEndDate,
-		contractTerm: contractCreated.contractTerm,
-		depositAmount: contractDraft.depositAmount,
-		rent: contractDraft.rent,
-		feesData: formatContractFeesData,
-		interiors: contractDraft.interiors ?? [],
-	};
-
-	throw new InternalError('Stop for testing');
-
-	await contractJob({ contractId: contractCreated._id, buildingId: updateRoom.building, type: GENERATE_CONTRACT });
-	return result;
 };
 
 exports.getContractPdfSignedUrl = async (contractCode) => {
@@ -355,4 +478,16 @@ exports.getDebtsAndReceiptsUnpaid = async (contractId, userId, usedFor) => {
 	await Services.rooms.setWriteLockedRoom(currentContract.room, null, userId);
 	const result = await Services.contracts.getDebtsAndReceiptsUnpaid(contractId, usedFor);
 	return result;
+};
+
+exports.getContractDraftDocument = async ({ contractDraftId }) => {
+	const contractDraft = await Services.contracts.findContractDraftById(contractDraftId).lean().exec();
+	if (!contractDraft) throw new NotFoundError('Dữ liệu không tồn tại !');
+	if (!contractDraft.contractDocument || !contractDraft.contractDocument.filePath) throw new NotFoundError('Dữ liệu hợp đồng chưa được khởi tạo !');
+	if (contractDraft.contractDocument.expAt < Date.now()) throw new BadRequestError('Dữ liệu hợp đồng đã hết hạn !');
+
+	const contractPdfBuffer = await fs.readFile(contractDraft.contractDocument.filePath);
+	if (!contractPdfBuffer) throw new InternalError('Có lỗi xảy ra trong quá trình lấy thông tin hợp đồng !');
+
+	return contractPdfBuffer;
 };

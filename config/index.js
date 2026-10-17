@@ -25,6 +25,7 @@ switch (configType) {
 			maxDuration: 10000, // ms
 		};
 		exports.database = {
+			dbName: 'Qltro-test',
 			username: process.env.ATLAS_USERNAME,
 			password: process.env.ATLAS_PASSWORD,
 			clusterUrl: process.env.ATLAS_URL,

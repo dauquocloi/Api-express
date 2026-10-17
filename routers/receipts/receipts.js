@@ -98,6 +98,8 @@ exports.checkout = asyncHandler(async (req, res) => {
 		paymentMethod,
 	};
 
+	console.log('log of data from checkout: ', data);
+
 	const result = await executeIdempotent({
 		key: req.get('Idempotency-Key'),
 		userId: req.user._id,
