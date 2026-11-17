@@ -33,7 +33,7 @@ router.post(
 	'/',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.createDeposit, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['buildings'], null, RESOURCE_VS['BODY']),
+	checkResourceAccess(RESOURCES['rooms'], null, RESOURCE_VS['BODY']),
 	checkIdempotency,
 	Deposits.createDeposit,
 );
@@ -48,13 +48,30 @@ router.patch(
 	Deposits.modifyDeposit,
 );
 
-router.delete(
-	'/:depositId',
+router.patch(
+	'/:depositId/cancel',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	validator(schema.id, ValidateSource.PARAM),
+	validator(schema.cancelDeposit, ValidateSource.BODY),
+	checkResourceAccess(RESOURCES['deposits']),
+	Deposits.cancelDeposit,
+);
+
+router.patch(
+	'/:depositId/terminate',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.id, ValidateSource.PARAM),
 	validator(schema.terminateDeposit, ValidateSource.BODY),
 	checkResourceAccess(RESOURCES['deposits']),
 	Deposits.terminateDeposit,
+);
+
+router.get(
+	'/:depositId/preview-document',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	validator(schema.id, ValidateSource.PARAM),
+	checkResourceAccess(RESOURCES['deposits']),
+	Deposits.getPreviewDepositDocument,
 );
 
 //piece of shit

@@ -1,9 +1,8 @@
 const UseCase = require('../../data_providers/deposits');
 const asyncHandler = require('../../utils/asyncHandler');
-const { SuccessMsgResponse, SuccessResponse } = require('../../utils/apiResponse');
+const { SuccessMsgResponse, SuccessResponse, FileResponse } = require('../../utils/apiResponse');
 const { executeIdempotent } = require('../../utils/idempotent');
 const generateRequestHash = require('../../utils/generateRequestHash');
-const delay = require('../../utils/delay');
 
 exports.getDeposits = asyncHandler(async (req, res) => {
 	const data = req.query;
@@ -14,8 +13,8 @@ exports.getDeposits = asyncHandler(async (req, res) => {
 });
 
 exports.createDeposit = asyncHandler(async (req, res) => {
-	const { room, customer, interiors, fees, buildingId, roomId, receiptId } = req.body;
-	const data = { room, customer, interiors, fees, buildingId, roomId, receiptId };
+	const { room, customer, interiors, fees, roomId, contractPeriod } = req.body;
+	const data = { room, customer, interiors, fees, roomId, contractPeriod };
 	console.log('log of data from createDeposit: ', data);
 
 	const result = await executeIdempotent({
@@ -27,12 +26,12 @@ exports.createDeposit = asyncHandler(async (req, res) => {
 			customer: customer,
 			interiors: interiors,
 			fees: fees,
-			buildingId: buildingId,
 			roomId: roomId,
-			receiptId: receiptId,
+			// receiptId: receiptId,
+			contractPeriod: contractPeriod,
 		}),
 		resourceId: roomId,
-		execute: () => UseCase.createDeposit(data),
+		execute: () => UseCase.createDepositV2(data),
 	});
 
 	return new SuccessResponse('Success', result).send(res);
@@ -42,7 +41,6 @@ exports.getDepositDetail = asyncHandler(async (req, res) => {
 	let data = req.params;
 	console.log('this is log of getDepositDetail: ', data);
 	const result = await UseCase.getDepositDetail(data.depositId, req.buildingId);
-	await delay(3000, false);
 	return new SuccessResponse('Success', result).send(res);
 });
 
@@ -83,6 +81,23 @@ exports.uploardDepositTerm = asyncHandler(async (req, res) => {
 	return new SuccessMsgResponse('Success').send(res);
 });
 
+exports.cancelDeposit = asyncHandler(async (req, res) => {
+	let data = { ...req.params, ...req.body };
+	console.log('this is log of cancelDeposit: ', data);
+	await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			depositId: data.depositId,
+			version: data.version,
+		}),
+		resourceId: data.depositId,
+		execute: () => UseCase.cancelDeposit(data.depositId, data.version, req.user._id),
+	});
+	return new SuccessMsgResponse('Success').send(res);
+});
+
 exports.terminateDeposit = asyncHandler(async (req, res) => {
 	let data = { ...req.params, ...req.body };
 	console.log('this is log of terminateDeposit: ', data);
@@ -95,7 +110,14 @@ exports.terminateDeposit = asyncHandler(async (req, res) => {
 			version: data.version,
 		}),
 		resourceId: data.depositId,
-		execute: () => UseCase.terminateDeposit(data.depositId, data.version, req.user._id),
+		execute: () => UseCase.terminateDeposit({ depositId: data.depositId, version: data.version }),
 	});
 	return new SuccessMsgResponse('Success').send(res);
+});
+
+exports.getPreviewDepositDocument = asyncHandler(async (req, res) => {
+	const data = req.params;
+	console.log('this is log of getPreviewDepositDocument: ', data);
+	const result = await UseCase.getPreviewDepositDocument({ depositId: data.depositId });
+	return new FileResponse(result, 'application/pdf', 'Success').send(res);
 });

@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { OWNER_CONFIRMED_STATUS } = require('../../../constants');
+const { OWNER_CONFIRMED_STATUS, depositTrackingStatus } = require('../../../constants');
 
 const getReceiptPaymentStatus = (buildingId, month, year) => {
 	return [
@@ -760,6 +760,75 @@ const getReceiptByPaymentContent = (paymentContent) => {
 	];
 };
 
+const getDepositReceiptUnCarriedOverPaidAmount = (buildingId) => {
+	return [
+		{
+			$match: {
+				building: new mongoose.Types.ObjectId(buildingId),
+			},
+		},
+		{
+			$lookup: {
+				from: 'receipts',
+				localField: '_id',
+				foreignField: 'room',
+				pipeline: [
+					{
+						$match: {
+							receiptType: 'deposit',
+							$or: [
+								// Case 1: Không tạo Deposit
+								{
+									'depositTracking.status': {
+										$in: [depositTrackingStatus.NOT_CREATED, depositTrackingStatus.ACTIVE],
+									},
+									$expr: {
+										$lt: [
+											{
+												$ifNull: ['$carriedOverPaidAmount', 0],
+											},
+											'$amount',
+										],
+									},
+								},
+								// Case 2: Deposit đã bị hủy
+								{
+									'depositTracking.status': depositTrackingStatus.CANCELLED,
+									$expr: {
+										$ne: [
+											{
+												$ifNull: ['$carriedOverPaidAmount', 0],
+											},
+											{
+												$ifNull: ['$paidAmount', 0],
+											},
+										],
+									},
+								},
+							],
+						},
+					},
+				],
+				as: 'receipts',
+			},
+		},
+		{
+			$match: {
+				'receipts.0': {
+					$exists: true,
+				},
+			},
+		},
+		{
+			$project: {
+				_id: 1,
+				roomIndex: 1,
+				receipts: 1,
+			},
+		},
+	];
+};
+
 module.exports = {
 	getReceiptPaymentStatus,
 	getReceiptDetail,
@@ -768,4 +837,5 @@ module.exports = {
 	getReceiptInfoByReceiptCode,
 	getCashCollectorInfo,
 	getReceiptByPaymentContent,
+	getDepositReceiptUnCarriedOverPaidAmount,
 };

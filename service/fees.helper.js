@@ -1,6 +1,6 @@
 const { feeUnit } = require('../constants/');
 const Services = require('./index');
-const { ConflictError, BadRequestError } = require('../AppError');
+const { ConflictError, BadRequestError, InternalError } = require('../AppError');
 
 /**
  * @param {Array} feeIndexIds - Array of fee IDs
@@ -102,7 +102,21 @@ exports.getChangedFeeIndexesForGenerateContract = (oldFees = [], newFees = []) =
 		}
 
 		// Fee INDEX cũ nhưng lastIndex thay đổi
+		// Sẽ có case người dùng sửa chỉ số đầu
 		if (oldFee.lastIndex !== newFee.lastIndex) {
+			if (oldFee.lastIndex !== newFee.firstIndex) {
+				changedFeeMap.set(newFee.feeKey, [
+					{
+						fromIndex: oldFee.lastIndex,
+						toIndex: newFee.firstIndex,
+					},
+					{
+						fromIndex: newFee.firstIndex,
+						toIndex: newFee.lastIndex,
+					},
+				]);
+				continue;
+			}
 			changedFeeMap.set(newFee.feeKey, {
 				fromIndex: oldFee.lastIndex,
 				toIndex: newFee.lastIndex,
@@ -143,6 +157,52 @@ exports.createFeeIndexRecordsFromChangedFees = async ({ changedFeeMap, editorId,
 
 	const result = await Services.fees.generateFeeIndexRecords(records);
 	return result;
+};
+
+exports.createFeeIndexRecordsFromGenerateContract = async ({ changedFeeMap, editorId, roomId, fromSource }) => {
+	if (changedFeeMap.size === 0) {
+		return [];
+	}
+
+	const feeKeys = [...changedFeeMap.keys()];
+
+	const fees = await Services.fees.findByRoomIdAndFeeKey(roomId, feeKeys);
+
+	const feeMap = new Map(fees.map((fee) => [fee.feeKey, fee]));
+
+	const results = [];
+	const CREATED_AT_INTERVAL = 10_000;
+
+	for (const [feeKey, changes] of changedFeeMap.entries()) {
+		const fee = feeMap.get(feeKey);
+
+		if (!fee) {
+			throw new ConflictError(`Fee not found: ${feeKey}`);
+		}
+
+		const changeList = Array.isArray(changes) ? changes : [changes];
+		const baseTime = Date.now();
+
+		for (let i = 0; i < changeList.length; i++) {
+			const change = changeList[i];
+
+			const result = await Services.fees.generateFeeIndexRecords([
+				{
+					feeId: fee._id,
+					fromIndex: change.fromIndex,
+					toIndex: change.toIndex,
+					editorId,
+					roomId,
+					fromSource,
+					createdAt: new Date(baseTime + i * CREATED_AT_INTERVAL),
+				},
+			]);
+
+			results.push(...(Array.isArray(result) ? result : [result]));
+		}
+	}
+
+	return results;
 };
 
 exports.getFeeIndexesForRollback = (feeIndexSnapshot = [], currentFees = []) => {

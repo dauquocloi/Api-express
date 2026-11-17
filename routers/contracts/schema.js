@@ -84,6 +84,22 @@ module.exports = {
 		version: Joi.number().integer().min(1).required(),
 	}),
 
+	generateFirstInvoiceAndDepositReceipt: Joi.object().keys({
+		fees: Joi.array().items(
+			Joi.object().keys({
+				feeAmount: Joi.number().min(0).required(),
+				feeKey: Joi.string()
+					.valid(...initialFeeKeys)
+					.required(),
+				firstIndex: Joi.number().optional(),
+				secondIndex: Joi.number().optional(),
+				quantity: Joi.number().integer().optional(),
+			}),
+		),
+
+		stayDays: Joi.number().min(0).max(60).required(),
+	}),
+
 	generateContractDraft: Joi.object().keys({
 		roomId: JoiObjectId().required(),
 		finance: Joi.object().keys({
@@ -107,7 +123,7 @@ module.exports = {
 			}),
 		),
 		customers: Joi.array().items(customerSchema),
-		note: Joi.string().allow(''),
+		note: Joi.string().allow('', null).optional(),
 		contractPeriod: Joi.object().keys({
 			contractSignDate: Joi.date().required(),
 			contractEndDate: Joi.date().required(),

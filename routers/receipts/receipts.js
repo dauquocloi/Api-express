@@ -40,23 +40,18 @@ exports.createReceipt = asyncHandler(async (req, res) => {
 });
 
 exports.createDepositReceipt = asyncHandler(async (req, res) => {
-	const data = { ...req.params, ...req.body };
-	console.log('log of createDepositReceipt req.body: ', data);
+	const { depositId } = req.body;
+	console.log('log data from createDepositReceipt: ', depositId);
 	const result = await executeIdempotent({
 		key: req.get('Idempotency-Key'),
 		userId: req.user._id,
 		endPoint: `${req.method}:${req.route.path}`,
 		requestHash: generateRequestHash({
-			roomId: data.roomId,
-			buildingId: data.buildingId,
-			amount: data.amount,
-			payer: data.payer,
-			version: data.roomVersion,
+			depositId: depositId,
 		}),
-		resourceId: data.roomId,
-		execute: () => UseCase.createDepositReceipt(data.roomId, data.buildingId, data.amount, data.payer, req.user._id, data.roomVersion),
+		resourceId: depositId,
+		execute: () => UseCase.createDepositReceipt({ depositId, userId: req.user._id }),
 	});
-	// await redis.set(req.redisKey, `SUCCESS:${JSON.stringify(result)}`, 'EX', process.env.REDIS_EXP_SEC);
 	return new SuccessResponse('Success', result).send(res);
 });
 

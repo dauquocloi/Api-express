@@ -52,14 +52,23 @@ module.exports = {
 		fees: Joi.array().items(feeSchema.required()).optional(),
 		customer: customerSchema.required(),
 		roomId: JoiObjectId().required(),
-		buildingId: JoiObjectId().required(),
-		receiptId: JoiObjectId().required(),
+		// receiptId: JoiObjectId().required(),
+		contractPeriod: Joi.object()
+			.keys({
+				contractSignDate: Joi.date().required(),
+				contractEndDate: Joi.date().required(),
+			})
+			.required(),
+		note: Joi.string().allow('', null).optional(),
 	}),
 	modifyDeposit: Joi.object().keys({
 		room: roomDepositSchema.required(),
 		interiors: Joi.array().items(InteriorSchema.required()).optional(),
 		fees: Joi.array().items(feeSchema.required()).optional(),
 		customer: customerSchema.required(),
+		version: Joi.number().integer().min(1).required(),
+	}),
+	cancelDeposit: Joi.object().keys({
 		version: Joi.number().integer().min(1).required(),
 	}),
 	terminateDeposit: Joi.object().keys({

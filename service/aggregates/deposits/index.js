@@ -1,13 +1,13 @@
 const mongoose = require('mongoose');
 const { depositStatus, OWNER_CONFIRMED_STATUS } = require('../../../constants');
 // Should be refactored => to month/year
-const getDepositsPipeline = (buildingId, month, year) => {
+const getDepositsPipeline = (buildingId) => {
 	return [
 		{
 			$match: {
-				building: buildingId,
+				building: new mongoose.Types.ObjectId(buildingId),
 				status: {
-					$ne: 'close',
+					$nin: [depositStatus['CLOSED'], depositStatus['TERMINATED'], depositStatus['PENDING']],
 				},
 			},
 		},
@@ -53,7 +53,7 @@ const getDepositDetail = (depositId) => {
 	return [
 		{
 			$match: {
-				_id: depositId,
+				_id: new mongoose.Types.ObjectId(depositId),
 			},
 		},
 		{

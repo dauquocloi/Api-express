@@ -50,7 +50,7 @@ router.post(
 	'/deposit-receipt',
 	authorization(ROLES['OWNER'], ROLES['MANAGER']),
 	validator(schema.createDepositReceipt, ValidateSource.BODY),
-	checkResourceAccess(RESOURCES['buildings'], null, RESOURCE_VS['BODY']),
+	checkResourceAccess(RESOURCES['deposits'], null, RESOURCE_VS['BODY']),
 	checkIdempotency,
 	Receipts.createDepositReceipt,
 );

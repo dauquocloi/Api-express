@@ -107,4 +107,14 @@ router.get(
 	Contracts.getContractDraftDocument,
 );
 
+router.post(
+	'/contract-draft/:contractDraftId/first-billing',
+	authorization(ROLES['OWNER'], ROLES['MANAGER']),
+	validator(schema.contractDraftId, ValidateSource.PARAM),
+	validator(schema.generateFirstInvoiceAndDepositReceipt, ValidateSource.BODY),
+	// checkResourceAccess(RESOURCES['contracts'], null, RESOURCE_VS['BODY']),
+	checkIdempotency,
+	Contracts.generateFirstInvoiceAndDepositReceipt,
+);
+
 module.exports = router;

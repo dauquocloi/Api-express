@@ -17,7 +17,7 @@ module.exports = {
 		amount: Joi.number().required(),
 		content: Joi.string().required(),
 		date: Joi.date().optional(),
-		image: Joi.string().optional(),
+		image: Joi.string().allow('', null).optional(),
 		collector: JoiObjectId().optional(),
 		version: Joi.number().integer().min(1).required(),
 	}),

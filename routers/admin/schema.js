@@ -38,6 +38,13 @@ module.exports = {
 			.items(JoiFile('depositTermUrl', ['application/pdf']))
 			.length(1)
 			.optional(),
+		depositDocxUrl: Joi.array()
+			.items(JoiFile('depositDocxUrl', ['application/vnd.openxmlformats-officedocument.wordprocessingml.document']))
+			.length(1)
+			.required()
+			.messages({
+				'any.required': 'Vui lòng tải lên file đặt cọc',
+			}),
 	}),
 
 	buildingId: Joi.object().keys({

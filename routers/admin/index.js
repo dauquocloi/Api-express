@@ -24,6 +24,7 @@ router.post(
 		{ name: 'contractPdfUrl', maxCount: 1 },
 		{ name: 'contractDocxUrl', maxCount: 1 },
 		{ name: 'depositTermUrl', maxCount: 1 },
+		{ name: 'depositDocxUrl', maxCount: 1 },
 	]),
 	validator(schema.importBuilding, ValidateSource.BODY),
 	validator(schema.importBuildingFiles, ValidateSource.FILES),

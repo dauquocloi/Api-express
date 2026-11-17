@@ -395,3 +395,21 @@ exports.cancelEarlyTermination = async ({ contractId }) => {
 };
 
 exports.findContractDraftById = (contractDraftId) => Entity.ContractDraftsEntity.findById(contractDraftId);
+
+exports.addFirstInvoiceAndDepositReceiptContractDraft = async ({ contractDraftId, invoiceId, depositReceiptId, depositId }) => {
+	const result = await Entity.ContractDraftsEntity.findOneAndUpdate(
+		{
+			_id: contractDraftId,
+		},
+		{
+			$set: {
+				firstInvoiceId: invoiceId,
+				depositReceiptId: depositReceiptId,
+				depositId: depositId,
+			},
+		},
+		{ new: true },
+	);
+	if (!result) throw new NotFoundError('Dữ liệu không tồn tại');
+	return result;
+};

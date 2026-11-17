@@ -5,7 +5,7 @@ const { SuccessResponse, SuccessMsgResponse } = require('../../utils/apiResponse
 exports.createIncidentalRevenue = asyncHandler(async (req, res) => {
 	const { amount, content, collector, date, buildingId } = req.body;
 	const data = {
-		amount: NUmber(amount),
+		amount: Number(amount),
 		content: content.trim(),
 		collector,
 		date,

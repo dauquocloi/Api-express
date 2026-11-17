@@ -201,7 +201,7 @@ exports.generateContractDraft = asyncHandler(async (req, res) => {
 		execute: () => UseCase.generateContractDraft(data),
 	});
 
-	return new SuccessResponse(result, 'Success').send(res);
+	return new SuccessResponse('Success', result).send(res);
 });
 
 exports.getContractDraftDocument = asyncHandler(async (req, res) => {
@@ -209,4 +209,28 @@ exports.getContractDraftDocument = asyncHandler(async (req, res) => {
 	console.log('log of data from getContractDraftDocument: ', contractDraftId);
 	const result = await UseCase.getContractDraftDocument({ contractDraftId });
 	return new FileResponse(result, 'application/pdf', 'Success').send(res);
+});
+
+exports.generateFirstInvoiceAndDepositReceipt = asyncHandler(async (req, res) => {
+	const { contractDraftId } = req.params;
+	const { stayDays, fees } = req.body;
+	console.log('log of data from generateFirstInvoiceAndDepositReceipt: ', {
+		contractDraftId,
+		stayDays,
+		fees,
+	});
+
+	const result = await executeIdempotent({
+		key: req.get('Idempotency-Key'),
+		userId: req.user._id,
+		endPoint: `${req.method}:${req.route.path}`,
+		requestHash: generateRequestHash({
+			contractDraftId: contractDraftId,
+			stayDays: stayDays,
+			fees: fees,
+		}),
+		resourceId: contractDraftId,
+		execute: () => UseCase.generateFirstInvoiceAndDepositReceipt({ contractDraftId, stayDays, fees, userId: req.user._id }),
+	});
+	return new SuccessResponse('Success', result).send(res);
 });

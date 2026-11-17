@@ -11,6 +11,7 @@ exports.importBuilding = async (data) => {
 	let contractDocxUrlKey;
 	let contractPdfUrlKey;
 	let depositTermUrlKey;
+	let depositDocxUrlKey;
 	const {
 		buildingName,
 		buildingAddress,
@@ -19,6 +20,7 @@ exports.importBuilding = async (data) => {
 		contractDocxUrl,
 		contractPdfUrl,
 		depositTermUrl,
+		depositDocxUrl,
 		ownerId,
 		companyId,
 		paymentConfirmationMode,
@@ -30,15 +32,17 @@ exports.importBuilding = async (data) => {
 		const company = await Services.companies.findById(companyId).lean().exec();
 		if (!company) throw new BadRequestError('Company not found !');
 
-		[contractDocxUrlKey, contractPdfUrlKey, depositTermUrlKey] = await Promise.all([
+		[contractDocxUrlKey, contractPdfUrlKey, depositTermUrlKey, depositDocxUrlKey] = await Promise.all([
 			contractDocxUrl?.[0] ? uploadFile(contractDocxUrl[0]) : null,
 
 			contractPdfUrl?.[0] ? uploadFile(contractPdfUrl[0]) : null,
 
 			depositTermUrl?.[0] ? uploadFile(depositTermUrl[0]) : null,
+
+			depositDocxUrl?.[0] ? uploadFile(depositDocxUrl[0]) : null,
 		]);
 
-		console.log('log of uploadedKeys', contractDocxUrlKey, contractPdfUrlKey, depositTermUrlKey);
+		console.log('log of uploadedKeys', contractDocxUrlKey, contractPdfUrlKey, depositTermUrlKey, depositDocxUrlKey);
 
 		const buildingCreated = await Services.buildings.importBuilding({
 			buildingSortName: buildingName,
@@ -49,6 +53,7 @@ exports.importBuilding = async (data) => {
 			contractDocxUrl: contractDocxUrlKey.Key ?? '',
 			contractPdfUrl: contractPdfUrlKey.Key ?? '',
 			depositTermUrl: depositTermUrlKey.Key ?? '',
+			depositDocxUrl: depositDocxUrlKey.Key ?? '',
 
 			management: [
 				{
@@ -65,15 +70,17 @@ exports.importBuilding = async (data) => {
 			userId: user._id,
 		};
 	} catch (error) {
-		const [removeContractDocx, removeContractPdf, removeDepositTermUrl] = await Promise.all([
+		const [removeContractDocx, removeContractPdf, removeDepositTermUrl, removeDepositDocx] = await Promise.all([
 			contractDocxUrlKey?.Key ? deleteFileFromS3(contractDocxUrlKey.Key) : null,
 
 			contractPdfUrlKey?.Key ? deleteFileFromS3(contractPdfUrlKey.Key) : null,
 
 			depositTermUrlKey?.Key ? deleteFileFromS3(depositTermUrlKey.Key) : null,
+
+			depositDocxUrlKey?.Key ? deleteFileFromS3(depositDocxUrlKey.Key) : null,
 		]);
 
-		console.log('file removed ', removeContractDocx, removeContractPdf, removeDepositTermUrl);
+		console.log('file removed ', removeContractDocx, removeContractPdf, removeDepositTermUrl, removeDepositDocx);
 		throw error;
 	}
 };

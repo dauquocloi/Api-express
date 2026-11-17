@@ -95,6 +95,7 @@ const importBuilding = async ({
 	contractDocxUrl,
 	contractPdfUrl,
 	depositTermUrl,
+	depositDocxUrl,
 	management,
 	companyId,
 	paymentConfirmationMode,
@@ -109,6 +110,7 @@ const importBuilding = async ({
 		contractDocxUrl,
 		contractPdfUrl,
 		depositTermUrl,
+		depositDocxUrl,
 		company: companyId,
 		paymentConfirmationMode,
 	});

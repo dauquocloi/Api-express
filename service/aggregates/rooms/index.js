@@ -276,7 +276,7 @@ const getRoomByIdPipeline = (roomId) => {
 									},
 									{
 										$not: {
-											$in: ['$status', [depositStatus['CANCELLED'], depositStatus['CLOSED']]],
+											$in: ['$status', [depositStatus['CANCELLED'], depositStatus['CLOSED'], depositStatus['PENDING']]],
 										},
 									},
 								],
@@ -288,6 +288,8 @@ const getRoomByIdPipeline = (roomId) => {
 							_id: 1,
 							checkinDate: 1,
 							createdAt: 1,
+							receipt: 1,
+							status: 1,
 						},
 					},
 				],

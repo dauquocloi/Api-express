@@ -39,7 +39,7 @@ const DepositsSchema = new Schema(
 	{
 		room: { type: Schema.Types.ObjectId, ref: 'RoomsEntity' },
 		building: { type: Schema.Types.ObjectId, ref: 'BuildingsEntity' },
-		receipt: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity', required: true },
+		receipt: { type: Schema.Types.ObjectId, ref: 'ReceiptsEntity' },
 		contract: { type: Schema.Types.ObjectId, ref: 'ContractsEntity' },
 		rent: { type: Number, required: true },
 		depositAmount: { type: Number, required: true },
@@ -53,6 +53,10 @@ const DepositsSchema = new Schema(
 		customer: { type: PersonSchema, required: true },
 		status: { type: String, enum: Object.values(depositStatus), default: depositStatus['PENDING'] },
 		version: { type: Number, default: 1 },
+		previewDocument: {
+			filePath: { type: String },
+			expAt: { type: Date },
+		},
 	},
 	{ timestamps: true, versionKey: false },
 );

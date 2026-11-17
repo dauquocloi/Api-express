@@ -7,7 +7,7 @@ const generateRequestHash = require('../../utils/generateRequestHash');
 exports.importBuilding = asyncHandler(async (req, res) => {
 	const { buildingName, buildingAddress, roomQuantity, invoiceNotes, ownerId, companyId, paymentConfirmationMode } = req.body;
 
-	const { contractDocxUrl, contractPdfUrl, depositTermUrl } = req.files;
+	const { contractDocxUrl, contractPdfUrl, depositTermUrl, depositDocxUrl } = req.files;
 	const data = {
 		buildingName: buildingName.trim(),
 		buildingAddress: buildingAddress.trim(),
@@ -16,6 +16,7 @@ exports.importBuilding = asyncHandler(async (req, res) => {
 		contractDocxUrl,
 		contractPdfUrl,
 		depositTermUrl,
+		depositDocxUrl,
 		ownerId,
 		companyId,
 		paymentConfirmationMode,
@@ -30,9 +31,7 @@ exports.importBuilding = asyncHandler(async (req, res) => {
 			buildingAddress: data.buildingAddress,
 			roomQuantity: data.roomQuantity,
 			invoiceNotes: data.invoiceNotes,
-			contractDocxUrl: data.contractDocxUrl,
-			contractPdfUrl: data.contractPdfUrl,
-			depositTermUrl: data.depositTermUrl,
+
 			ownerId: data.ownerId,
 			companyId: data.companyId,
 			paymentConfirmationMode: data.paymentConfirmationMode,

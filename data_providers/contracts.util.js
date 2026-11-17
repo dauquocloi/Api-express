@@ -7,9 +7,26 @@ const generateContractDocument = require('../utils/generateContract');
 const path = require('path');
 const fs = require('fs');
 const { previewContractPdfExp } = require('../constants');
+const capitalizeFirstLetter = require('../utils/capitalizeFirstLetter');
 
 const formatDate = (date) => {
+	if (date == null || date === '') {
+		return {
+			DAY: '',
+			MONTH: '',
+			YEAR: '',
+		};
+	}
+
 	const value = moment(date).utcOffset('+07:00');
+
+	if (!value.isValid()) {
+		return {
+			DAY: '',
+			MONTH: '',
+			YEAR: '',
+		};
+	}
 
 	return {
 		DAY: value.format('DD'),
@@ -19,12 +36,12 @@ const formatDate = (date) => {
 };
 
 const formatCustomer = (customer = {}) => {
-	const { FULLNAME, DOB, ADDRESS, CCCD, CCCD_DATE, CCCD_AT, PHONE } = CONTRACT_DOCUMENT_FIELDS.PARTY_A;
+	const { FULLNAME, DOB, ADDRESS, CCCD, CCCD_DATE, CCCD_AT, PHONE } = CONTRACT_DOCUMENT_FIELDS.CUSTOMER_FIELDS;
 
 	return {
 		[FULLNAME]: customer.fullName ?? '',
-		[DOB]: customer.birthdate ? moment(customer.birthdate).format('DD/MM/YYYY') : '',
-		[ADDRESS]: customer.permanentAddress ?? '',
+		[DOB]: customer.dob ? moment(customer.dob).format('DD/MM/YYYY') : '',
+		[ADDRESS]: customer.address ?? '',
 		[CCCD]: customer.cccd ?? '',
 		[CCCD_DATE]: customer.cccdIssueDate ? moment(customer.cccdIssueDate).format('DD/MM/YYYY') : '',
 		[CCCD_AT]: customer.cccdIssueAt ?? '',
@@ -33,7 +50,7 @@ const formatCustomer = (customer = {}) => {
 };
 
 const formatFees = (fees = []) => {
-	const { NAME, AMOUNT, TYPE } = CONTRACT_DOCUMENT_FIELDS.FEES;
+	const { NAME, AMOUNT, TYPE } = CONTRACT_DOCUMENT_FIELDS.FEE_FIELDS;
 
 	return fees.map((fee) => ({
 		[NAME]: fee.feeName ?? '',
@@ -43,11 +60,11 @@ const formatFees = (fees = []) => {
 };
 
 const formatInteriors = (interiors = []) => {
-	const { NAME, QUANT } = CONTRACT_DOCUMENT_FIELDS.INTERIORS;
+	const { NAME, QUANT } = CONTRACT_DOCUMENT_FIELDS.INTERIOR_FIELDS;
 
 	return interiors.map((item) => ({
-		[NAME]: item.interiorName ?? '',
-		[QUANT]: String(item.quantity ?? ''),
+		[NAME]: capitalizeFirstLetter(item.interiorName),
+		[QUANT]: capitalizeFirstLetter(String(item.quantity)),
 	}));
 };
 
@@ -65,7 +82,10 @@ exports.formatContractDocument = ({
 	note,
 }) => {
 	const fields = CONTRACT_DOCUMENT_FIELDS;
-
+	// const feeData = formatFees(fees);
+	// const customerData = formatCustomer(customerInfo);
+	// console.log('log of customerData - feeData: ', customerData);
+	// console.log('log of feeData: ', feeData);
 	return {
 		[fields.ROOM_INDEX]: roomIndex ?? '',
 		[fields.CREATED_DATE]: formatDate(new Date()),

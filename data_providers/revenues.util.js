@@ -1,6 +1,6 @@
 const { unitPriority } = require('../constants/fees');
 const { receiptTypes } = require('../constants/receipt');
-const { depositStatus, feeUnit } = require('../constants');
+const { feeUnit, depositTrackingStatus } = require('../constants');
 
 function getDepositPaidInCurrentPeriod(transactionReceipt, month, year) {
 	if (!Array.isArray(transactionReceipt)) return 0;
@@ -293,7 +293,7 @@ function processInvoicesReceipts(revenues, month, year) {
 
 					const depositPaidInPeriod = getDepositPaidInCurrentPeriod(transactionReceipt, month, year);
 
-					if (receipt.depositStatus === depositStatus['CANCELLED']) {
+					if (receipt.depositTracking.status === depositTrackingStatus.CANCELLED) {
 						revenueAmount = paidAmount;
 					} else {
 						revenueAmount = getDepositRevenueThisPeriod(receipt);

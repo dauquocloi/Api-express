@@ -75,6 +75,10 @@ const RoomsSchema = new Schema(
 			reason: { type: String, default: '' },
 			lockedAt: { type: Date },
 		},
+		pendingContractPaymentInfo: {
+			createdAt: { type: Date, default: Date.now },
+			contractDraftId: { type: Schema.Types.ObjectId, ref: 'ContractDraftsEntity' },
+		},
 	},
 	{ timestamps: true, versionKey: false },
 );

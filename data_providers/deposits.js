@@ -1,14 +1,16 @@
 const mongoose = require('mongoose');
+const fs = require('fs/promises');
 const Entity = require('../models');
 const listFees = require('../utils/getListFeeInital');
 const getCurrentPeriod = require('../utils/getCurrentPeriod');
 const { NotFoundError, BadRequestError, InternalError, ConflictError } = require('../AppError');
 const Services = require('../service');
-const { feeUnit, roomState, receiptToDepositStatus, receiptStatus } = require('../constants');
+const { feeUnit, roomState, receiptToDepositStatus, receiptStatus, depositStatus } = require('../constants');
 const { notificationJob } = require('../jobs/notification/notification.job');
 const { NOTI_ROOM_DEPOSITED, NOTI_DEPOSIT_TERMINATED } = require('../jobs/constant/jobNames');
 const { calculateDepositStatus } = require('../service/deposits.helper');
 const { getInvoiceStatus } = require('../service/invoices.helper');
+const { formatDepositFees, formatDepositDocument, generatePreviewDepositTermDocument } = require('./deposits.util');
 
 exports.getDeposits = async (buildingId) => {
 	const buildingObjectId = new mongoose.Types.ObjectId(buildingId);
@@ -38,42 +40,43 @@ exports.createDeposit = async (data) => {
 
 	const { transactions, paidAmount } = depositReceipt;
 
-	const formatFees = () => {
-		if (!Array.isArray(fees) || !Array.isArray(listFees)) return [];
+	// const formatFees = () => {
+	// 	if (!Array.isArray(fees) || !Array.isArray(listFees)) return [];
 
-		const feeMap = new Map(listFees.map((fee) => [fee.feeKey, fee]));
+	// 	const feeMap = new Map(listFees.map((fee) => [fee.feeKey, fee]));
 
-		const depositFees = [];
+	// 	const depositFees = [];
 
-		for (const feeItem of fees) {
-			const match = feeMap.get(feeItem.feeKey);
+	// 	for (const feeItem of fees) {
+	// 		const match = feeMap.get(feeItem.feeKey);
 
-			if (!match) continue;
+	// 		if (!match) continue;
 
-			if (match.unit === feeUnit['INDEX']) {
-				depositFees.push({
-					feeName: match.feeName,
-					unit: match.unit,
-					firstIndex: match.firstIndex,
-					feeAmount: feeItem.feeAmount,
-					lastIndex: feeItem?.lastIndex,
-					iconPath: match.iconPath,
-					feeKey: match.feeKey,
-				});
-			} else {
-				depositFees.push({
-					feeName: match.feeName,
-					unit: match.unit,
-					feeAmount: feeItem.feeAmount,
-					iconPath: match.iconPath,
-					feeKey: match.feeKey,
-				});
-			}
-		}
+	// 		if (match.unit === feeUnit['INDEX']) {
+	// 			depositFees.push({
+	// 				feeName: match.feeName,
+	// 				unit: match.unit,
+	// 				firstIndex: match.firstIndex,
+	// 				feeAmount: feeItem.feeAmount,
+	// 				lastIndex: feeItem?.lastIndex,
+	// 				iconPath: match.iconPath,
+	// 				feeKey: match.feeKey,
+	// 			});
+	// 		} else {
+	// 			depositFees.push({
+	// 				feeName: match.feeName,
+	// 				unit: match.unit,
+	// 				feeAmount: feeItem.feeAmount,
+	// 				iconPath: match.iconPath,
+	// 				feeKey: match.feeKey,
+	// 			});
+	// 		}
+	// 	}
 
-		return depositFees;
-	};
+	// 	return depositFees;
+	// };
 
+	const formatFees = formatDepositFees({ fees, listFees });
 	const newDeposit = await Services.deposits.generateDeposit({
 		roomId: roomObjectId,
 		buildingId: buildingObjectId,
@@ -87,7 +90,7 @@ exports.createDeposit = async (data) => {
 		numberOfOccupants: room.numberOfOccupants,
 		customer: customer,
 		interiors: interiors,
-		fees: formatFees(),
+		fees: formatFees,
 		status: calculateDepositStatus(room.depositAmount, paidAmount),
 	});
 
@@ -96,6 +99,79 @@ exports.createDeposit = async (data) => {
 	await Services.rooms.setRoomDeposited({ roomId: roomId, isDeposited: true });
 
 	return newDeposit.toObject();
+};
+
+exports.createDepositV2 = async (data) => {
+	const { room, customer, interiors, fees, roomId, note, contractPeriod } = data;
+
+	const roomObjectId = new mongoose.Types.ObjectId(roomId);
+
+	const currentRoom = await Services.rooms.findById(roomId).lean().exec();
+	if (!currentRoom) {
+		throw new BadRequestError(`Phòng với Id: ${roomId} không tồn tại !`);
+	}
+	if (currentRoom.roomState === roomState['HIRED']) throw new BadRequestError(`Không thể đặt cọc cho phòng đang thuê !`);
+
+	const formatFees = formatDepositFees({ fees, listFees });
+
+	const depositDocument = formatDepositDocument({
+		customerInfo: {
+			fullName: customer.fullName,
+			dob: customer.dob,
+			address: customer.address,
+			cccd: customer.CCCD,
+			cccdIssueDate: customer.cccdIssueDate,
+			cccdIssueAt: customer.cccdIssueAt,
+			phone: customer.phone,
+		},
+		fees: formatFees,
+		interiors: interiors,
+		depositAmount: room.depositAmount,
+		contractSignDate: contractPeriod.contractSignDate,
+		contractEndDate: contractPeriod.contractEndDate,
+		contractTerm: room.rentalTerm,
+		rent: room.rent,
+		roomIndex: currentRoom.roomIndex,
+		note: note,
+		checkinDate: room.checkinDate,
+	});
+
+	const depositDocumentPath = await generatePreviewDepositTermDocument({ depositDocument, buildingId: currentRoom.building });
+
+	const newDeposit = await Services.deposits.generateDeposit({
+		roomId: roomObjectId,
+		buildingId: currentRoom.building,
+		receiptId: null,
+		actualDepositAmount: 0,
+		depositAmount: room.depositAmount,
+		rent: room.rent,
+		depositCompletionDate: room.depositCompletionDate,
+		checkinDate: room.checkinDate,
+		rentalTerm: room.rentalTerm,
+		numberOfOccupants: room.numberOfOccupants,
+		customer: customer,
+		interiors: interiors,
+		fees: formatFees,
+		status: depositStatus['PENDING'],
+		previewDocumentPath: depositDocumentPath.path,
+		previewExpAt: depositDocumentPath.expAt,
+	});
+
+	return {
+		depositId: newDeposit._id,
+	};
+};
+
+exports.getPreviewDepositDocument = async ({ depositId }) => {
+	const deposit = await Services.deposits.findById(depositId).lean().exec();
+	if (!deposit) throw new NotFoundError('Dữ liệu không tồn tại !');
+	if (!deposit.previewDocument || !deposit.previewDocument.filePath) throw new NotFoundError('Dữ liệu đặt cọc chưa được khởi tạo !');
+	if (deposit.previewDocument.expAt < Date.now()) throw new BadRequestError('Dữ liệu đặt cọc đã hết hạn !');
+
+	const depositPdfBuffer = await fs.readFile(deposit.previewDocument.filePath);
+	if (!depositPdfBuffer) throw new InternalError('Có lỗi xảy ra trong quá trình lấy thông tin đặt cọc !');
+
+	return depositPdfBuffer;
 };
 
 exports.getDepositDetail = async (depositId, buildingId) => {
@@ -194,7 +270,7 @@ exports.modifyDeposit = async (data) => {
 	return result;
 };
 
-exports.terminateDeposit = async (depositId, version, userId) => {
+exports.cancelDeposit = async (depositId, version, userId) => {
 	const deposit = await Services.deposits.findById(depositId).lean().exec();
 	if (!deposit) new NotFoundError('Dữ liệu đặt cọc không tồn tại');
 	if (deposit.version !== version) throw new ConflictError('Dữ liệu đã cũ, vui lòng tải lại trang.');
@@ -210,6 +286,18 @@ exports.terminateDeposit = async (depositId, version, userId) => {
 	await Services.rooms.setRoomDeposited({ roomId: deposit.room, isDeposited: false });
 
 	await notificationJob({ depositId, notiType: NOTI_DEPOSIT_TERMINATED });
+
+	return 'Success';
+};
+
+exports.terminateDeposit = async ({ depositId, version }) => {
+	const deposit = await Services.deposits.findById(depositId).populate('receipt').lean().exec();
+	if (!deposit) throw new NotFoundError('Dữ liệu không tồn tại !');
+	if (deposit.version !== version) throw new ConflictError('Dữ liệu đã bị thay đổi, Vui lòng tải lại trang !');
+	if (deposit.receipt.status !== receiptStatus['PENDING']) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ !');
+
+	await Services.deposits.terminateDeposit(depositId, version);
+	await Services.receipts.terminateReceipt({ receiptId: deposit.receipt._id, version: deposit.receipt.version });
 
 	return 'Success';
 };

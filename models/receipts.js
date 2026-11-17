@@ -1,6 +1,25 @@
 var mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-const { receiptTypes, receiptStatus, DETUCTED_TYPE } = require('../constants');
+const { receiptTypes, receiptStatus, DETUCTED_TYPE, depositTrackingStatus } = require('../constants');
+
+const DepositTrackingSchema = new Schema(
+	{
+		status: {
+			type: String,
+			enum: Object.values(depositTrackingStatus),
+			default: depositTrackingStatus.NOT_CREATED,
+		},
+
+		depositId: {
+			type: Schema.Types.ObjectId,
+			ref: 'DepositsEntity',
+			default: null,
+		},
+	},
+	{
+		_id: false,
+	},
+);
 
 const ReceiptsSchema = new Schema(
 	{
@@ -35,6 +54,7 @@ const ReceiptsSchema = new Schema(
 		isContractCreated: {
 			type: Boolean,
 			default: false,
+			// required: () => this.receiptType === receiptTypes['DEPOSIT'],
 		},
 		status: { type: String, enum: Object.values(receiptStatus), default: receiptStatus['UNPAID'] },
 		amount: {
@@ -102,6 +122,13 @@ const ReceiptsSchema = new Schema(
 		version: {
 			type: Number,
 			default: 1,
+		},
+		depositTracking: {
+			type: DepositTrackingSchema,
+			default: () => ({
+				status: depositTrackingStatus.NOT_CREATED,
+				depositId: null,
+			}),
 		},
 	},
 	{

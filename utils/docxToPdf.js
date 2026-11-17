@@ -1,68 +1,32 @@
-const Docxtemplater = require('docxtemplater');
-const PizZip = require('pizzip');
-const libre = require('libreoffice-convert');
 const fs = require('fs');
+const path = require('path');
 const util = require('util');
-const libreConvert = util.promisify(libre.convert);
+const { exec } = require('child_process');
+const execPromise = util.promisify(exec);
 
-/**
- * Tạo PDF từ Word template với data động
- * @param {Buffer} templateBuffer - File .docx template
- * @param {Object} data - Dữ liệu để điền vào template
- * @returns {Promise<{buffer: Buffer, mimetype: string, size: number}>}
- */
-async function generateContractPdf(templateBuffer, data) {
-	if (!templateBuffer || templateBuffer.length === 0) {
-		throw new Error('Template buffer không được rỗng');
-	}
+async function convertDocxToPdfCLI(docxBuffer) {
+	const tempDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'contract-'));
+	const inputPath = path.join(tempDir, 'input.docx');
+	const outputPath = path.join(tempDir, 'input.pdf');
 
 	try {
-		// Bước 1: Load template và render data
-		const zip = new PizZip(templateBuffer);
-		const doc = new Docxtemplater(zip, {
-			paragraphLoop: true,
-			linebreaks: true,
-			nullGetter: () => '', // Xử lý giá trị null/undefined
+		fs.writeFileSync(inputPath, docxBuffer);
+
+		const command = `soffice --headless --convert-to pdf "${inputPath}" --outdir "${tempDir}"`;
+		await execPromise(command, {
+			timeout: 15000,
+			maxBuffer: 10 * 1024 * 1024,
 		});
 
-		// Điền data vào template
-		doc.render(data);
-
-		// Tạo buffer DOCX đã điền data
-		const docxBuffer = doc.getZip().generate({
-			type: 'nodebuffer',
-			compression: 'DEFLATE',
-		});
-
-		// Bước 2: Convert DOCX sang PDF (nhanh hơn LibreOffice CLI)
-		const pdfBuffer = await libreConvert(docxBuffer, '.pdf', undefined);
-
-		return {
-			buffer: pdfBuffer,
-			mimetype: 'application/pdf',
-			size: pdfBuffer.length,
-			// originalName: 'contract.pdf',
-		};
-	} catch (error) {
-		if (error.properties && error.properties.errors) {
-			// Lỗi từ docxtemplater (thiếu field trong template)
-			const firstError = error.properties.errors[0];
-			throw new Error(`Template error: ${firstError.message} at ${firstError.name}`);
+		if (!fs.existsSync(outputPath)) {
+			throw new Error('File PDF không được tạo bởi LibreOffice');
 		}
-		throw new Error(`Tạo PDF thất bại: ${error.message}`);
+
+		const pdfBuffer = fs.readFileSync(outputPath);
+		return pdfBuffer;
+	} finally {
+		fs.rmSync(tempDir, { recursive: true, force: true });
 	}
 }
 
-/**
- * Wrapper đơn giản: Convert DOCX buffer sang PDF buffer
- */
-async function convertDocxToPdf(docxBuffer) {
-	return generateContractPdf(docxBuffer, {});
-}
-
-// ========== USAGE EXAMPLE ==========
-
-module.exports = {
-	generateContractPdf,
-	docxToPdf: convertDocxToPdf,
-};
+module.exports = convertDocxToPdfCLI;
