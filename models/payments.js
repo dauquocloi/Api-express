@@ -1,6 +1,4 @@
 var mongoose = require('mongoose');
-// (Schema = mongoose.Schema), (ObjectId = Schema.ObjectId);
-require('mongoose-double')(mongoose);
 
 const Schema = mongoose.Schema;
 // Create a Mongoose Schema

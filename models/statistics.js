@@ -1,5 +1,4 @@
 var mongoose = require('mongoose');
-require('mongoose-double')(mongoose);
 const { STATISTIC_STATUS } = require('../constants');
 
 const Schema = mongoose.Schema;

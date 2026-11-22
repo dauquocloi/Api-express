@@ -26,3 +26,7 @@ build/
 *.vscode/
 node_modules
 
+# Config
+/config/private.key
+/config/public.key
+

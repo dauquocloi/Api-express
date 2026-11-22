@@ -276,7 +276,15 @@ const getRoomByIdPipeline = (roomId) => {
 									},
 									{
 										$not: {
-											$in: ['$status', [depositStatus['CANCELLED'], depositStatus['CLOSED'], depositStatus['PENDING']]],
+											$in: [
+												'$status',
+												[
+													depositStatus['CANCELLED'],
+													depositStatus['CLOSED'],
+													depositStatus['PENDING'],
+													depositStatus['TERMINATED'],
+												],
+											],
 										},
 									},
 								],

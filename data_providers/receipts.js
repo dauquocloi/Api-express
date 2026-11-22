@@ -232,7 +232,7 @@ exports.checkout = async (data) => {
 		await updateDetuctedInfo({ receiptInfo: currentReceipt, newReceiptStatus, transactionAmount: createTransaction.amount });
 	}
 
-	if (currentReceipt.receiptType === receiptTypes['DEPOSIT'] && currentReceipt.status !== receiptStatus['PENDING']) {
+	if (currentReceipt.receiptType === receiptTypes['DEPOSIT']) {
 		await updateDepositFromPayment({ depositReceiptId: receiptId, newReceiptStatus: newReceiptStatus, newPaidAmount: updatedTotalPaid });
 	}
 	if (currentReceipt.receiptType === receiptTypes['CHECKOUT']) {

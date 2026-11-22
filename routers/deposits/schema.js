@@ -67,6 +67,13 @@ module.exports = {
 		fees: Joi.array().items(feeSchema.required()).optional(),
 		customer: customerSchema.required(),
 		version: Joi.number().integer().min(1).required(),
+		contractPeriod: Joi.object()
+			.keys({
+				contractSignDate: Joi.date().required(),
+				contractEndDate: Joi.date().required(),
+			})
+			.required(),
+		note: Joi.string().allow('', null).optional(),
 	}),
 	cancelDeposit: Joi.object().keys({
 		version: Joi.number().integer().min(1).required(),

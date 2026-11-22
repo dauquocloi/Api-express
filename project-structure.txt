@@ -1,0 +1,592 @@
+﻿+-- .agents
+|   \-- skills
++-- auth
+|   +-- apiKeyAuthentication.js
+|   +-- authentication.js
+|   +-- authorization.js
+|   +-- authUtils.js
+|   +-- checkResourceAccess.js
+|   +-- index.js
+|   +-- resourceOwnerShipPolicy.js
+|   \-- schema.js
++-- config
+|   +-- index.js
+|   +-- private.key
+|   +-- public.key
+|   +-- redisClient.js
+|   +-- rsa.js
+|   \-- S3Client.js
++-- constants
+|   +-- bills.js
+|   +-- buildings.js
+|   +-- checkoutCosts.js
+|   +-- companies.js
+|   +-- contracts.js
+|   +-- customers.js
+|   +-- debts.js
+|   +-- deposits.js
+|   +-- errorCodes.js
+|   +-- excel.js
+|   +-- expenditures.js
+|   +-- fees.js
+|   +-- idempotencyRecords.js
+|   +-- index.js
+|   +-- invoices.js
+|   +-- notifications.js
+|   +-- OA.js
+|   +-- otps.js
+|   +-- permissions.js
+|   +-- receipt.js
+|   +-- resources.js
+|   +-- rooms.js
+|   +-- statistics.js
+|   +-- tasks.js
+|   +-- transactions.js
+|   +-- userRoles.js
+|   +-- vehicle.js
+|   \-- Zalo.js
++-- consumer
+|   \-- worker.js
++-- cron
+|   +-- contractReminder.js
+|   \-- index.js
++-- data_providers
+|   +-- __TEST__
+|   |   +-- payments
+|   |   |   \-- weebhookPayment.test.js
+|   |   +-- receipts
+|   |   |   \-- checkout.test.js
+|   |   +-- revenues
+|   |   |   \-- getRevenues.test.js
+|   |   +-- transactions
+|   |   |   \-- ownerConfirmationTransferTransaction.test.js
+|   |   +-- createInvoice.test.js
+|   |   +-- deleteInvoice.test.js
+|   |   \-- getStatistics.test.js
+|   +-- admin
+|   |   +-- access.js
+|   |   +-- bankAccounts.js
+|   |   +-- banks.js
+|   |   +-- buldings.js
+|   |   +-- companies.js
+|   |   +-- index.js
+|   |   +-- rooms.js
+|   |   +-- statistics.js
+|   |   +-- users.js
+|   |   \-- utils.js
+|   +-- clients
+|   |   \-- index.js
+|   +-- sepays
+|   |   +-- index.js
+|   |   \-- receiver.js
+|   +-- bankAccounts.js
+|   +-- banks.js
+|   +-- buildings.js
+|   +-- buildings.util.js
+|   +-- checkoutCosts.js
+|   +-- companies.js
+|   +-- contracts.js
+|   +-- contracts.util.js
+|   +-- conversations.js
+|   +-- customers.js
+|   +-- depositRefunds.js
+|   +-- depositRefunds.util.js
+|   +-- deposits.js
+|   +-- deposits.util.js
+|   +-- expenditures.js
+|   +-- expenditures.util.js
+|   +-- fees.js
+|   +-- incidentalRevenues.js
+|   +-- index.js
+|   +-- invoice.util.js
+|   +-- invoices.js
+|   +-- invoices.util.js
+|   +-- messages.js
+|   +-- notifications.js
+|   +-- payments.js
+|   +-- payments.util.js
+|   +-- receipts.js
+|   +-- receipts.util.js
+|   +-- revenues.js
+|   +-- revenues.util.js
+|   +-- rooms.js
+|   +-- statistics.js
+|   +-- tasks.js
+|   +-- tasks.util.js
+|   +-- transactions.js
+|   +-- users.js
+|   \-- vehicles.js
++-- files
+|   +-- temp
+|   |   +-- 029b1076-b789-4428-9c5c-a4e51408f380.pdf
+|   |   +-- 0ffa9001-6366-41b8-b257-e19281f85fb6.pdf
+|   |   +-- 16c10087-b353-4149-b67d-54b58855289a.pdf
+|   |   +-- 2b3a5d06-6126-4286-81eb-f931897209d7.pdf
+|   |   +-- 2b509a95-c7e7-4aa1-b9b8-ca31c17a6236.pdf
+|   |   +-- 5e5ad387-4a88-440b-a06b-ad519f539b18.pdf
+|   |   +-- 6a27ccf0-a7ad-41ab-81d5-21dc8267d34f.pdf
+|   |   +-- 8c206ecb-a0de-4ae3-a05a-8bf18e35c705.pdf
+|   |   +-- 8cb8de88-8c0f-487f-acc0-83f739178b03.pdf
+|   |   +-- 8ec07670-d2e5-4c7b-b49a-d645ffed852c.pdf
+|   |   +-- a1aca617-61a0-451a-b2e3-c7fbb6e48d01.pdf
+|   |   +-- a3728c86-20eb-4d76-a841-196a20655a65.pdf
+|   |   +-- ad1da21b-94fd-4bca-80f0-a0836c3fb89c.pdf
+|   |   +-- b941a1f0-6d55-4610-9d5f-ae719263e944.pdf
+|   |   +-- bc9d80e9-2341-4d36-82d1-0d681a88c432.pdf
+|   |   +-- cc28d7ff-17e1-46c1-b02a-7a562e0295f0.pdf
+|   |   +-- cd8f3eb6-ae9c-483b-8ee6-63ad402a2c01.pdf
+|   |   +-- d43e00c9-1911-4f7b-88f2-966b6537c25a.pdf
+|   |   +-- d574c91a-ebd7-43e1-b566-ed157a7e3ee0.pdf
+|   |   +-- f307f715-3adc-4faf-9106-1f70a4183eed.pdf
+|   |   \-- f56fb98c-a0d2-4d06-9089-d5bf6f88edd4.pdf
+|   +-- Contract.html
+|   +-- CT01.1.html
+|   +-- CT01.CSS
+|   +-- CT01B.html
+|   +-- CT01F.CSS
+|   \-- CT01F.html
++-- infrastructure
+|   +-- Sepay
+|   |   \-- SepayError.js
+|   +-- Zalo
+|   |   +-- ZNS
+|   |   |   \-- ZNS.service.js
+|   |   +-- BaseZaloClient.js
+|   |   +-- OAClient.js
+|   |   +-- ZaloError.js
+|   |   \-- ZNSClient.js
+|   \-- sepayBH.service.js
++-- jobs
+|   +-- __TEST__
+|   |   +-- Contracts.test.js
+|   |   +-- Notification.test.js
+|   |   \-- ZNS.test.js
+|   +-- Base
+|   |   \-- BaseQueue.js
+|   +-- constant
+|   |   \-- jobNames.js
+|   +-- contract
+|   |   +-- contract.job.js
+|   |   +-- contract.process.js
+|   |   \-- contract.queue.js
+|   +-- invoice
+|   |   +-- invoice.job.js
+|   |   +-- invoice.processor.js
+|   |   \-- invoice.queue.js
+|   +-- notification
+|   |   +-- notification.job.js
+|   |   +-- notification.processor.js
+|   |   \-- notification.queue.js
+|   +-- receipt
+|   |   +-- receipt.job.js
+|   |   +-- receipt.processor.js
+|   |   \-- receipt.queue.js
+|   +-- ZNS
+|   |   +-- zns.job.js
+|   |   +-- zns.processor.js
+|   |   \-- zns.queue.js
+|   +-- BaseJob.js
+|   +-- Invoices.js
+|   +-- Notifications.js
+|   +-- Receipts.js
+|   +-- util.js
+|   \-- ZNSJob.js
++-- logs
+|   +-- .2501f94421421786cf39edbff62e8790736e4dd6-audit.json
+|   +-- .35c3d0d68af54b7874bd8b8cad846cc3620f0c70-audit.json
+|   +-- combined-2026-10-20.log
+|   +-- combined-2026-10-21.log
+|   +-- combined-2026-10-22.log
+|   +-- combined-2026-10-23.log
+|   +-- combined-2026-10-24.log
+|   +-- combined-2026-10-25.log
+|   +-- combined-2026-10-26.log
+|   +-- combined-2026-10-27.log
+|   +-- combined-2026-10-28.log
+|   +-- combined-2026-10-29.log
+|   +-- combined-2026-10-30.log
+|   +-- combined-2026-10-31.log
+|   +-- combined-2026-11-01.log
+|   +-- combined-2026-11-09.log
+|   +-- combined-2026-11-10.log
+|   +-- combined-2026-11-12.log
+|   +-- combined-2026-11-13.log
+|   +-- combined-2026-11-15.log
+|   +-- combined-2026-11-16.log
+|   +-- combined-2026-11-17.log
+|   +-- combined-2026-11-18.log
+|   +-- combined-2026-11-19.log
+|   +-- combined-2026-11-20.log
+|   +-- combined-2026-11-21.log
+|   +-- combined-2026-11-22.log
+|   +-- error-2026-10-20.log
+|   +-- error-2026-10-21.log
+|   +-- error-2026-10-22.log
+|   +-- error-2026-10-23.log
+|   +-- error-2026-10-24.log
+|   +-- error-2026-10-25.log
+|   +-- error-2026-10-26.log
+|   +-- error-2026-10-27.log
+|   +-- error-2026-10-28.log
+|   +-- error-2026-10-29.log
+|   +-- error-2026-10-30.log
+|   +-- error-2026-10-31.log
+|   +-- error-2026-11-01.log
+|   +-- error-2026-11-09.log
+|   +-- error-2026-11-10.log
+|   +-- error-2026-11-12.log
+|   +-- error-2026-11-13.log
+|   +-- error-2026-11-15.log
+|   +-- error-2026-11-16.log
+|   +-- error-2026-11-17.log
+|   +-- error-2026-11-18.log
+|   +-- error-2026-11-19.log
+|   +-- error-2026-11-20.log
+|   +-- error-2026-11-21.log
+|   \-- error-2026-11-22.log
++-- middleware
+|   +-- errorMidlewares.js
+|   +-- idempotency.js
+|   +-- index.js
+|   +-- multer.js
+|   \-- rateLimit.js
++-- models
+|   +-- bankAccounts.js
+|   +-- banks.js
+|   +-- buildings.js
+|   +-- checkoutCosts.js
+|   +-- companies.js
+|   +-- contractExtentions.js
+|   +-- contracts.draf.js
+|   +-- contracts.js
+|   +-- conversations.js
+|   +-- customers.js
+|   +-- debts.js
+|   +-- depositRefunds.js
+|   +-- deposits.js
+|   +-- expenditures.js
+|   +-- feeIndexHistory.js
+|   +-- feeIndexRecords.js
+|   +-- fees.js
+|   +-- idempotencyRecords.js
+|   +-- incidentalRevenue.js
+|   +-- index.js
+|   +-- invoices.js
+|   +-- keyStores.js
+|   +-- managerments.js
+|   +-- messages.js
+|   +-- notifications.js
+|   +-- notificationSettings.js
+|   +-- OA.js
+|   +-- otps.js
+|   +-- payments.js
+|   +-- periodicExpenditures.js
+|   +-- receipts.js
+|   +-- revenues.js
+|   +-- roomHistories.js
+|   +-- rooms.js
+|   +-- sepays.js
+|   +-- services.js
+|   +-- setting.js
+|   +-- statistics.js
+|   +-- tasks.js
+|   +-- transactions.js
+|   +-- users.js
+|   +-- vehicles.js
+|   \-- zaloZns.js
++-- routers
+|   +-- access
+|   |   +-- login.js
+|   |   +-- logout.js
+|   |   +-- schema.js
+|   |   +-- signup.js
+|   |   \-- token.js
+|   +-- admin
+|   |   +-- access.js
+|   |   +-- admins.js
+|   |   +-- companies.js
+|   |   +-- index.js
+|   |   +-- room.js
+|   |   +-- schema.js
+|   |   +-- users.js
+|   |   \-- zalo.js
+|   +-- bankAccounts
+|   |   +-- bankAccounts.js
+|   |   +-- index.js
+|   |   \-- schema.js
+|   +-- buildings
+|   |   +-- buildings.js
+|   |   +-- index.js
+|   |   \-- schema.js
+|   +-- checkoutCosts
+|   |   +-- checkoutCosts.js
+|   |   +-- index.js
+|   |   \-- schema.js
+|   +-- clients
+|   |   +-- clients.js
+|   |   +-- index.js
+|   |   \-- schema.js
+|   +-- companies
+|   |   +-- companies.js
+|   |   +-- index.js
+|   |   \-- schema.js
+|   +-- contracts
+|   |   +-- contracts.js
+|   |   +-- index.js
+|   |   \-- schema.js
+|   +-- customers
+|   |   +-- customers.js
+|   |   +-- index.js
+|   |   \-- schema.js
+|   +-- depositRefunds
+|   |   +-- depositRefunds.js
+|   |   +-- index.js
+|   |   \-- schema.js
+|   +-- deposits
+|   |   +-- deposits.js
+|   |   +-- index.js
+|   |   \-- schema.js
+|   +-- expenditures
+|   |   +-- expenditures.js
+|   |   +-- index.js
+|   |   \-- schema.js
+|   +-- fees
+|   |   +-- fees.js
+|   |   +-- index.js
+|   |   \-- schema.js
+|   +-- incidentalRevenues
+|   |   +-- incidentalRevenues.js
+|   |   +-- index.js
+|   |   \-- schema.js
+|   +-- invoices
+|   |   +-- index.js
+|   |   +-- invoices.js
+|   |   \-- schema.js
+|   +-- notifications
+|   |   +-- index.js
+|   |   +-- notifications.js
+|   |   \-- schema.js
+|   +-- payments
+|   |   +-- index.js
+|   |   +-- payments.js
+|   |   \-- schema.js
+|   +-- receipts
+|   |   +-- index.js
+|   |   +-- receipts.js
+|   |   \-- schema.js
+|   +-- revenues
+|   |   +-- index.js
+|   |   +-- revenues.js
+|   |   \-- schema.js
+|   +-- rooms
+|   |   +-- index.js
+|   |   +-- rooms.js
+|   |   \-- schema.js
+|   +-- sepays
+|   |   +-- index.js
+|   |   +-- sepayApiTest.js
+|   |   \-- sepays.js
+|   +-- tasks
+|   |   +-- index.js
+|   |   +-- schema.js
+|   |   +-- task.util.js
+|   |   \-- tasks.js
+|   +-- transactions
+|   |   +-- index.js
+|   |   +-- schema.js
+|   |   \-- transactions.js
+|   +-- users
+|   |   +-- index.js
+|   |   +-- schema.js
+|   |   \-- users.js
+|   +-- vehicles
+|   |   +-- index.js
+|   |   +-- schema.js
+|   |   \-- vehicles.js
+|   +-- auth.js
+|   +-- conversations.js
+|   +-- index.js
+|   +-- messages.js
+|   +-- services.js
+|   \-- statistics.js
++-- service
+|   +-- __TEST__
+|   +-- aggregates
+|   |   +-- buildings
+|   |   |   \-- index.js
+|   |   +-- checkoutCosts
+|   |   |   +-- getCheckoutCostDetail.js
+|   |   |   +-- getCheckoutCosts.js
+|   |   |   \-- index.js
+|   |   +-- contracts
+|   |   |   \-- index.js
+|   |   +-- customers
+|   |   |   \-- index.js
+|   |   +-- debts
+|   |   |   +-- getDebtsAndReceiptUnpaid.js
+|   |   |   \-- index.js
+|   |   +-- depositRefunds
+|   |   |   \-- index.js
+|   |   +-- deposits
+|   |   |   \-- index.js
+|   |   +-- expenditures
+|   |   |   \-- index.js
+|   |   +-- fees
+|   |   |   \-- index.js
+|   |   +-- invoices
+|   |   |   \-- index.js
+|   |   +-- notifications
+|   |   |   \-- index.js
+|   |   +-- receipts
+|   |   |   \-- index.js
+|   |   +-- revenues
+|   |   |   \-- index.js
+|   |   +-- rooms
+|   |   |   \-- index.js
+|   |   +-- statistics
+|   |   |   \-- index.js
+|   |   +-- tasks
+|   |   |   \-- index.js
+|   |   +-- transactions
+|   |   |   \-- index.js
+|   |   +-- users
+|   |   |   \-- index.js
+|   |   +-- vehicles
+|   |   |   \-- index.js
+|   |   \-- index.js
+|   +-- checkoutCost
+|   |   +-- checkoutCosts.helper.js
+|   |   \-- checkoutCosts.services.js
+|   +-- bankAccounts.service.js
+|   +-- banks.service.js
+|   +-- buildings.service.js
+|   +-- companies.service.js
+|   +-- contractExtentions.service.js
+|   +-- contracts.service.js
+|   +-- customers.service.js
+|   +-- debts.helper.js
+|   +-- debts.service.js
+|   +-- depositRefunds.helper.js
+|   +-- depositRefunds.service.js
+|   +-- deposits.helper.js
+|   +-- deposits.service.js
+|   +-- expenditures.service.js
+|   +-- fees.helper.js
+|   +-- fees.service.js
+|   +-- idempotencyRecords.service.js
+|   +-- index.js
+|   +-- invoices.helper.js
+|   +-- invoices.service.js
+|   +-- keyStores.service.js
+|   +-- notifications.service.js
+|   +-- OA.service.js
+|   +-- otps.service.js
+|   +-- receipts.helper.js
+|   +-- receipts.service.js
+|   +-- revenues.service.js
+|   +-- rooms.service.js
+|   +-- sepays.service.js
+|   +-- statistics.service.js
+|   +-- tasks.service.js
+|   +-- transactions.service.js
+|   +-- users.service.js
+|   +-- vehicles.service.js
+|   \-- zalo.service.js
++-- utils
+|   +-- __TEST__
+|   |   \-- html2pdf.test.js
+|   +-- apiResponse.js
+|   +-- asyncHandler.js
+|   +-- calculateComparisonRate.js
+|   +-- calculateFeeTotal.js
+|   +-- calculatePercentage.js
+|   +-- capitalizeFirstLetter.js
+|   +-- checkIsValidImage.js
+|   +-- convertDocxToPdf.js
+|   +-- deepMutate.js
+|   +-- delay.js
+|   +-- deleteFileFromS3.js
+|   +-- docxToPdf.js
+|   +-- fib.js
+|   +-- formatCurrency.js
+|   +-- formatDate.js
+|   +-- formatFee.js
+|   +-- formatPhone.js
+|   +-- formatRoomFees.js
+|   +-- generateContract.js
+|   +-- generateContractCode.js
+|   +-- generateHashPassword.js
+|   +-- generateMGIndex.js
+|   +-- generatePaymentContent.js
+|   +-- generatePdfDeposit.js
+|   +-- generateQrCode.js
+|   +-- generateRequestHash.js
+|   +-- getCurrentPeriod.js
+|   +-- getFileUrl.js
+|   +-- getLastName.js
+|   +-- getListFeeInital.js
+|   +-- getOriginalFile.js
+|   +-- HandleText.js
+|   +-- html2pdf.js
+|   +-- idempotent.js
+|   +-- index.js
+|   +-- JWT.js
+|   +-- ketqua.pdf
+|   +-- logger.js
+|   +-- MongoConnect.js
+|   +-- mongoErrorParser.js
+|   +-- notificationUtils.js
+|   +-- NotiForm.js
+|   +-- numberToVietnameseWords.js
+|   +-- optimizeImage.js
+|   +-- otp.util.js
+|   +-- parseMultipartBody.js
+|   +-- randomFileName.js
+|   +-- resolvePermissions.js
+|   +-- resolveResourceId.js
+|   +-- retryableError.js
+|   +-- SocketConnect.js
+|   +-- uploadFile.js
+|   +-- validateDepositTermFile.js
+|   +-- validator.js
+|   +-- verifyToken.js
+|   \-- withSignedUrls.js
++-- views
+|   +-- ba.png
+|   +-- bon.png
+|   +-- hai.png
+|   +-- LogoAcb.png
+|   +-- logoKienLongBank.png
+|   +-- logoMbBank.png
+|   +-- logoOcb.png
+|   +-- mot.png
+|   \-- nam.png
++-- workers
+|   +-- contract.worker.js
+|   +-- index.js
+|   +-- invoice.worker.js
+|   +-- notifications.worker.js
+|   +-- receipt.worker.js
+|   \-- ZNS.worker.js
++-- .dockerignore
++-- .env
++-- .gitignore
++-- .prettierrc
++-- __TEST__.js
++-- AppError.js
++-- convert.js
++-- docker-compose.yml
++-- Dockerfile
++-- events.js
++-- generateCodeChallenge.js
++-- importData.js
++-- instance.js
++-- instrument.js
++-- invoices.xlsx
++-- Mau-CT01-tt53.doc
++-- Mau-CT01-tt53.docx
++-- package.json
++-- package-lock.json
++-- project-structure.txt
++-- server.js
+\-- worker.js

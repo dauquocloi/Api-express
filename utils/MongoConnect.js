@@ -26,8 +26,6 @@ exports.Connect = function (dbName) {
 		const dbPassword = encodeURIComponent(config.database.password); // đảm bảo escape ký tự đặc biệt
 		const connectionString = `mongodb+srv://${dbUsername}:${dbPassword}@${config.database.clusterUrl}/${dbName}?retryWrites=true&w=majority&appName=${config.database.appName}`;
 
-		console.log('MongoDB URI:', connectionString);
-
 		// connect to database
 		mongoose
 			.connect(connectionString)

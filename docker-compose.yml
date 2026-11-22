@@ -1,0 +1,24 @@
+services:
+    server:
+        container_name: qltro-server
+
+        build:
+            context: .
+            dockerfile: Dockerfile
+
+        ports:
+            - '8080:8080'
+
+        env_file:
+            - .env
+
+        volumes:
+            # Mount source code từ Windows vào container
+            - .:/app
+
+            # Giữ node_modules bên trong Docker
+            - /app/node_modules
+
+        command: npm run dev
+
+        restart: unless-stopped

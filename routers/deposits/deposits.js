@@ -46,7 +46,7 @@ exports.getDepositDetail = asyncHandler(async (req, res) => {
 
 exports.modifyDeposit = asyncHandler(async (req, res) => {
 	const { depositId } = req.params;
-	const { room, customer, version, fees, interiors } = req.body;
+	const { room, customer, version, fees, interiors, contractPeriod, note } = req.body;
 	const data = {
 		depositId,
 		room,
@@ -54,6 +54,8 @@ exports.modifyDeposit = asyncHandler(async (req, res) => {
 		version,
 		fees,
 		interiors,
+		contractPeriod,
+		note,
 	};
 	console.log('this is log of modifyDeposit: ', data);
 	await executeIdempotent({
@@ -67,6 +69,8 @@ exports.modifyDeposit = asyncHandler(async (req, res) => {
 			version: version,
 			fees: fees,
 			interiors: interiors,
+			contractPeriod: contractPeriod,
+			note: note,
 		}),
 		resourceId: depositId,
 		execute: () => UseCase.modifyDeposit(data),

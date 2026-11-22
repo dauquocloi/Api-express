@@ -57,6 +57,11 @@ const DepositsSchema = new Schema(
 			filePath: { type: String },
 			expAt: { type: Date },
 		},
+		contractPeriod: {
+			contractSignDate: { type: Date },
+			contractEndDate: { type: Date },
+		},
+		note: { type: String, default: '' },
 	},
 	{ timestamps: true, versionKey: false },
 );

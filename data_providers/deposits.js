@@ -155,6 +155,11 @@ exports.createDepositV2 = async (data) => {
 		status: depositStatus['PENDING'],
 		previewDocumentPath: depositDocumentPath.path,
 		previewExpAt: depositDocumentPath.expAt,
+		contractPeriod: {
+			contractSignDate: contractPeriod.contractSignDate,
+			contractEndDate: contractPeriod.contractEndDate,
+		},
+		note: note,
 	});
 
 	return {
@@ -194,25 +199,25 @@ exports.getDepositDetail = async (depositId, buildingId) => {
 };
 
 exports.modifyDeposit = async (data) => {
-	const { room, customer, version, depositId, fees, interiors } = data;
+	const { room, customer, version, depositId, fees, interiors, contractPeriod, note } = data;
 
 	const depositObjectId = new mongoose.Types.ObjectId(depositId);
 
 	const currentDeposit = await Services.deposits.getDepositInfoForModifyDeposit({ depositId: depositObjectId });
-	const { depositAmount, receipt } = currentDeposit;
+	const { depositAmount, receipt, roomInfo } = currentDeposit;
 
 	const shouldModifyDepositReceipt = depositAmount !== room.depositAmount;
 
-	let depositNewStatus;
+	let newReceiptStatus;
 	if (shouldModifyDepositReceipt) {
 		if (receipt.paidAmount === 0) {
-			depositNewStatus === receiptStatus['PENDING'];
+			newReceiptStatus === receiptStatus['PENDING'];
 		} else {
-			depositNewStatus = getInvoiceStatus(receipt.paidAmount, room.depositAmount);
+			newReceiptStatus = getInvoiceStatus(receipt.paidAmount, room.depositAmount);
 		}
 
 		const modifyReceipt = await Services.receipts.modifyReceipt({
-			status: depositNewStatus,
+			status: newReceiptStatus,
 			receiptAmount: room.depositAmount,
 			receiptObjectId: receipt._id,
 			receiptVersion: receipt.version,
@@ -223,39 +228,38 @@ exports.modifyDeposit = async (data) => {
 		console.log('log of modifyReceipt: ', modifyReceipt);
 	}
 
-	// ?????????????????????????
-	const formatFees = () => {
-		let formatFeesData = [];
-		for (const feeItem of fees) {
-			const normalize = (str) => str?.toString().trim().toLowerCase().replace(/\s+/g, ' ') ?? '';
-			const findFeeMatch = listFees.find((fee) => normalize(fee.feeKey) === normalize(feeItem.feeKey));
-			if (findFeeMatch) {
-				if (findFeeMatch.unit === feeUnit['INDEX']) {
-					formatFeesData.push({ ...findFeeMatch, feeAmount: feeItem.feeAmount, lastIndex: feeItem.lastIndex });
-				} else {
-					formatFeesData.push({ ...findFeeMatch, feeAmount: feeItem.feeAmount });
-				}
-			}
-		}
-		return formatFeesData;
-	};
+	const formatFees = formatDepositFees({ fees, listFees });
 
-	const formatInteriors = () => {
-		if (interiors?.length > 0) {
-			return interiors.map((i) => ({
-				interiorName: i.interiorName,
-				interiorRentalDate: i.interiorRentalDate ?? new Date(),
-				quantity: i.quantity,
-			}));
-		} else return [];
-	};
+	const depositDocument = formatDepositDocument({
+		customerInfo: {
+			fullName: customer.fullName,
+			dob: customer.dob,
+			address: customer.address,
+			cccd: customer.CCCD,
+			cccdIssueDate: customer.cccdIssueDate,
+			cccdIssueAt: customer.cccdIssueAt,
+			phone: customer.phone,
+		},
+		fees: formatFees,
+		interiors: interiors,
+		depositAmount: room.depositAmount,
+		contractSignDate: contractPeriod.contractSignDate,
+		contractEndDate: contractPeriod.contractEndDate,
+		contractTerm: room.rentalTerm,
+		rent: room.rent,
+		roomIndex: roomInfo.roomIndex,
+		note: note,
+		checkinDate: room.checkinDate,
+	});
+
+	const generateDepositDocument = await generatePreviewDepositTermDocument({ depositDocument, buildingId: currentDeposit.building });
 
 	const result = await Services.deposits.modifyDeposit({
 		depositId: depositObjectId,
-		fees: formatFees(),
+		fees: formatFees,
 		customer: customer,
-		interiors: formatInteriors(),
-		status: !shouldModifyDepositReceipt ? currentDeposit.status : receiptToDepositStatus[depositNewStatus],
+		interiors: interiors || [],
+		status: !shouldModifyDepositReceipt ? currentDeposit.status : receiptToDepositStatus[newReceiptStatus],
 		rent: room.rent,
 		depositAmount: room.depositAmount,
 		actualDepositAmount: receipt.paidAmount,
@@ -264,6 +268,13 @@ exports.modifyDeposit = async (data) => {
 		rentalTerm: room.rentalTerm,
 		numberOfOccupants: room.numberOfOccupants,
 		version,
+		contractPeriod: {
+			contractSignDate: contractPeriod.contractSignDate,
+			contractEndDate: contractPeriod.contractEndDate,
+		},
+		note,
+		previewExpAt: currentDeposit?.previewDocument?.expAt,
+		previewDocumentPath: generateDepositDocument.path,
 	});
 
 	console.log('depositModyfied: ', result);
@@ -297,7 +308,7 @@ exports.terminateDeposit = async ({ depositId, version }) => {
 	if (deposit.receipt.status !== receiptStatus['PENDING']) throw new BadRequestError('Dữ liệu đầu vào không hợp lệ !');
 
 	await Services.deposits.terminateDeposit(depositId, version);
-	await Services.receipts.terminateReceipt({ receiptId: deposit.receipt._id, version: deposit.receipt.version });
+	await Services.receipts.terminateReceipt(deposit.receipt._id, deposit.receipt.version);
 
 	return 'Success';
 };

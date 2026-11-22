@@ -1,23 +1,25 @@
-const { S3 } = require('aws-sdk');
+const { GetObjectCommand } = require('@aws-sdk/client-s3');
+const { client: s3 } = require('../config').S3;
 
 const getOriginalFile = async (Key) => {
-	const s3 = new S3({
-		credentials: {
-			accessKeyId: process.env.ACCESS_KEY,
-			secretAccessKey: process.env.SECRET_ACCESS_KEY,
-		},
-		region: process.env.BUCKET_REGION,
-	});
-
 	const objectParams = {
 		Bucket: process.env.BUCKET_NAME,
-		Key: Key, // file Name from s3
+		Key,
 	};
 
 	try {
-		const data = await s3.getObject(objectParams).promise();
+		const command = new GetObjectCommand(objectParams);
 
-		return data.Body; // Buffer
+		const data = await s3.send(command);
+
+		// AWS SDK v3 trả về Readable Stream thay vì Buffer
+		const chunks = [];
+
+		for await (const chunk of data.Body) {
+			chunks.push(chunk);
+		}
+
+		return Buffer.concat(chunks);
 	} catch (err) {
 		console.error('S3 getObject error:', err);
 		throw err;

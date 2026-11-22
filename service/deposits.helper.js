@@ -21,12 +21,6 @@ exports.updateDepositFromPayment = async ({ depositReceiptId, newReceiptStatus, 
 	if (!currentDeposit) throw new NotFoundError('Dữ liệu đặt cọc không tồn tại !');
 	if (currentDeposit.status === depositStatus['CLOSED']) return;
 
-	if (currentDeposit.status === depositStatus['WAITING_PAYMENT']) {
-		await notificationJob({ depositId: currentDeposit._id, notiType: NOTI_ROOM_DEPOSITED });
-
-		await Services.rooms.setRoomDeposited({ roomId: currentDeposit.room, isDeposited: true });
-	}
-
 	const newDepositStatus = receiptToDepositStatus[newReceiptStatus];
 	await Services.deposits.updateDepositByPayment({
 		depositId: currentDeposit._id,
@@ -34,4 +28,10 @@ exports.updateDepositFromPayment = async ({ depositReceiptId, newReceiptStatus, 
 		actualDepositAmount: newPaidAmount,
 		status: newDepositStatus,
 	});
+
+	if (currentDeposit.status === depositStatus['WAITING_PAYMENT']) {
+		await Services.rooms.setRoomDeposited({ roomId: currentDeposit.room, isDeposited: true });
+
+		await notificationJob({ depositId: currentDeposit._id, notiType: NOTI_ROOM_DEPOSITED });
+	}
 };

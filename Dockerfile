@@ -1,20 +1,30 @@
-# 1. Chọn môi trường chạy (Base Image)
-FROM node:18-alpine
 
-# 2. Tạo thư mục làm việc bên trong container
+# 1. Base image: Node.js 24 trên Debian
+FROM node:24-bookworm-slim
+
+# 2. Cài LibreOffice và font hỗ trợ xuất PDF
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libreoffice-writer \
+    fonts-liberation \
+    fonts-dejavu-core \
+    fonts-noto-core \
+    libatomic1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 3. Thư mục làm việc
 WORKDIR /app
 
-# 3. Copy file quản lý thư viện vào trước để tận dụng cache
+# 4. Copy package files trước để tận dụng Docker cache
 COPY package*.json ./
 
-# 4. Cài đặt thư viện
-RUN npm install
+# 5. Cài dependencies theo package-lock.json
+RUN npm ci
 
-# 5. Copy toàn bộ mã nguồn vào container
+# 6. Copy mã nguồn
 COPY . .
 
-# 6. Mở cổng mà server của bạn đang chạy (ví dụ: 3000)
+# 7. Khai báo cổng mặc định
 EXPOSE 8080
 
-# 7. Lệnh để khởi động server
-CMD ["npm", "server.js"]
+# 8. Khởi động ứng dụng
+CMD ["npm", "start"]

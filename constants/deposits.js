@@ -24,7 +24,7 @@ const receiptToDepositRefundStatusMap = {
 };
 
 const receiptToDepositStatus = {
-	[receiptStatus['PENDING']]: depositStatus['PENDING'],
+	[receiptStatus['PENDING']]: depositStatus['WAITING_PAYMENT'],
 	[receiptStatus['UNPAID']]: depositStatus['PENDING'],
 	[receiptStatus['PAID']]: depositStatus['PAID'],
 	[receiptStatus['PARTIAL']]: depositStatus['PARTIAL'],
@@ -37,7 +37,7 @@ const depositTrackingStatus = {
 	CANCELLED: 'cancelled',
 };
 
-const previewDepositPdfExp = 30 * 60 * 1000;
+const previewDepositPdfExp = 3 * 24 * 60 * 60 * 1000;
 
 const DEPOSIT_DOCUMENT_FIELDS = Object.freeze({
 	CREATED_DATE: 'CREATED_DATE',

@@ -58,6 +58,8 @@ exports.generateDeposit = async ({
 	status,
 	previewDocumentPath,
 	previewExpAt,
+	contractPeriod,
+	note,
 }) => {
 	const result = await Entity.DepositsEntity.create({
 		room: roomId,
@@ -78,6 +80,8 @@ exports.generateDeposit = async ({
 			filePath: previewDocumentPath,
 			expAt: previewExpAt,
 		},
+		contractPeriod,
+		note,
 	});
 
 	if (!result) throw new InternalError('Tạo khoản đặt cọc thất bại !');
@@ -119,6 +123,10 @@ exports.modifyDeposit = async ({
 	rentalTerm,
 	numberOfOccupants,
 	version,
+	contractPeriod,
+	note,
+	previewDocumentPath,
+	previewExpAt,
 }) => {
 	const result = await Entity.DepositsEntity.findOneAndUpdate(
 		{
@@ -138,6 +146,12 @@ exports.modifyDeposit = async ({
 				depositCompletionDate,
 				rentalTerm,
 				numberOfOccupants,
+				contractPeriod,
+				note,
+				previewDocument: {
+					previewDocumentPath,
+					previewExpAt,
+				},
 			},
 			$inc: { version: 1 },
 		},

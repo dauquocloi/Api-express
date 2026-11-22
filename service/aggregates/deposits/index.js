@@ -200,6 +200,7 @@ const getDepositDetail = (depositId) => {
 					depositCompletionDate: '$depositCompletionDate',
 					checkinDate: '$checkinDate',
 					rentalTerm: '$rentalTerm',
+					contractPeriod: '$contractPeriod',
 				},
 				building: {
 					_id: '$buildingInfo._id',
@@ -214,6 +215,7 @@ const getDepositDetail = (depositId) => {
 						},
 					],
 				},
+				note: 1,
 			},
 		},
 	];

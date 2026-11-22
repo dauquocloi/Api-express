@@ -1,5 +1,11 @@
 node_modules
-npm-debug.log
-dist
-.git
+npm-debug.log*
 .env
+.env.*
+.git
+config/private.key
+config/public.key
+*.log
+logs/
+dist/
+build/

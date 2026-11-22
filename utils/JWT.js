@@ -1,8 +1,7 @@
 const { verify, sign } = require('jsonwebtoken');
 const { promisify } = require('util');
-const { readFile } = require('fs');
 const { InternalError, TokenExpiredError, BadTokenError } = require('../AppError');
-const path = require('path');
+const { privateKey, publicKey } = require('../config/rsa');
 
 class JwtPayload {
 	constructor(
@@ -24,13 +23,16 @@ class JwtPayload {
 
 async function readPublicKey() {
 	// return promisify(readFile)(path.join(__dirname, '../Keys/public.pem'), 'utf8');
-	return process.env.PUBLIC_KEY.replace(/\\n/g, '\n');
+	// return process.env.PUBLIC_KEY.replace(/\\n/g, '\n');
+	console.log('publicKey: ', publicKey);
+	return publicKey;
 }
 
 async function readPrivateKey() {
 	// return promisify(readFile)(path.join(__dirname, '../Keys/private.pem'), 'utf8');
 
-	return process.env.PRIVATE_KEY.replace(/\\n/g, '\n');
+	// return process.env.PRIVATE_KEY.replace(/\\n/g, '\n');
+	return privateKey;
 }
 
 async function encode(payload) {
